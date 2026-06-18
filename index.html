@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,9 +235,61 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   .form-grid .full{grid-column:1}
   .kpi-val{font-size:1.3rem}
 }
+
+/* ── AUTH SCREEN ─────────────────────────────────────────── */
+#auth-screen{
+  position:fixed;inset:0;background:linear-gradient(160deg,var(--navy) 0%,#0a1730 100%);
+  display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;
+}
+.auth-card{
+  background:rgba(255,255,255,.97);border-radius:20px;padding:36px 28px;max-width:380px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;
+}
+.auth-logo{width:56px;height:56px;background:var(--sky);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px}
+.auth-card h1{font-size:1.3rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.auth-card p.sub{font-size:.82rem;color:var(--muted);margin-bottom:24px}
+.auth-card input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:13px 14px;font-size:.92rem;font-family:var(--font);margin-bottom:12px;text-align:center}
+.auth-card input:focus{outline:none;border-color:var(--sky);box-shadow:0 0 0 3px rgba(28,110,175,.12)}
+.auth-card .btn{width:100%}
+.auth-status{font-size:.8rem;margin-top:14px;min-height:18px}
+.auth-status.error{color:var(--danger)}
+.auth-status.success{color:var(--green)}
+.auth-loading{display:none;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:.85rem;padding:8px}
+.spinner{width:16px;height:16px;border:2.5px solid var(--border);border-top-color:var(--sky);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app-loading{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;color:#fff;gap:14px}
+#app-loading .spinner{width:32px;height:32px;border-width:3px}
+.user-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border-radius:18px;padding:5px 10px 5px 6px;cursor:pointer}
+.user-pill-avatar{width:22px;height:22px;border-radius:50%;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800}
+.user-pill-email{font-size:.65rem;color:#cfe0ee;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;color:var(--green);font-weight:700}
+.sync-badge.syncing{color:var(--gold)}
+.sync-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.sync-badge.syncing .dot{background:var(--gold);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+
+<!-- ── APP LOADING SCREEN ──────────────────────────────────── -->
+<div id="app-loading">
+  <div class="spinner"></div>
+  <div>Loading Crew Logbook…</div>
+</div>
+
+<!-- ── AUTH SCREEN (magic link login) ─────────────────────── -->
+<div id="auth-screen" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">✈</div>
+    <h1>Crew Logbook</h1>
+    <p class="sub">Sign in with your email — we'll send you a magic link, no password needed.</p>
+    <input type="email" id="auth-email" placeholder="you@airline.com" autocomplete="email"/>
+    <button class="btn btn-primary" id="auth-send-btn" onclick="sendMagicLink()">✉ Send Magic Link</button>
+    <div class="auth-loading" id="auth-loading"><div class="spinner"></div><span>Sending…</span></div>
+    <div class="auth-status" id="auth-status"></div>
+  </div>
+</div>
 
 <!-- ── HEADER ─────────────────────────────────────────────── -->
 <header>
@@ -248,19 +301,21 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <p>Cabin Crew Flight Record</p>
       </div>
     </div>
-    <div class="hdr-pill">
-      <div class="num" id="hdr-total">0</div>
-      <div class="lbl">Flights</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="hdr-pill">
+        <div class="num" id="hdr-total">0</div>
+        <div class="lbl">Flights</div>
+      </div>
+      <div class="user-pill" id="user-pill" onclick="confirmSignOut()" title="Tap to sign out">
+        <div class="user-pill-avatar" id="user-avatar">?</div>
+        <div class="user-pill-email" id="user-email-display"></div>
+      </div>
     </div>
   </div>
   <div class="tab-bar">
     <button class="active" onclick="showTab('dash')"><span class="tab-icon">📊</span>Dashboard</button>
     <button onclick="showTab('add')"><span class="tab-icon">✚</span>New Flight</button>
     <button onclick="showTab('log')"><span class="tab-icon">📋</span>Logbook</button>
-    <button onclick="showTab('perdiem')"><span class="tab-icon">💰</span>Per Diem</button>
-    <button onclick="showTab('db')"><span class="tab-icon">🗄</span>Database</button>
-  </div>
-</header>
 
 <!-- ═══════════════════════════════════════════════════════════
      1. DASHBOARD
@@ -602,6 +657,11 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 ════════════════════════════════════════════════════════════ -->
 <div class="section" id="tab-db">
 
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:.72rem;color:var(--muted)">🌐 Shared with your whole crew — changes sync for everyone.</div>
+    <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
+  </div>
+
   <div class="db-tabs" id="db-tab-bar"></div>
 
   <div id="db-panels"></div>
@@ -611,9 +671,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights CSV</button>
       <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem CSV</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportDB()">⬇ Export Database</button>
-      <button class="btn btn-ghost btn-sm" onclick="triggerImportDB()">⬆ Import Database</button>
-      <input type="file" id="import-db-file" accept=".json" style="display:none" onchange="importDB(event)"/>
     </div>
   </div>
 
@@ -636,62 +693,192 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
 </div>
 
+
 <script>
 // ═══════════════════════════════════════════════
-// CONSTANTS & KEYS
+// SUPABASE CLIENT SETUP
 // ═══════════════════════════════════════════════
-const FLIGHTS_KEY  = 'ccl_flights_v2';
-const DB_KEY       = 'ccl_database_v2';
-const PERDIEM_KEY  = 'ccl_perdiem_v1';
+const SUPABASE_URL = 'https://tirhpmfbfpveztjhudkm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpcmhwbWZiZnB2ZXp0amh1ZGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3Mjg3MjksImV4cCI6MjA5NzMwNDcyOX0.VDUMb32F9CDkkGiii5bJhDclG9W7oHPPGpiB_24sWaU';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const MONTH_TARGET = 80;   // monthly block-hour target (customize)
-const PERDIEM_RATE = 80;   // USD per night (customize)
-const FTA_RATE      = 10;   // USD per block hour for Flight Time Allowance (customize)
+const PERDIEM_RATE = 80;   // USD per night
+const FTA_RATE      = 10;  // USD per block hour
 const MAX_CREW     = 10;
 
-const DB_SCHEMA = {
-  flightNumbers: { label:'Flight Numbers', icon:'✈', placeholder:'e.g. QR505', fields:['value'] },
-  routes:        { label:'Routes',         icon:'🗺', placeholder:null,          fields:['airports'] },
-  aircraftRegs:  { label:'Aircraft Regs',  icon:'🔖', placeholder:'e.g. A7-BAC', fields:['value'] },
-  aircraftTypes: { label:'Aircraft Types', icon:'🛩', placeholder:'e.g. B777',   fields:['value'] },
-  captains:      { label:'Captains',       icon:'🧑‍✈️', placeholder:'Captain name', fields:['value'] },
-  firstOfficers: { label:'First Officers', icon:'👨‍✈️', placeholder:'First Officer name', fields:['value'] },
-  crewNames:     { label:'Crew Names',     icon:'👥', placeholder:'Crew member name', fields:['value'] },
-  safetyTopics:  { label:'Safety Topics',  icon:'🛡', placeholder:'Safety topic description', fields:['value'] },
+const SHARED_TABLES = {
+  flightNumbers: 'shared_flight_numbers',
+  routes:        'shared_routes',
+  aircraftRegs:  'shared_aircraft_regs',
+  aircraftTypes: 'shared_aircraft_types',
+  captains:      'shared_captains',
+  firstOfficers: 'shared_first_officers',
+  crewNames:     'shared_crew_names',
+  safetyTopics:  'shared_safety_topics',
 };
 
-let currentDbTab = 'flightNumbers';
-let dashMonth    = new Date(); dashMonth.setDate(1);
-let selectedCrew = [];
+const DB_SCHEMA = {
+  flightNumbers: { label:'Flight Numbers', icon:'✈', placeholder:'e.g. QR505' },
+  routes:        { label:'Routes',         icon:'🗺', placeholder:null },
+  aircraftRegs:  { label:'Aircraft Regs',  icon:'🔖', placeholder:'e.g. A7-BAC' },
+  aircraftTypes: { label:'Aircraft Types', icon:'🛩', placeholder:'e.g. B777' },
+  captains:      { label:'Captains',       icon:'🧑‍✈️', placeholder:'Captain name' },
+  firstOfficers: { label:'First Officers', icon:'👨‍✈️', placeholder:'First Officer name' },
+  crewNames:     { label:'Crew Names',     icon:'👥', placeholder:'Crew member name' },
+  safetyTopics:  { label:'Safety Topics',  icon:'🛡', placeholder:'Safety topic description' },
+};
+
+let currentDbTab   = 'flightNumbers';
+let dashMonth      = new Date(); dashMonth.setDate(1);
+let selectedCrew   = [];
+let currentUser    = null;
+let sectorFieldCount = 2;
+
+// In-memory caches, refreshed from Supabase on load / after writes
+let cache = {
+  flights: [],
+  perDiem: [],
+  shared: { flightNumbers:[], routes:[], aircraftRegs:[], aircraftTypes:[], captains:[], firstOfficers:[], crewNames:[], safetyTopics:[] }
+};
 
 // ═══════════════════════════════════════════════
-// STORAGE
+// AUTH
 // ═══════════════════════════════════════════════
-function loadFlights(){ try{return JSON.parse(localStorage.getItem(FLIGHTS_KEY))||[];}catch{return [];} }
-function saveFlights(d){ localStorage.setItem(FLIGHTS_KEY,JSON.stringify(d)); }
-function loadDatabase(){ try{return JSON.parse(localStorage.getItem(DB_KEY))||{};}catch{return {};} }
-function saveDatabase(d){ localStorage.setItem(DB_KEY,JSON.stringify(d)); }
-function loadPerDiem(){ try{return JSON.parse(localStorage.getItem(PERDIEM_KEY))||[];}catch{return [];} }
-function savePerDiemData(d){ localStorage.setItem(PERDIEM_KEY,JSON.stringify(d)); }
+async function initAuth(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    currentUser = session.user;
+    await onLoggedIn();
+  } else {
+    document.getElementById('app-loading').style.display='none';
+    document.getElementById('auth-screen').style.display='flex';
+  }
 
-function getDB(key){ const db=loadDatabase(); return db[key]||[]; }
-function setDB(key,arr){ const db=loadDatabase(); db[key]=arr; saveDatabase(db); }
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN' && session){
+      currentUser = session.user;
+      document.getElementById('auth-screen').style.display='none';
+      onLoggedIn();
+    }
+    if(event === 'SIGNED_OUT'){
+      currentUser = null;
+      document.getElementById('auth-screen').style.display='flex';
+    }
+  });
+}
 
-// Normalize a route entry to {airports:[A,B,...]} regardless of old {dep,arr} or new format
+async function sendMagicLink(){
+  const email = document.getElementById('auth-email').value.trim();
+  const statusEl = document.getElementById('auth-status');
+  const btn = document.getElementById('auth-send-btn');
+  const loadingEl = document.getElementById('auth-loading');
+  statusEl.textContent=''; statusEl.className='auth-status';
+  if(!email || !email.includes('@')){
+    statusEl.textContent='Enter a valid email address.';
+    statusEl.className='auth-status error';
+    return;
+  }
+  btn.style.display='none'; loadingEl.style.display='flex';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  btn.style.display=''; loadingEl.style.display='none';
+  if(error){
+    statusEl.textContent='⚠ '+error.message;
+    statusEl.className='auth-status error';
+  } else {
+    statusEl.textContent='✅ Check your email for the magic link!';
+    statusEl.className='auth-status success';
+  }
+}
+
+function confirmSignOut(){
+  if(confirm(`Sign out of ${currentUser?.email||'your account'}?`)){
+    sb.auth.signOut();
+  }
+}
+
+async function onLoggedIn(){
+  document.getElementById('app-loading').style.display='none';
+  document.getElementById('auth-screen').style.display='none';
+  const email = currentUser.email||'';
+  document.getElementById('user-email-display').textContent = email.split('@')[0];
+  document.getElementById('user-avatar').textContent = email.charAt(0).toUpperCase();
+  await refreshAllData();
+  document.getElementById('f-date').valueAsDate = new Date();
+  document.getElementById('pd-date').valueAsDate = new Date();
+  renderCrewTags();
+  renderDash();
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOADING (from Supabase)
+// ═══════════════════════════════════════════════
+async function refreshAllData(){
+  setSyncBadge(true);
+  await Promise.all([loadFlightsFromCloud(), loadPerDiemFromCloud(), loadAllSharedFromCloud()]);
+  setSyncBadge(false);
+  updateHeaderCount();
+}
+
+function setSyncBadge(syncing){
+  const el = document.getElementById('db-sync-badge');
+  if(!el) return;
+  el.classList.toggle('syncing', syncing);
+  el.innerHTML = syncing ? '<span class="dot"></span>Syncing…' : '<span class="dot"></span>Synced';
+}
+
+async function loadFlightsFromCloud(){
+  const { data, error } = await sb.from('flights').select('*').order('date',{ascending:false});
+  if(error){ toast('⚠ Could not load flights: '+error.message); return; }
+  cache.flights = (data||[]).map(rowToFlight);
+}
+function rowToFlight(r){
+  return {
+    id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr, reg:r.reg, actype:r.actype,
+    position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
+    safety:r.safety, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
+  };
+}
+
+async function loadPerDiemFromCloud(){
+  const { data, error } = await sb.from('per_diem').select('*').order('date',{ascending:false});
+  if(error){ toast('⚠ Could not load per diem: '+error.message); return; }
+  cache.perDiem = (data||[]).map(r=>({ id:r.id, flightNum:r.flight_num, date:r.date, nights:r.nights, notes:r.notes }));
+}
+
+async function loadAllSharedFromCloud(){
+  await Promise.all(Object.entries(SHARED_TABLES).map(async ([key, table])=>{
+    if(key==='routes'){
+      const { data, error } = await sb.from(table).select('*').order('created_at');
+      if(error){ console.error(error); return; }
+      cache.shared.routes = (data||[]).map(r=>({ id:r.id, airports:r.airports }));
+    } else {
+      const { data, error } = await sb.from(table).select('*').order('value');
+      if(error){ console.error(error); return; }
+      cache.shared[key] = (data||[]).map(r=>({ id:r.id, value:r.value }));
+    }
+  }));
+}
+
+function getDB(key){
+  if(key==='routes') return cache.shared.routes||[];
+  return (cache.shared[key]||[]).map(r=>r.value);
+}
 function normalizeRoute(r){
   if(r && Array.isArray(r.airports)) return r.airports;
-  if(r && r.dep && r.arr) return [r.dep, r.arr];
   return [];
 }
 function getAllRouteAirports(){
-  // flat unique list of every airport code used across all stored routes (for dep/arr suggestions)
-  const all = getDB('routes').flatMap(normalizeRoute);
+  const all=(cache.shared.routes||[]).flatMap(normalizeRoute);
   return [...new Set(all)].filter(Boolean);
 }
-
 function getAllFlightNumbersForPD(){
-  // Combine database flight numbers + flight numbers already logged, deduped
   const fromDB = getDB('flightNumbers');
-  const fromLog = [...new Set(loadFlights().map(f=>f.flightNum))];
+  const fromLog = [...new Set(cache.flights.map(f=>f.flightNum))];
   return [...new Set([...fromDB, ...fromLog])].filter(Boolean);
 }
 
@@ -700,7 +887,7 @@ function getAllFlightNumbersForPD(){
 // ═══════════════════════════════════════════════
 function parseBlockTime(str){
   if(!str) return 0;
-  str=str.trim();
+  str=String(str).trim();
   if(str.includes(':')){ const [h,m]=str.split(':'); return (parseInt(h)||0)*60+(parseInt(m)||0); }
   return Math.round(parseFloat(str)*60)||0;
 }
@@ -733,7 +920,7 @@ function showTab(name){
 function changeMonth(d){ dashMonth.setMonth(dashMonth.getMonth()+d); renderDash(); }
 
 function renderDash(){
-  const flights = loadFlights();
+  const flights = cache.flights;
   document.getElementById('month-label').textContent = monthLabel(dashMonth);
 
   const mFlights = flights.filter(f=>sameMonth(f.date,dashMonth));
@@ -771,7 +958,6 @@ function renderDash(){
   document.getElementById('target-pct').textContent=tPct+'%';
   document.getElementById('target-fill').style.width=tPct+'%';
 
-  // Delay summary
   const delayed  = mFlights.filter(f=>f.delay>0);
   const totalDel = delayed.reduce((a,f)=>a+(parseInt(f.delay)||0),0);
   const delEl = document.getElementById('dash-delay-summary');
@@ -787,10 +973,8 @@ function renderDash(){
       ${!delayed.length?'<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:8px">No delays recorded ✅</div>':''}`;
   }
 
-  // Per diem summary for the selected month
   renderPerDiemDashboard();
 
-  // Recent flights (last 5)
   const recEl=document.getElementById('dash-recent');
   const recent=[...flights].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
   recEl.innerHTML = recent.length
@@ -801,7 +985,7 @@ function renderDash(){
 }
 
 function renderPerDiemDashboard(){
-  const pdEntries = loadPerDiem().filter(p=>sameMonth(p.date,dashMonth));
+  const pdEntries = cache.perDiem.filter(p=>sameMonth(p.date,dashMonth));
   const nights = pdEntries.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
   const amount = nights*PERDIEM_RATE;
   document.getElementById('pd-dash-nights').textContent = nights;
@@ -830,7 +1014,7 @@ function renderPerDiemDashboard(){
 // LOG
 // ═══════════════════════════════════════════════
 function logItemHTML(e){
-  return `<div class="log-item" onclick="showDetail(${e.id})">
+  return `<div class="log-item" onclick="showDetail('${e.id}')">
     <div class="li-header">
       <div>
         <div class="li-fn">${e.flightNum}</div>
@@ -851,7 +1035,7 @@ function logItemHTML(e){
 
 function renderLog(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
-  let data=loadFlights();
+  let data=cache.flights;
   if(q) data=data.filter(e=>[e.flightNum,e.reg,e.captain,e.fo,e.crew,e.position,e.safety,e.status,e.dep,e.arr].some(v=>v&&v.toLowerCase().includes(q)));
   const el=document.getElementById('log-list');
   if(!data.length){
@@ -865,7 +1049,7 @@ function renderLog(){
 // DETAIL MODAL
 // ═══════════════════════════════════════════════
 function showDetail(id){
-  const e=loadFlights().find(x=>x.id===id); if(!e) return;
+  const e=cache.flights.find(x=>String(x.id)===String(id)); if(!e) return;
   document.getElementById('modal-title').textContent=`${e.flightNum} · ${formatDate(e.date)}`;
   const pre=[
     ['Date',formatDate(e.date)],['Flight',e.flightNum],
@@ -883,13 +1067,16 @@ function showDetail(id){
     pre.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
     '<div class="section-divider">After Flight</div>'+
     post.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
-    `<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="deleteEntry(${e.id})">🗑 Delete</button><button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button></div>`;
+    `<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑 Delete</button><button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button></div>`;
   document.getElementById('detailOverlay').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailOverlay').classList.remove('open');}
-function deleteEntry(id){
+
+async function deleteEntry(id){
   if(!confirm('Delete this flight entry?')) return;
-  saveFlights(loadFlights().filter(x=>x.id!==id));
+  const { error } = await sb.from('flights').delete().eq('id', id);
+  if(error){ toast('⚠ Delete failed: '+error.message); return; }
+  cache.flights = cache.flights.filter(x=>String(x.id)!==String(id));
   closeDetail(); toast('🗑 Entry deleted.'); updateHeaderCount();
   renderLog(); renderDash();
 }
@@ -897,20 +1084,33 @@ function deleteEntry(id){
 // ═══════════════════════════════════════════════
 // SAVE FLIGHT ENTRY
 // ═══════════════════════════════════════════════
-function saveEntry(){
+async function saveEntry(){
   const g=id=>document.getElementById(id).value.trim();
   if(!g('f-date')||!g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
-  const entry={
-    id:Date.now(), date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
+  if(!currentUser){ toast('⚠ Not signed in.'); return; }
+
+  const row = {
+    user_id: currentUser.id,
+    date:g('f-date'), flight_num:g('f-flightnum').toUpperCase(),
     dep:g('f-dep').toUpperCase(), arr:g('f-arr').toUpperCase(),
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
     position:g('f-position'), captain:g('f-captain'), fo:g('f-fo'),
-    crew:selectedCrew.join(', '), std:g('f-std'), sta:g('f-sta'),
-    pax:g('f-pax'), safety:g('f-safety'),
-    blockTime:g('f-blocktime'), delay:g('f-delay'),
-    delayReason:g('f-delayreason'), status:g('f-status'),
+    crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
+    std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'),
+    block_time:g('f-blocktime'), delay: g('f-delay')?parseInt(g('f-delay')):0,
+    delay_reason:g('f-delayreason'), status:g('f-status'),
   };
-  const flights=loadFlights(); flights.unshift(entry); saveFlights(flights);
+
+  const btn = document.querySelector('#tab-add .btn-primary');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+
+  const { data, error } = await sb.from('flights').insert(row).select().single();
+
+  if(btn){ btn.disabled=false; btn.textContent='💾 Save Flight Entry'; }
+
+  if(error){ toast('⚠ Save failed: '+error.message); return; }
+
+  cache.flights.unshift(rowToFlight(data));
   clearForm(); toast('✅ Flight saved!'); updateHeaderCount(); showTab('dash');
 }
 
@@ -984,40 +1184,50 @@ function delayClose(ddId){ setTimeout(()=>{const el=document.getElementById(ddId
 // ═══════════════════════════════════════════════
 // PER DIEM TAB
 // ═══════════════════════════════════════════════
-function savePerDiem(){
+async function savePerDiem(){
   const fn=document.getElementById('pd-flightnum').value.trim().toUpperCase();
   const date=document.getElementById('pd-date').value;
   const nights=parseInt(document.getElementById('pd-nights').value);
   const notes=document.getElementById('pd-notes').value.trim();
   if(!fn||!date||!nights||nights<1){ toast('⚠ Flight number, date and nights are required.'); return; }
-  const entry={ id:Date.now(), flightNum:fn, date, nights, notes };
-  const all=loadPerDiem(); all.unshift(entry); savePerDiemData(all);
+  if(!currentUser){ toast('⚠ Not signed in.'); return; }
+
+  const row = { user_id: currentUser.id, flight_num: fn, date, nights, notes };
+  const { data, error } = await sb.from('per_diem').insert(row).select().single();
+  if(error){ toast('⚠ Save failed: '+error.message); return; }
+
+  cache.perDiem.unshift({ id:data.id, flightNum:data.flight_num, date:data.date, nights:data.nights, notes:data.notes });
   document.getElementById('pd-flightnum').value='';
   document.getElementById('pd-date').value='';
   document.getElementById('pd-nights').value='';
   document.getElementById('pd-notes').value='';
+  document.getElementById('pd-date').valueAsDate = new Date();
   toast(`✅ Per diem saved: ${nights} night${nights>1?'s':''} ($${nights*PERDIEM_RATE})`);
   renderPerDiemTab();
+  renderDash();
 }
 
-function deletePerDiem(id){
+async function deletePerDiem(id){
   if(!confirm('Delete this per diem entry?')) return;
-  savePerDiemData(loadPerDiem().filter(p=>p.id!==id));
+  const { error } = await sb.from('per_diem').delete().eq('id', id);
+  if(error){ toast('⚠ Delete failed: '+error.message); return; }
+  cache.perDiem = cache.perDiem.filter(p=>String(p.id)!==String(id));
   toast('🗑 Per diem entry deleted.');
   renderPerDiemTab();
+  renderDash();
 }
 
 function renderPerDiemTab(){
   const dateInput = document.getElementById('pd-date');
   if(!dateInput.value) dateInput.valueAsDate = new Date();
-  const all=[...loadPerDiem()].sort((a,b)=>b.date.localeCompare(a.date));
+  const all=[...cache.perDiem].sort((a,b)=>b.date.localeCompare(a.date));
   const listEl=document.getElementById('pd-full-list');
   if(!all.length){
     listEl.innerHTML='<div class="empty"><div class="empty-icon">💰</div><h3>No per diem entries yet</h3><p>Log a layover above to start tracking.</p></div>';
     return;
   }
   listEl.innerHTML=all.map(p=>`
-    <div class="pd-list-item" onclick="deletePerDiem(${p.id})" style="cursor:pointer" title="Tap to delete">
+    <div class="pd-list-item" onclick="deletePerDiem('${p.id}')" style="cursor:pointer" title="Tap to delete">
       <div class="pd-li-left">
         <div class="pd-li-flight">${p.flightNum}</div>
         <div class="pd-li-date">${formatDate(p.date)}${p.notes?' · '+p.notes:''}</div>
@@ -1030,7 +1240,7 @@ function renderPerDiemTab(){
 }
 
 // ═══════════════════════════════════════════════
-// DATABASE MANAGER
+// DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
   const bar=document.getElementById('db-tab-bar');
@@ -1057,19 +1267,20 @@ function renderDBPanel(key,schema){
       <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px">Add 2 airports for a direct route, or up to 4 for multi-sector trips (e.g. DOH → DXB → BKK → DOH).</div>
       <button class="btn btn-gold btn-sm" style="margin-bottom:14px" onclick="addRouteItem()">Add Route</button>
       <div class="db-list">${
-        items.length ? items.map((item,i)=>{
+        items.length ? items.map((item)=>{
           const airports=normalizeRoute(item);
           const display=airports.map(a=>`<span class="ap">${a}</span>`).join('<span class="arrow">→</span>');
           return `<div class="db-item">
             <div class="route-chip-display">${display}<span class="sector-count-badge">${airports.length-1} sector${airports.length-1>1?'s':''}</span></div>
-            <button class="btn btn-danger btn-icon btn-sm" onclick="removeDBItem('${key}',${i})">✕</button>
+            <button class="btn btn-danger btn-icon btn-sm" onclick="removeDBItem('${key}','${item.id}')">✕</button>
           </div>`;
         }).join('') : `<div class="db-empty">No routes yet. Add one above.</div>`
       }</div>`;
   } else {
     const inputHtml = `<input id="db-input-${key}" placeholder="${schema.placeholder||'Add new…'}" style="flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;font-size:.85rem;font-family:var(--font)"/>`;
-    const listHtml = items.length
-      ? items.map((item,i)=>`<div class="db-item"><div><div class="db-item-text">${item}</div></div><button class="btn btn-danger btn-icon btn-sm" onclick="removeDBItem('${key}',${i})">✕</button></div>`).join('')
+    const rawItems = cache.shared[key]||[];
+    const listHtml = rawItems.length
+      ? rawItems.map((item)=>`<div class="db-item"><div><div class="db-item-text">${item.value}</div></div><button class="btn btn-danger btn-icon btn-sm" onclick="removeDBItem('${key}','${item.id}')">✕</button></div>`).join('')
       : `<div class="db-empty">No entries yet. Add one above.</div>`;
     bodyHtml = `<div class="db-add-row">${inputHtml}<button class="btn btn-gold btn-sm" onclick="addDBItem('${key}')">Add</button></div><div class="db-list">${listHtml}</div>`;
   }
@@ -1082,10 +1293,8 @@ function renderDBPanel(key,schema){
   </div>`;
 }
 
-let sectorFieldCount = 2; // current number of airport inputs in the route builder (2-4)
-
 function addSectorField(){
-  if(sectorFieldCount>=4){ toast('⚠ Maximum 4 sectors (5 airports... actually 4 airports/3 sectors max for typical duty).'); return; }
+  if(sectorFieldCount>=4){ toast('⚠ Maximum 4 airports (3 sectors).'); return; }
   const builder=document.getElementById('sector-builder');
   const addBtn=builder.querySelector('.sector-btn');
   const placeholders=['DOH','DXB','BKK','DOH'];
@@ -1113,7 +1322,7 @@ function resetSectorBuilder(){
   }
 }
 
-function addRouteItem(){
+async function addRouteItem(){
   const airports=[];
   for(let i=0;i<sectorFieldCount;i++){
     const el=document.getElementById('sector-'+i);
@@ -1121,11 +1330,17 @@ function addRouteItem(){
     if(v) airports.push(v);
   }
   if(airports.length<2){ toast('⚠ Enter at least 2 airports for a route.'); return; }
-  const items=getDB('routes');
-  const key=airports.join('-');
-  if(items.some(r=>normalizeRoute(r).join('-')===key)){ toast('Route already exists.'); return; }
-  items.push({airports});
-  setDB('routes',items);
+  const routeKey = airports.join('-');
+  if((cache.shared.routes||[]).some(r=>normalizeRoute(r).join('-')===routeKey)){ toast('Route already exists.'); return; }
+
+  setSyncBadge(true);
+  const { data, error } = await sb.from('shared_routes').insert({
+    airports, route_key: routeKey, added_by: currentUser.id
+  }).select().single();
+  setSyncBadge(false);
+
+  if(error){ toast('⚠ '+error.message); return; }
+  cache.shared.routes.push({ id:data.id, airports:data.airports });
   toast(`✅ Route added (${airports.length-1} sector${airports.length-1>1?'s':''})!`);
   renderDB(); switchDbTab('routes'); resetSectorBuilder();
 }
@@ -1138,55 +1353,57 @@ function switchDbTab(key){
   if(panel) panel.classList.add('active');
 }
 
-function addDBItem(key){
+async function addDBItem(key){
   const val=(document.getElementById(`db-input-${key}`).value||'').trim();
   if(!val){ toast('Enter a value.'); return; }
-  const items=getDB(key);
-  if(items.includes(val)){ toast('Already exists.'); return; }
-  items.push(val); setDB(key,items);
+  if((cache.shared[key]||[]).some(r=>r.value===val)){ toast('Already exists.'); return; }
+
+  const table = SHARED_TABLES[key];
+  setSyncBadge(true);
+  const { data, error } = await sb.from(table).insert({ value: val, added_by: currentUser.id }).select().single();
+  setSyncBadge(false);
+
+  if(error){ toast('⚠ '+error.message); return; }
+  cache.shared[key].push({ id:data.id, value:data.value });
   document.getElementById(`db-input-${key}`).value='';
   toast('✅ Added!'); renderDB(); switchDbTab(key);
 }
 
-function removeDBItem(key,index){
-  const items=getDB(key); items.splice(index,1); setDB(key,items);
+async function removeDBItem(key,id){
+  if(!confirm('Remove this shared item for everyone?')) return;
+  const table = key==='routes' ? 'shared_routes' : SHARED_TABLES[key];
+  setSyncBadge(true);
+  const { error } = await sb.from(table).delete().eq('id', id);
+  setSyncBadge(false);
+  if(error){ toast('⚠ '+error.message); return; }
+
+  if(key==='routes'){ cache.shared.routes = cache.shared.routes.filter(r=>String(r.id)!==String(id)); }
+  else { cache.shared[key] = cache.shared[key].filter(r=>String(r.id)!==String(id)); }
+
   toast('Removed.'); renderDB(); switchDbTab(key);
 }
 
 // ═══════════════════════════════════════════════
-// EXPORT / IMPORT
+// EXPORT (CSV only — shared DB lives in the cloud now)
 // ═══════════════════════════════════════════════
 function exportCSV(){
-  const data=loadFlights();
+  const data=cache.flights;
   if(!data.length){ toast('Nothing to export.'); return; }
   const headers=['Date','Flight','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','Safety Topic','Block Time','Delay (min)','Delay Reason','Status'];
   const rows=data.map(e=>[e.date,e.flightNum,e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.blockTime,e.delay,e.delayReason,e.status]
-    .map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+    .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
   const csv=[headers.join(','),...rows].join('\n');
   dl(new Blob([csv],{type:'text/csv'}),`crew-logbook-${today()}.csv`);
   toast('📥 CSV exported!');
 }
 function exportPerDiemCSV(){
-  const data=loadPerDiem();
+  const data=cache.perDiem;
   if(!data.length){ toast('No per diem data to export.'); return; }
   const headers=['Date','Flight Number','Nights','Amount (USD)','Notes'];
-  const rows=data.map(p=>[p.date,p.flightNum,p.nights,p.nights*PERDIEM_RATE,p.notes].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+  const rows=data.map(p=>[p.date,p.flightNum,p.nights,p.nights*PERDIEM_RATE,p.notes].map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
   const csv=[headers.join(','),...rows].join('\n');
   dl(new Blob([csv],{type:'text/csv'}),`per-diem-${today()}.csv`);
   toast('📥 Per diem CSV exported!');
-}
-function exportDB(){
-  const db=loadDatabase();
-  dl(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),`crew-database-${today()}.json`);
-  toast('📥 Database exported!');
-}
-function triggerImportDB(){ document.getElementById('import-db-file').click(); }
-function importDB(e){
-  const file=e.target.files[0]; if(!file) return;
-  const r=new FileReader();
-  r.onload=ev=>{ try{ const d=JSON.parse(ev.target.result); saveDatabase(d); toast('✅ Database imported!'); renderDB(); }catch{ toast('❌ Invalid JSON file.'); } };
-  r.readAsText(file);
-  e.target.value='';
 }
 function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -1195,17 +1412,13 @@ function today(){ return new Date().toISOString().slice(0,10); }
 // HELPERS
 // ═══════════════════════════════════════════════
 function badgeClass(s){ return {'On Time':'b-ontime','Delayed':'b-delayed','Cancelled':'b-cancelled','Diverted':'b-diverted','Completed':'b-completed'}[s]||'b-completed'; }
-function updateHeaderCount(){ document.getElementById('hdr-total').textContent=loadFlights().length; }
+function updateHeaderCount(){ document.getElementById('hdr-total').textContent=cache.flights.length; }
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600); }
 
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-document.getElementById('f-date').valueAsDate=new Date();
-document.getElementById('pd-date').valueAsDate=new Date();
-renderCrewTags();
-updateHeaderCount();
-renderDash();
+initAuth();
 document.getElementById('detailOverlay').addEventListener('click',function(e){ if(e.target===this) closeDetail(); });
 </script>
 </body>
