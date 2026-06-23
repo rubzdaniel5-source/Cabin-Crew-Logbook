@@ -266,6 +266,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .sync-badge.syncing{color:var(--gold)}
 .sync-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
 .sync-badge.syncing .dot{background:var(--gold);animation:pulse 1s infinite}
+.sync-badge.offline{background:rgba(192,57,43,.15)!important;color:var(--danger)!important}
+.sync-badge.offline .dot{background:var(--danger)!important}
 @keyframes pulse{50%{opacity:.3}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -301,7 +303,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <p>Cabin Crew Flight Record</p>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="sync-badge" id="online-badge" style="background:rgba(29,122,75,.15);padding:3px 9px;border-radius:12px"><span class="dot"></span>Online</span>
       <div class="hdr-pill">
         <div class="num" id="hdr-total">0</div>
         <div class="lbl">Flights</div>
@@ -312,7 +315,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
     </div>
   </div>
-  <div class="tab-bar">
+  <div class="tab-bar" style="position:relative">
+    <span id="pending-badge" style="display:none;position:absolute;top:-8px;right:6px;background:var(--gold);color:var(--navy);font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:10px;z-index:5"></span>
     <button class="active" onclick="showTab('dash')"><span class="tab-icon">📊</span>Dashboard</button>
     <button onclick="showTab('add')"><span class="tab-icon">✚</span>New Flight</button>
     <button onclick="showTab('log')"><span class="tab-icon">📋</span>Logbook</button>
@@ -434,6 +438,11 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
      2. NEW FLIGHT
 ════════════════════════════════════════════════════════════ -->
 <div class="section" id="tab-add">
+
+  <div id="edit-mode-banner" style="display:none;align-items:center;justify-content:space-between;background:rgba(201,168,76,.15);border:1.5px solid var(--gold);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px">
+    <span style="font-size:.78rem;font-weight:700;color:var(--navy)">✏ Editing existing flight</span>
+    <button class="btn btn-ghost btn-sm" onclick="cancelEdit()">Cancel</button>
+  </div>
 
   <div class="card">
     <div class="card-title">✈ Pre-Flight Details</div>
@@ -557,13 +566,26 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
 
       <div class="field full">
-        <label>Safety Topic</label>
+        <label>Briefing Topics</label>
+      </div>
+      <div class="field">
+        <label style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.74rem">Safety Topic</label>
         <div class="combo-wrap">
           <input type="text" id="f-safety" placeholder="e.g. Evacuation procedures…" autocomplete="off"
             oninput="filterCombo('f-safety','dd-safety',getDB('safetyTopics'))"
             onfocus="filterCombo('f-safety','dd-safety',getDB('safetyTopics'))"
             onblur="delayClose('dd-safety')"/>
           <div class="combo-dropdown" id="dd-safety"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.74rem">First Aid Topic</label>
+        <div class="combo-wrap">
+          <input type="text" id="f-firstaid" placeholder="e.g. CPR refresher…" autocomplete="off"
+            oninput="filterCombo('f-firstaid','dd-firstaid',getDB('firstAidTopics'))"
+            onfocus="filterCombo('f-firstaid','dd-firstaid',getDB('firstAidTopics'))"
+            onblur="delayClose('dd-firstaid')"/>
+          <div class="combo-dropdown" id="dd-firstaid"></div>
         </div>
       </div>
 
@@ -583,7 +605,13 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
       <div class="field full">
         <label>Delay Reason</label>
-        <input type="text" id="f-delayreason" placeholder="e.g. Late inbound aircraft, ATC…"/>
+        <div class="combo-wrap">
+          <input type="text" id="f-delayreason" placeholder="e.g. Late inbound aircraft, ATC…" autocomplete="off"
+            oninput="filterCombo('f-delayreason','dd-delayreason',getDB('delayReasons'))"
+            onfocus="filterCombo('f-delayreason','dd-delayreason',getDB('delayReasons'))"
+            onblur="delayClose('dd-delayreason')"/>
+          <div class="combo-dropdown" id="dd-delayreason"></div>
+        </div>
       </div>
       <div class="field full">
         <label>Flight Status</label>
@@ -593,7 +621,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <option>Delayed</option>
           <option>Cancelled</option>
           <option>Diverted</option>
-          <option>Completed</option>
         </select>
       </div>
     </div>
@@ -662,7 +689,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 <div class="section" id="tab-db">
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div style="font-size:.72rem;color:var(--muted)">🌐 Shared with your whole crew — changes sync for everyone.</div>
+    <div style="font-size:.72rem;color:var(--muted)" id="db-notice">🌐 Shared with your whole crew — changes sync for everyone.</div>
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
   </div>
 
@@ -707,6 +734,153 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ═══════════════════════════════════════════════
+// OFFLINE STORAGE (IndexedDB) — local mirror for flights & per_diem
+// ═══════════════════════════════════════════════
+const IDB_NAME = 'ccl_offline_db';
+const IDB_VERSION = 1;
+let idb = null;
+let isOnline = navigator.onLine;
+let isSyncing = false;
+
+function openIDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('flights')) db.createObjectStore('flights',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('per_diem')) db.createObjectStore('per_diem',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('meta')) db.createObjectStore('meta',{keyPath:'key'});
+    };
+    req.onsuccess = (e)=>resolve(e.target.result);
+    req.onerror = (e)=>reject(e.target.error);
+  });
+}
+function idbAll(store){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(store,'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = ()=>resolve(req.result||[]);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function idbPut(store, value){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(store,'readwrite');
+    tx.objectStore(store).put(value);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+function idbDelete(store, id){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(store,'readwrite');
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+function uuid(){
+  return 'tmp-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+}
+
+function setOnlineBadge(){
+  const el = document.getElementById('online-badge');
+  if(el){
+    if(isOnline){ el.innerHTML = '<span class="dot"></span>Online'; el.classList.remove('offline'); }
+    else { el.innerHTML = '<span class="dot"></span>Offline'; el.classList.add('offline'); }
+  }
+  const notice = document.getElementById('db-notice');
+  if(notice){
+    notice.textContent = isOnline
+      ? '🌐 Shared with your whole crew — changes sync for everyone.'
+      : '📴 Offline — you can view shared items, but adding new ones needs a connection.';
+  }
+}
+
+window.addEventListener('online', ()=>{ isOnline=true; setOnlineBadge(); syncToCloud(); });
+window.addEventListener('offline', ()=>{ isOnline=false; setOnlineBadge(); });
+
+// Push any unsynced local records to Supabase, then pull the latest shared/cloud state.
+async function syncToCloud(){
+  if(!currentUser || !isOnline || isSyncing) return;
+  isSyncing = true;
+  setSyncBadge(true);
+  try{
+    const localFlights = await idbAll('flights');
+    for(const f of localFlights.filter(f=>!f.synced && !f._deleted)){
+      const row = flightToRow(f);
+      if(f.id.startsWith('tmp-')){
+        const { data, error } = await sb.from('flights').insert(row).select().single();
+        if(!error && data){ await idbDelete('flights', f.id); await idbPut('flights', {...rowToFlight(data), synced:true}); }
+      } else {
+        const { error } = await sb.from('flights').update(row).eq('id', f.id);
+        if(!error){ f.synced=true; await idbPut('flights', f); }
+      }
+    }
+    for(const f of localFlights.filter(f=>f._deleted)){
+      if(!f.id.startsWith('tmp-')){
+        const { error } = await sb.from('flights').delete().eq('id', f.id);
+        if(!error) await idbDelete('flights', f.id);
+      } else {
+        await idbDelete('flights', f.id);
+      }
+    }
+
+    const localPD = await idbAll('per_diem');
+    for(const p of localPD.filter(p=>!p.synced && !p._deleted)){
+      const row = { user_id: currentUser.id, flight_num:p.flightNum, date:p.date, nights:p.nights, notes:p.notes };
+      if(p.id.startsWith('tmp-')){
+        const { data, error } = await sb.from('per_diem').insert(row).select().single();
+        if(!error && data){ await idbDelete('per_diem', p.id); await idbPut('per_diem', { id:data.id, flightNum:data.flight_num, date:data.date, nights:data.nights, notes:data.notes, synced:true }); }
+      } else {
+        const { error } = await sb.from('per_diem').update(row).eq('id', p.id);
+        if(!error){ p.synced=true; await idbPut('per_diem', p); }
+      }
+    }
+    for(const p of localPD.filter(p=>p._deleted)){
+      if(!p.id.startsWith('tmp-')){
+        const { error } = await sb.from('per_diem').delete().eq('id', p.id);
+        if(!error) await idbDelete('per_diem', p.id);
+      } else {
+        await idbDelete('per_diem', p.id);
+      }
+    }
+
+    // Pull latest from cloud (flights/per_diem are private per-user, safe to overwrite local synced copies)
+    await loadFlightsFromCloud(true);
+    await loadPerDiemFromCloud(true);
+    await loadAllSharedFromCloud();
+    renderDash(); 
+    if(document.getElementById('tab-log').classList.contains('active')) renderLog();
+    if(document.getElementById('tab-perdiem').classList.contains('active')) renderPerDiemTab();
+  } catch(e){
+    console.error('Sync error', e);
+  }
+  isSyncing = false;
+  setSyncBadge(false);
+  updatePendingBadge();
+}
+
+function flightToRow(f){
+  return {
+    user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr, reg:f.reg, actype:f.actype,
+    position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
+    safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
+    delay_reason:f.delayReason, status:f.status
+  };
+}
+
+async function updatePendingBadge(){
+  const localFlights = await idbAll('flights');
+  const localPD = await idbAll('per_diem');
+  const pending = localFlights.filter(f=>!f.synced||f._deleted).length + localPD.filter(p=>!p.synced||p._deleted).length;
+  const el = document.getElementById('pending-badge');
+  if(!el) return;
+  if(pending>0){ el.style.display='inline-flex'; el.textContent = `${pending} pending sync`; }
+  else { el.style.display='none'; }
+}
+
 const MONTH_TARGET = 80;   // monthly block-hour target (customize)
 const PERDIEM_RATE = 80;   // USD per night
 const FTA_RATE      = 10;  // USD per block hour
@@ -721,6 +895,8 @@ const SHARED_TABLES = {
   firstOfficers: 'shared_first_officers',
   crewNames:     'shared_crew_names',
   safetyTopics:  'shared_safety_topics',
+  firstAidTopics: 'shared_first_aid_topics',
+  delayReasons:  'shared_delay_reasons',
 };
 
 const DB_SCHEMA = {
@@ -732,6 +908,8 @@ const DB_SCHEMA = {
   firstOfficers: { label:'First Officers', icon:'👨‍✈️', placeholder:'First Officer name' },
   crewNames:     { label:'Crew Names',     icon:'👥', placeholder:'Crew member name' },
   safetyTopics:  { label:'Safety Topics',  icon:'🛡', placeholder:'Safety topic description' },
+  firstAidTopics:{ label:'First Aid Topics', icon:'🩺', placeholder:'First aid topic description' },
+  delayReasons:  { label:'Delay Reasons',  icon:'⏳', placeholder:'e.g. ATC, Late Inbound Aircraft' },
 };
 
 let currentDbTab   = 'flightNumbers';
@@ -739,18 +917,21 @@ let dashMonth      = new Date(); dashMonth.setDate(1);
 let selectedCrew   = [];
 let currentUser    = null;
 let sectorFieldCount = 2;
+let editingFlightId = null;
 
 // In-memory caches, refreshed from Supabase on load / after writes
 let cache = {
   flights: [],
   perDiem: [],
-  shared: { flightNumbers:[], routes:[], aircraftRegs:[], aircraftTypes:[], captains:[], firstOfficers:[], crewNames:[], safetyTopics:[] }
+  shared: { flightNumbers:[], routes:[], aircraftRegs:[], aircraftTypes:[], captains:[], firstOfficers:[], crewNames:[], safetyTopics:[], firstAidTopics:[], delayReasons:[] }
 };
 
 // ═══════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════
 async function initAuth(){
+  idb = await openIDB();
+  setOnlineBadge();
   const { data: { session } } = await sb.auth.getSession();
   if(session){
     currentUser = session.user;
@@ -816,15 +997,31 @@ async function onLoggedIn(){
   document.getElementById('pd-date').valueAsDate = new Date();
   renderCrewTags();
   renderDash();
+  setInterval(()=>{ if(isOnline) syncToCloud(); }, 30000);
 }
 
 // ═══════════════════════════════════════════════
 // DATA LOADING (from Supabase)
 // ═══════════════════════════════════════════════
 async function refreshAllData(){
-  setSyncBadge(true);
-  await Promise.all([loadFlightsFromCloud(), loadPerDiemFromCloud(), loadAllSharedFromCloud()]);
-  setSyncBadge(false);
+  // Always load from local IndexedDB first so the UI is instant and works offline
+  cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+  cache.perDiem = (await idbAll('per_diem')).filter(p=>!p._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+  updateHeaderCount();
+  updatePendingBadge();
+
+  if(isOnline){
+    setSyncBadge(true);
+    await syncToCloud();
+    await loadAllSharedFromCloud();
+    setSyncBadge(false);
+  } else {
+    // Offline: shared dropdown data falls back to last-cached snapshot in localStorage, if any
+    try{
+      const cached = JSON.parse(localStorage.getItem('ccl_shared_cache')||'null');
+      if(cached) cache.shared = cached;
+    }catch{}
+  }
   updateHeaderCount();
 }
 
@@ -835,23 +1032,33 @@ function setSyncBadge(syncing){
   el.innerHTML = syncing ? '<span class="dot"></span>Syncing…' : '<span class="dot"></span>Synced';
 }
 
-async function loadFlightsFromCloud(){
+async function loadFlightsFromCloud(overwrite){
   const { data, error } = await sb.from('flights').select('*').order('date',{ascending:false});
   if(error){ toast('⚠ Could not load flights: '+error.message); return; }
-  cache.flights = (data||[]).map(rowToFlight);
+  const localUnsynced = (await idbAll('flights')).filter(f=>!f.synced||f._deleted);
+  const localUnsyncedIds = new Set(localUnsynced.map(f=>f.id));
+  for(const r of (data||[])){
+    if(!localUnsyncedIds.has(r.id)) await idbPut('flights', {...rowToFlight(r), synced:true});
+  }
+  cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
 }
 function rowToFlight(r){
   return {
     id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr, reg:r.reg, actype:r.actype,
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
-    safety:r.safety, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
+    safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
   };
 }
 
-async function loadPerDiemFromCloud(){
+async function loadPerDiemFromCloud(overwrite){
   const { data, error } = await sb.from('per_diem').select('*').order('date',{ascending:false});
   if(error){ toast('⚠ Could not load per diem: '+error.message); return; }
-  cache.perDiem = (data||[]).map(r=>({ id:r.id, flightNum:r.flight_num, date:r.date, nights:r.nights, notes:r.notes }));
+  const localUnsynced = (await idbAll('per_diem')).filter(p=>!p.synced||p._deleted);
+  const localUnsyncedIds = new Set(localUnsynced.map(p=>p.id));
+  for(const r of (data||[])){
+    if(!localUnsyncedIds.has(r.id)) await idbPut('per_diem', { id:r.id, flightNum:r.flight_num, date:r.date, nights:r.nights, notes:r.notes, synced:true });
+  }
+  cache.perDiem = (await idbAll('per_diem')).filter(p=>!p._deleted).sort((a,b)=>b.date.localeCompare(a.date));
 }
 
 async function loadAllSharedFromCloud(){
@@ -866,6 +1073,7 @@ async function loadAllSharedFromCloud(){
       cache.shared[key] = (data||[]).map(r=>({ id:r.id, value:r.value }));
     }
   }));
+  try{ localStorage.setItem('ccl_shared_cache', JSON.stringify(cache.shared)); }catch{}
 }
 
 function getDB(key){
@@ -1034,6 +1242,7 @@ function logItemHTML(e){
       ${e.delay>0?`<span class="badge b-delayed">+${e.delay}m</span>`:''}
       ${e.blockTime?`<span class="chip gold">⏱ ${e.blockTime}</span>`:''}
     </div>
+    ${e.crew?`<div style="font-size:.72rem;color:var(--muted);margin-top:6px">👥 ${e.crew}</div>`:''}
   </div>`;
 }
 
@@ -1061,7 +1270,7 @@ function showDetail(id){
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
-    ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],
+    ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],['First Aid Topic',e.firstAid||'–'],
   ];
   const post=[
     ['Block Time',e.blockTime||'–'],['Delay',e.delay?`${e.delay} min`:'None'],
@@ -1071,18 +1280,70 @@ function showDetail(id){
     pre.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
     '<div class="section-divider">After Flight</div>'+
     post.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
-    `<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑 Delete</button><button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button></div>`;
+    `<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-gold btn-sm" onclick="editEntry('${e.id}')">✏ Edit</button><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑 Delete</button><button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button></div>`;
   document.getElementById('detailOverlay').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailOverlay').classList.remove('open');}
 
+function editEntry(id){
+  const e=cache.flights.find(x=>String(x.id)===String(id)); if(!e) return;
+  editingFlightId = e.id;
+  closeDetail();
+
+  document.getElementById('f-date').value = e.date||'';
+  document.getElementById('f-flightnum').value = e.flightNum||'';
+  document.getElementById('f-dep').value = e.dep||'';
+  document.getElementById('f-arr').value = e.arr||'';
+  document.getElementById('f-reg').value = e.reg||'';
+  document.getElementById('f-actype').value = e.actype||'';
+  document.getElementById('f-position').value = e.position||'';
+  document.getElementById('f-pax').value = e.pax||'';
+  document.getElementById('f-captain').value = e.captain||'';
+  document.getElementById('f-fo').value = e.fo||'';
+  document.getElementById('f-std').value = e.std||'';
+  document.getElementById('f-sta').value = e.sta||'';
+  document.getElementById('f-safety').value = e.safety||'';
+  document.getElementById('f-firstaid').value = e.firstAid||'';
+  document.getElementById('f-blocktime').value = e.blockTime||'';
+  document.getElementById('f-delay').value = e.delay||'';
+  document.getElementById('f-delayreason').value = e.delayReason||'';
+  document.getElementById('f-status').value = e.status||'';
+
+  selectedCrew = e.crew ? e.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  renderCrewTags();
+
+  const btn = document.querySelector('#tab-add .btn-primary');
+  if(btn) btn.textContent = '💾 Update Flight Entry';
+  const banner = document.getElementById('edit-mode-banner');
+  if(banner) banner.style.display = 'flex';
+
+  showTab('add');
+}
+
+function cancelEdit(){
+  editingFlightId = null;
+  clearForm();
+  const btn = document.querySelector('#tab-add .btn-primary');
+  if(btn) btn.textContent = '💾 Save Flight Entry';
+  const banner = document.getElementById('edit-mode-banner');
+  if(banner) banner.style.display = 'none';
+  toast('Edit cancelled.');
+}
+
 async function deleteEntry(id){
   if(!confirm('Delete this flight entry?')) return;
-  const { error } = await sb.from('flights').delete().eq('id', id);
-  if(error){ toast('⚠ Delete failed: '+error.message); return; }
+  const all = await idbAll('flights');
+  const rec = all.find(f=>String(f.id)===String(id));
+  if(rec){
+    rec._deleted = true;
+    rec.synced = false;
+    await idbPut('flights', rec);
+  }
   cache.flights = cache.flights.filter(x=>String(x.id)!==String(id));
-  closeDetail(); toast('🗑 Entry deleted.'); updateHeaderCount();
+  closeDetail(); updateHeaderCount(); updatePendingBadge();
   renderLog(); renderDash();
+  if(isOnline){ toast('🗑 Entry deleted.'); syncToCloud(); }
+  else { toast('📴 Deleted offline — will sync when back online.'); }
 }
 
 // ═══════════════════════════════════════════════
@@ -1093,38 +1354,55 @@ async function saveEntry(){
   if(!g('f-date')||!g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
-  const row = {
-    user_id: currentUser.id,
-    date:g('f-date'), flight_num:g('f-flightnum').toUpperCase(),
+  const flightObj = {
+    date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
     dep:g('f-dep').toUpperCase(), arr:g('f-arr').toUpperCase(),
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
     position:g('f-position'), captain:g('f-captain'), fo:g('f-fo'),
     crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
-    std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'),
-    block_time:g('f-blocktime'), delay: g('f-delay')?parseInt(g('f-delay')):0,
-    delay_reason:g('f-delayreason'), status:g('f-status'),
+    std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'), firstAid:g('f-firstaid'),
+    blockTime:g('f-blocktime'), delay: g('f-delay')?parseInt(g('f-delay')):0,
+    delayReason:g('f-delayreason'), status:g('f-status'),
+    synced:false,
   };
 
   const btn = document.querySelector('#tab-add .btn-primary');
-  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  if(btn){ btn.disabled=true; btn.textContent=editingFlightId?'Updating…':'Saving…'; }
 
-  const { data, error } = await sb.from('flights').insert(row).select().single();
+  if(editingFlightId){
+    flightObj.id = editingFlightId;
+    await idbPut('flights', flightObj);
+    const idx = cache.flights.findIndex(f=>String(f.id)===String(editingFlightId));
+    if(idx>-1) cache.flights[idx] = flightObj; else cache.flights.unshift(flightObj);
+  } else {
+    flightObj.id = uuid();
+    await idbPut('flights', flightObj);
+    cache.flights.unshift(flightObj);
+  }
 
   if(btn){ btn.disabled=false; btn.textContent='💾 Save Flight Entry'; }
+  clearForm(); updateHeaderCount(); updatePendingBadge(); showTab('dash');
 
-  if(error){ toast('⚠ Save failed: '+error.message); return; }
-
-  cache.flights.unshift(rowToFlight(data));
-  clearForm(); toast('✅ Flight saved!'); updateHeaderCount(); showTab('dash');
+  if(isOnline){
+    toast(editingFlightId?'✅ Flight updated!':'✅ Flight saved!');
+    syncToCloud();
+  } else {
+    toast('📴 Saved offline — will sync when back online.');
+  }
 }
 
 function clearForm(){
   ['f-date','f-flightnum','f-dep','f-arr','f-reg','f-actype','f-position','f-captain','f-fo',
-   'f-crew-input','f-std','f-sta','f-pax','f-safety','f-blocktime','f-delay','f-delayreason','f-status']
+   'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   selectedCrew=[];
   renderCrewTags();
   document.getElementById('f-date').valueAsDate=new Date();
+  editingFlightId=null;
+  const btn = document.querySelector('#tab-add .btn-primary');
+  if(btn) btn.textContent='💾 Save Flight Entry';
+  const banner = document.getElementById('edit-mode-banner');
+  if(banner) banner.style.display='none';
 }
 
 // ═══════════════════════════════════════════════
@@ -1196,29 +1474,42 @@ async function savePerDiem(){
   if(!fn||!date||!nights||nights<1){ toast('⚠ Flight number, date and nights are required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
-  const row = { user_id: currentUser.id, flight_num: fn, date, nights, notes };
-  const { data, error } = await sb.from('per_diem').insert(row).select().single();
-  if(error){ toast('⚠ Save failed: '+error.message); return; }
+  const entry = { id:uuid(), flightNum:fn, date, nights, notes, synced:false };
+  await idbPut('per_diem', entry);
+  cache.perDiem.unshift(entry);
 
-  cache.perDiem.unshift({ id:data.id, flightNum:data.flight_num, date:data.date, nights:data.nights, notes:data.notes });
   document.getElementById('pd-flightnum').value='';
   document.getElementById('pd-date').value='';
   document.getElementById('pd-nights').value='';
   document.getElementById('pd-notes').value='';
   document.getElementById('pd-date').valueAsDate = new Date();
-  toast(`✅ Per diem saved: ${nights} night${nights>1?'s':''} ($${nights*PERDIEM_RATE})`);
   renderPerDiemTab();
   renderDash();
+  updatePendingBadge();
+
+  if(isOnline){
+    toast(`✅ Per diem saved: ${nights} night${nights>1?'s':''} ($${nights*PERDIEM_RATE})`);
+    syncToCloud();
+  } else {
+    toast('📴 Saved offline — will sync when back online.');
+  }
 }
 
 async function deletePerDiem(id){
   if(!confirm('Delete this per diem entry?')) return;
-  const { error } = await sb.from('per_diem').delete().eq('id', id);
-  if(error){ toast('⚠ Delete failed: '+error.message); return; }
+  const all = await idbAll('per_diem');
+  const rec = all.find(p=>String(p.id)===String(id));
+  if(rec){
+    rec._deleted = true;
+    rec.synced = false;
+    await idbPut('per_diem', rec);
+  }
   cache.perDiem = cache.perDiem.filter(p=>String(p.id)!==String(id));
-  toast('🗑 Per diem entry deleted.');
   renderPerDiemTab();
   renderDash();
+  updatePendingBadge();
+  if(isOnline){ toast('🗑 Per diem entry deleted.'); syncToCloud(); }
+  else { toast('📴 Deleted offline — will sync when back online.'); }
 }
 
 function renderPerDiemTab(){
@@ -1327,6 +1618,7 @@ function resetSectorBuilder(){
 }
 
 async function addRouteItem(){
+  if(!isOnline){ toast('📴 Connect to the internet to add shared routes.'); return; }
   const airports=[];
   for(let i=0;i<sectorFieldCount;i++){
     const el=document.getElementById('sector-'+i);
@@ -1358,6 +1650,7 @@ function switchDbTab(key){
 }
 
 async function addDBItem(key){
+  if(!isOnline){ toast('📴 Connect to the internet to add shared items.'); return; }
   const val=(document.getElementById(`db-input-${key}`).value||'').trim();
   if(!val){ toast('Enter a value.'); return; }
   if((cache.shared[key]||[]).some(r=>r.value===val)){ toast('Already exists.'); return; }
@@ -1393,8 +1686,8 @@ async function removeDBItem(key,id){
 function exportCSV(){
   const data=cache.flights;
   if(!data.length){ toast('Nothing to export.'); return; }
-  const headers=['Date','Flight','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','Safety Topic','Block Time','Delay (min)','Delay Reason','Status'];
-  const rows=data.map(e=>[e.date,e.flightNum,e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.blockTime,e.delay,e.delayReason,e.status]
+  const headers=['Date','Flight','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','Safety Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status'];
+  const rows=data.map(e=>[e.date,e.flightNum,e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.firstAid,e.blockTime,e.delay,e.delayReason,e.status]
     .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
   const csv=[headers.join(','),...rows].join('\n');
   dl(new Blob([csv],{type:'text/csv'}),`crew-logbook-${today()}.csv`);
