@@ -511,7 +511,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <option value="">Select…</option>
           <option>Instructor/Line Checker</option>
           <option>Senior Pursar</option>
-          <option>Purser</option>
+          <option>Pursar</option>
           <option>Cabin Crew</option>
           <option>Trainee</option>
         </select>
@@ -521,16 +521,36 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <input type="number" id="f-pax" placeholder="e.g. 180" min="0"/>
       </div>
 
-      <div class="field">
-        <label>Captain</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-captain" placeholder="Captain's name" autocomplete="off"
-            oninput="filterCombo('f-captain','dd-captain',getDB('captains'))"
-            onfocus="filterCombo('f-captain','dd-captain',getDB('captains'))"
-            onblur="delayClose('dd-captain')"/>
-          <div class="combo-dropdown" id="dd-captain"></div>
-        </div>
-      </div>
+      
+     <div class="field">
+    <label for="f-captain">Captain</label>
+
+    <input
+        type="text"
+        id="f-captain"
+        list="captains-list"
+        placeholder="Captain's name"
+        autocomplete="off">
+
+    <datalist id="captains-list">
+
+        <!-- Add all your captains here -->
+
+        <option value="Captain Daniel"></option>
+
+        <!-- Examples -->
+        <!--
+        <option value="Captain Nicia"></option>
+        <option value="Captain Denis"></option>
+        <option value="Captain Peter"></option>
+        <option value="Captain James Wilson"></option>
+        <option value="Captain David Johnson"></option>
+        -->
+
+    </datalist>
+</div>
+
+      
       <div class="field">
         <label>First Officer</label>
         <div class="combo-wrap">
