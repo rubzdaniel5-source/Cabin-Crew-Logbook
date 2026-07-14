@@ -455,7 +455,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Flight Number *</label>
         <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. QR505" autocomplete="off"
+          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
             oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onblur="delayClose('dd-flightnum')"/>
@@ -466,7 +466,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Departure</label>
         <div class="combo-wrap">
-          <input type="text" id="f-dep" placeholder="e.g. DOH" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-dep" placeholder="e.g. EBB" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
             onfocus="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
             onblur="delayClose('dd-dep')"/>
@@ -476,7 +476,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Destination</label>
         <div class="combo-wrap">
-          <input type="text" id="f-arr" placeholder="e.g. LHR" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-arr" placeholder="e.g. LGW" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
             onfocus="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
             onblur="delayClose('dd-arr')"/>
@@ -487,7 +487,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Aircraft Reg</label>
         <div class="combo-wrap">
-          <input type="text" id="f-reg" placeholder="e.g. A7-BAC" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-reg" placeholder="e.g. 5X-NIL" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-reg','dd-reg',getDB('aircraftRegs'))"
             onfocus="filterCombo('f-reg','dd-reg',getDB('aircraftRegs'))"
             onblur="delayClose('dd-reg')"/>
@@ -497,7 +497,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Aircraft Type</label>
         <div class="combo-wrap">
-          <input type="text" id="f-actype" placeholder="e.g. B777" autocomplete="off"
+          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
             oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onblur="delayClose('dd-actype')"/>
@@ -509,10 +509,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <label>Crew Position</label>
         <select id="f-position">
           <option value="">Select…</option>
-          <option>Cabin Manager</option>
-          <option>Senior Cabin Crew</option>
-          <option>Cabin Crew</option>
+          <option>Instructor/Line Checker</option>
+          <option>Senior Pursar</option>
           <option>Purser</option>
+          <option>Cabin Crew</option>
           <option>Trainee</option>
         </select>
       </div>
