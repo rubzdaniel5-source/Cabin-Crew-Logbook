@@ -343,7 +343,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button onclick="showTab('add')"><span class="tab-icon">✚</span>New Flight</button>
     <button onclick="showTab('log')"><span class="tab-icon">📋</span>Logbook</button>
     <button onclick="showTab('perdiem')"><span class="tab-icon">💰</span>Per Diem</button>
-    <button onclick="showTab('db')"><span class="tab-icon">🗄</span>Database</button>
+    <button id="tab-btn-db" onclick="showTab('db')"><span class="tab-icon">🗄</span>Database</button>
   </div>
 </header>
 
@@ -384,6 +384,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="kpi-val" id="kpi-pax">0</div>
       <div class="kpi-lbl">Pax Carried</div>
       <div class="kpi-sub">This month</div>
+    </div>
+    <div class="kpi" style="border-top:3px solid var(--teal);grid-column:1/-1">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="kpi-val" id="kpi-pd-amount" style="color:var(--teal)">$0</div>
+          <div class="kpi-lbl">Per Diem Earned</div>
+          <div class="kpi-sub" id="kpi-pd-sub">0 nights × $80</div>
+        </div>
+        <div style="text-align:right;border-left:1px solid var(--border2);padding-left:16px;margin-left:8px">
+          <div style="font-size:1.55rem;font-weight:900;color:var(--teal);line-height:1.1" id="kpi-pd-nights">0</div>
+          <div class="kpi-lbl">Nights Away</div>
+          <div class="kpi-sub">This month</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -660,6 +674,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <span class="search-ico">🔍</span>
     <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
   </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights CSV</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem CSV</button>
+  </div>
   <div id="log-list"></div>
 </div>
 
@@ -717,14 +735,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div class="db-tabs" id="db-tab-bar"></div>
 
   <div id="db-panels"></div>
-
-  <div class="card" style="margin-top:8px">
-    <div class="card-title">📤 Export / Import</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights CSV</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem CSV</button>
-    </div>
-  </div>
 
 </div>
 
@@ -942,6 +952,7 @@ let currentDbTab   = 'flightNumbers';
 let dashMonth      = new Date(); dashMonth.setDate(1);
 let selectedCrew   = [];
 let currentUser    = null;
+let isAdmin        = false;
 let sectorFieldCount = 2;
 let editingFlightId = null;
 
@@ -1084,13 +1095,26 @@ async function onLoggedIn(){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('auth-screen').style.display='none';
 
-  // Fetch display name from profiles table
-  const { data: profile } = await sb.from('profiles').select('full_name').eq('id', currentUser.id).single();
+  // Fetch profile — name + admin status
+  const { data: profile } = await sb.from('profiles')
+    .select('full_name, is_admin').eq('id', currentUser.id).single();
+
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
-  const initial = displayName.charAt(0).toUpperCase();
+  isAdmin = profile?.is_admin === true;
 
   document.getElementById('user-email-display').textContent = displayName;
-  document.getElementById('user-avatar').textContent = initial;
+  document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
+
+  // Show Database tab only for admins
+  const dbTabBtn = document.getElementById('tab-btn-db');
+  if(dbTabBtn) dbTabBtn.style.display = isAdmin ? '' : 'none';
+
+  // Show admin badge on user pill if admin
+  if(isAdmin){
+    const pill = document.getElementById('user-pill');
+    if(pill) pill.title = 'Admin — tap to sign out';
+    document.getElementById('user-avatar').style.background = 'var(--gold)';
+  }
 
   await refreshAllData();
   document.getElementById('f-date').valueAsDate = new Date();
@@ -1216,8 +1240,13 @@ function monthLabel(d){ return d.toLocaleDateString('en-GB',{month:'long',year:'
 // ═══════════════════════════════════════════════
 const TABS=['dash','add','log','perdiem','db'];
 function showTab(name){
+  if(name==='db' && !isAdmin){ toast('⚠ Admin access only.'); return; }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.tab-bar button').forEach((b,i)=>b.classList.toggle('active',TABS[i]===name));
+  // Highlight only visible tab buttons
+  document.querySelectorAll('.tab-bar button').forEach(b=>{
+    const fn = b.getAttribute('onclick')||'';
+    b.classList.toggle('active', fn.includes(`'${name}'`));
+  });
   document.getElementById('tab-'+name).classList.add('active');
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
@@ -1308,9 +1337,16 @@ function renderPerDiemDashboard(){
   const pdEntries = cache.perDiem.filter(p=>sameMonth(p.date,dashMonth));
   const nights = pdEntries.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
   const amount = nights*PERDIEM_RATE;
+
+  // Per Diem card in the detail section below
   document.getElementById('pd-dash-nights').textContent = nights;
   document.getElementById('pd-amount').textContent = '$'+amount.toLocaleString();
   document.getElementById('pd-rate').textContent   = '$'+PERDIEM_RATE;
+
+  // Per Diem KPI card (6th KPI in the grid)
+  document.getElementById('kpi-pd-amount').textContent = '$'+amount.toLocaleString();
+  document.getElementById('kpi-pd-nights').textContent = nights;
+  document.getElementById('kpi-pd-sub').textContent = `${nights} night${nights!==1?'s':''} × $${PERDIEM_RATE}`;
 
   const listEl = document.getElementById('pd-dash-list');
   if(!pdEntries.length){
