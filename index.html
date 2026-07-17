@@ -482,7 +482,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Flight Number *</label>
         <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
+          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onblur="delayClose('dd-flightnum')"/>
@@ -524,7 +524,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Aircraft Type</label>
         <div class="combo-wrap">
-          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
+          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onblur="delayClose('dd-actype')"/>
