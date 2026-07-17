@@ -3,7 +3,7 @@
   "short_name": "Crew Logbook",
   "description": "Cabin Crew Flight Logbook — track flights, block time, per diem and more.",
   "start_url": "/Cabin-Crew-Logbook/",
-  "scope": "/Cabin-Crew-Cogbook/",
+  "scope": "/Cabin-Crew-Logbook/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0B1D3A",
