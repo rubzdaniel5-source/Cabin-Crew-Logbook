@@ -385,19 +385,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="kpi-lbl">Pax Carried</div>
       <div class="kpi-sub">This month</div>
     </div>
-    <div class="kpi" style="border-top:3px solid var(--teal);grid-column:1/-1">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div class="kpi-val" id="kpi-pd-amount" style="color:var(--teal)">$0</div>
-          <div class="kpi-lbl">Per Diem Earned</div>
-          <div class="kpi-sub" id="kpi-pd-sub">0 nights × $80</div>
-        </div>
-        <div style="text-align:right;border-left:1px solid var(--border2);padding-left:16px;margin-left:8px">
-          <div style="font-size:1.55rem;font-weight:900;color:var(--teal);line-height:1.1" id="kpi-pd-nights">0</div>
-          <div class="kpi-lbl">Nights Away</div>
-          <div class="kpi-sub">This month</div>
-        </div>
-      </div>
+    <div class="kpi teal">
+      <div class="kpi-val" id="kpi-pd-amount">$0</div>
+      <div class="kpi-lbl">Per Diem</div>
+      <div class="kpi-sub" id="kpi-pd-sub">0 nights</div>
     </div>
   </div>
 
@@ -1345,8 +1336,7 @@ function renderPerDiemDashboard(){
 
   // Per Diem KPI card (6th KPI in the grid)
   document.getElementById('kpi-pd-amount').textContent = '$'+amount.toLocaleString();
-  document.getElementById('kpi-pd-nights').textContent = nights;
-  document.getElementById('kpi-pd-sub').textContent = `${nights} night${nights!==1?'s':''} × $${PERDIEM_RATE}`;
+  document.getElementById('kpi-pd-sub').textContent = `${nights} night${nights!==1?'s':''} · $${PERDIEM_RATE}/night`;
 
   const listEl = document.getElementById('pd-dash-list');
   if(!pdEntries.length){
