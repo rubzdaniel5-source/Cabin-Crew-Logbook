@@ -344,7 +344,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="brand">
       <div class="brand-icon">✈</div>
       <div>
-        <h1>Crew Logbook</h1>
+        <h1>CREW LOGBOOK</h1>
         <p>Cabin Crew Flight Record</p>
       </div>
     </div>
@@ -505,7 +505,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Flight Number *</label>
         <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. QR505" autocomplete="off"
+          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
             oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
             onblur="delayClose('dd-flightnum')"/>
@@ -516,7 +516,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Departure</label>
         <div class="combo-wrap">
-          <input type="text" id="f-dep" placeholder="e.g. DOH" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-dep" placeholder="e.g. EBB" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
             onfocus="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
             onblur="delayClose('dd-dep')"/>
@@ -526,7 +526,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Destination</label>
         <div class="combo-wrap">
-          <input type="text" id="f-arr" placeholder="e.g. LHR" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-arr" placeholder="e.g. LGW" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
             onfocus="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
             onblur="delayClose('dd-arr')"/>
@@ -537,7 +537,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Aircraft Reg</label>
         <div class="combo-wrap">
-          <input type="text" id="f-reg" placeholder="e.g. A7-BAC" autocomplete="off" style="text-transform:uppercase"
+          <input type="text" id="f-reg" placeholder="e.g. 5X-CRN" autocomplete="off" style="text-transform:uppercase"
             oninput="filterCombo('f-reg','dd-reg',getDB('aircraftRegs'))"
             onfocus="filterCombo('f-reg','dd-reg',getDB('aircraftRegs'))"
             onblur="delayClose('dd-reg')"/>
@@ -547,7 +547,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Aircraft Type</label>
         <div class="combo-wrap">
-          <input type="text" id="f-actype" placeholder="e.g. B777" autocomplete="off"
+          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
             oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onblur="delayClose('dd-actype')"/>
@@ -666,6 +666,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <label>Flight Status</label>
         <select id="f-status">
           <option value="">Select…</option>
+          <option>Ahead of Schedule</option>
           <option>On Time</option>
           <option>Delayed</option>
           <option>Cancelled</option>
@@ -723,8 +724,9 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
     </div>
     <div class="field" style="margin-top:11px;margin-bottom:11px">
-      <label>Layover City / Notes (optional)</label>
-      <input type="text" id="pd-notes" placeholder="e.g. LHR layover"/>
+      <label>Layover City </label>
+      <label>Notes and Remarks (optional)</label>
+      <input type="text" id="pd-notes" placeholder="e.g. London layover"/>
     </div>
     <button class="btn btn-teal" style="width:100%" onclick="savePerDiem()">💾 Save Per Diem Entry</button>
   </div>
