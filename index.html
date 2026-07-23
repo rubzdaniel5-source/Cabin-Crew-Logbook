@@ -290,6 +290,13 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .sync-badge.syncing .dot{background:var(--gold);animation:pulse 1s infinite}
 .sync-badge.offline{background:rgba(192,57,43,.15)!important;color:var(--danger)!important}
 .sync-badge.offline .dot{background:var(--danger)!important}
+/* ── MULTI-SECTOR ROUTE FIELDS (New Flight) ──────────────── */
+.route-fields{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:4px 0}
+.route-apt-wrap{position:relative;flex:1;min-width:68px}
+.route-apt-input{width:100%!important;text-transform:uppercase;text-align:center;font-weight:700;font-size:.88rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 6px;font-family:var(--font);color:var(--navy);background:#fff}
+.route-apt-input:focus{outline:none;border-color:var(--sky);box-shadow:0 0 0 3px rgba(28,110,175,.12)}
+.route-arrow-sep{color:var(--gold);font-size:1rem;font-weight:900;flex-shrink:0}
+
 @keyframes pulse{50%{opacity:.3}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -513,26 +520,21 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </div>
       </div>
 
-      <div class="field">
-        <label>Departure</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-dep" placeholder="e.g. EBB" autocomplete="off" style="text-transform:uppercase"
-            oninput="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
-            onfocus="filterCombo('f-dep','dd-dep',getAllRouteAirports())"
-            onblur="delayClose('dd-dep')"/>
-          <div class="combo-dropdown" id="dd-dep"></div>
-        </div>
+      <div class="field full">
+        <label>Number of Sectors</label>
+        <select id="f-sector-count" onchange="buildRouteFields()">
+          <option value="1">1 Sector — e.g. EBB → NBO</option>
+          <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
+          <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
+          <option value="4">4 Sectors — e.g. EBB → NBO → EBB → BJM → EBB</option>
+        </select>
       </div>
-      <div class="field">
-        <label>Destination</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-arr" placeholder="e.g. LGW" autocomplete="off" style="text-transform:uppercase"
-            oninput="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
-            onfocus="filterCombo('f-arr','dd-arr',getAllRouteAirports())"
-            onblur="delayClose('dd-arr')"/>
-          <div class="combo-dropdown" id="dd-arr"></div>
-        </div>
+      <div class="field full" id="route-fields-wrap">
+        <!-- Built dynamically by buildRouteFields() -->
       </div>
+      <!-- Hidden fields preserve dep/arr for data layer compatibility -->
+      <input type="hidden" id="f-dep"/>
+      <input type="hidden" id="f-arr"/>
 
       <div class="field">
         <label>Aircraft Reg</label>
@@ -645,8 +647,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="card-title">🛬 After-Flight Details</div>
     <div class="form-grid">
       <div class="field">
-        <label>Block Time (hh:mm) *</label>
-        <input type="text" id="f-blocktime" placeholder="e.g. 03:45"/>
+        <label>Block Time *</label>
+        <input type="time" id="f-blocktime" min="00:05" max="12:00"/>
       </div>
       <div class="field">
         <label>Delay (minutes)</label>
@@ -724,7 +726,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
     </div>
     <div class="field" style="margin-top:11px;margin-bottom:11px">
-      <label>Layover City </label>
+      <label>Layover City / Notes (optional)</label>
       <input type="text" id="pd-notes" placeholder="e.g. London layover"/>
     </div>
     <button class="btn btn-teal" style="width:100%" onclick="savePerDiem()">💾 Save Per Diem Entry</button>
@@ -910,7 +912,9 @@ async function syncToCloud(){
 
 function flightToRow(f){
   return {
-    user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr, reg:f.reg, actype:f.actype,
+    user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr,
+    full_route:f.fullRoute||'',
+    reg:f.reg, actype:f.actype,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
     safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
     delay_reason:f.delayReason, status:f.status
@@ -1134,6 +1138,7 @@ async function onLoggedIn(){
   await refreshAllData();
   document.getElementById('f-date').valueAsDate = new Date();
   document.getElementById('pd-date').valueAsDate = new Date();
+  buildRouteFields();
   renderCrewTags();
   renderDash();
   setInterval(()=>{ if(isOnline) syncToCloud(); }, 30000);
@@ -1183,7 +1188,9 @@ async function loadFlightsFromCloud(overwrite){
 }
 function rowToFlight(r){
   return {
-    id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr, reg:r.reg, actype:r.actype,
+    id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr,
+    fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
+    reg:r.reg, actype:r.actype,
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
     safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
   };
@@ -1393,8 +1400,8 @@ function logItemHTML(e){
       <span class="badge ${badgeClass(e.status)}">${e.status||'N/A'}</span>
     </div>
     <div class="li-row2">
-      ${e.dep?`<span class="chip">${e.dep}</span><span class="route-sep">→</span>`:''}
-      ${e.arr?`<span class="chip">${e.arr}</span>`:''}
+      ${(e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → ')) ?
+        `<span class="chip" style="max-width:100%;overflow:hidden;text-overflow:ellipsis">${e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → ')}</span>` : ''}
       <span class="chip">STD ${e.std||'--:--'}</span>
       <span class="chip">STA ${e.sta||'--:--'}</span>
       ${e.delay>0?`<span class="badge b-delayed">+${e.delay}m</span>`:''}
@@ -1424,7 +1431,7 @@ function showDetail(id){
   document.getElementById('modal-title').textContent=`${e.flightNum} · ${formatDate(e.date)}`;
   const pre=[
     ['Date',formatDate(e.date)],['Flight',e.flightNum],
-    ['Route',[e.dep,e.arr].filter(Boolean).join(' → ')||'–'],
+    ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
@@ -1450,8 +1457,7 @@ function editEntry(id){
 
   document.getElementById('f-date').value = e.date||'';
   document.getElementById('f-flightnum').value = e.flightNum||'';
-  document.getElementById('f-dep').value = e.dep||'';
-  document.getElementById('f-arr').value = e.arr||'';
+  setRouteFields(e.dep||'', e.arr||'', e.fullRoute||'');
   document.getElementById('f-reg').value = e.reg||'';
   document.getElementById('f-actype').value = e.actype||'';
   document.getElementById('f-position').value = e.position||'';
@@ -1512,9 +1518,10 @@ async function saveEntry(){
   if(!g('f-date')||!g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
+  const _route = getRouteFromFields();
   const flightObj = {
     date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
-    dep:g('f-dep').toUpperCase(), arr:g('f-arr').toUpperCase(),
+    dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
     position:g('f-position'), captain:g('f-captain'), fo:g('f-fo'),
     crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
@@ -1550,11 +1557,12 @@ async function saveEntry(){
 }
 
 function clearForm(){
-  ['f-date','f-flightnum','f-dep','f-arr','f-reg','f-actype','f-position','f-captain','f-fo',
+  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo',
    'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   selectedCrew=[];
   renderCrewTags();
+  clearRouteFields();
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
   const btn = document.querySelector('#tab-add .btn-primary');
@@ -1596,6 +1604,107 @@ function crewKeydown(e){
     const val=document.getElementById('f-crew-input').value.trim().replace(/,$/,'');
     if(val) addCrewMember(val);
   }
+}
+
+// ═══════════════════════════════════════════════
+// MULTI-SECTOR ROUTE BUILDER (New Flight form)
+// ═══════════════════════════════════════════════
+function buildRouteFields(){
+  const sectors = parseInt(document.getElementById('f-sector-count').value) || 1;
+  const numAirports = sectors + 1;
+  const wrap = document.getElementById('route-fields-wrap');
+  if(!wrap) return;
+
+  let html = '<div class="route-fields">';
+  for(let i = 0; i < numAirports; i++){
+    const label = i === 0 ? 'Departure' : (i === numAirports-1 ? 'Destination' : `Stop ${i}`);
+    html += `
+      <div class="route-apt-wrap">
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;text-align:center">${label}</div>
+        <div style="position:relative">
+          <input class="route-apt-input" id="f-route-${i}" placeholder="APT"
+            autocomplete="off"
+            oninput="filterRouteApt(${i})"
+            onfocus="filterRouteApt(${i})"
+            onblur="delayClose('dd-route-${i}')"/>
+          <div class="combo-dropdown" id="dd-route-${i}"></div>
+        </div>
+      </div>`;
+    if(i < numAirports - 1){
+      html += '<span class="route-arrow-sep">→</span>';
+    }
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function filterRouteApt(idx){
+  const input = document.getElementById(`f-route-${idx}`);
+  const dd    = document.getElementById(`dd-route-${idx}`);
+  if(!input || !dd) return;
+  const q = (input.value || '').toLowerCase();
+  const items = getAllRouteAirports();
+  const filtered = items.filter(a => a && a.toLowerCase().includes(q));
+  if(!filtered.length){
+    dd.innerHTML = '<div class="combo-empty">Type airport code</div>';
+  } else {
+    dd.innerHTML = filtered.map(a =>
+      `<div class="combo-item" onmousedown="pickRouteApt(${idx},'${a}')">${a}</div>`
+    ).join('');
+  }
+  dd.classList.add('open');
+}
+
+function pickRouteApt(idx, value){
+  const input = document.getElementById(`f-route-${idx}`);
+  const dd    = document.getElementById(`dd-route-${idx}`);
+  if(input) input.value = value.toUpperCase();
+  if(dd) dd.classList.remove('open');
+}
+
+function getRouteFromFields(){
+  const sectors = parseInt(document.getElementById('f-sector-count')?.value) || 1;
+  const numAirports = sectors + 1;
+  const codes = [];
+  for(let i = 0; i < numAirports; i++){
+    const el = document.getElementById(`f-route-${i}`);
+    const v  = (el?.value || '').trim().toUpperCase();
+    if(v) codes.push(v);
+  }
+  return {
+    dep: codes[0] || '',
+    arr: codes[codes.length - 1] || '',
+    route: codes.join(' → ')
+  };
+}
+
+function setRouteFields(dep, arr, fullRoute){
+  // Detect sector count from fullRoute string if available (e.g. "EBB → NBO → EBB" = 2 sectors)
+  const sel = document.getElementById('f-sector-count');
+  if(!sel) return;
+  if(fullRoute && fullRoute.includes('→')){
+    const parts = fullRoute.split('→').map(s=>s.trim()).filter(Boolean);
+    const sectorCount = Math.min(Math.max(parts.length - 1, 1), 4);
+    sel.value = String(sectorCount);
+    buildRouteFields();
+    for(let i=0; i<parts.length; i++){
+      const el = document.getElementById(`f-route-${i}`);
+      if(el) el.value = parts[i];
+    }
+  } else {
+    sel.value = '1';
+    buildRouteFields();
+    const i0 = document.getElementById('f-route-0');
+    const i1 = document.getElementById('f-route-1');
+    if(i0) i0.value = dep || '';
+    if(i1) i1.value = arr || '';
+  }
+}
+
+function clearRouteFields(){
+  const sel = document.getElementById('f-sector-count');
+  if(sel) sel.value = '1';
+  buildRouteFields();
 }
 
 // ═══════════════════════════════════════════════
