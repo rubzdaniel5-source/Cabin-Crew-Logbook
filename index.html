@@ -648,7 +648,24 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="form-grid">
       <div class="field">
         <label>Block Time *</label>
-        <input type="time" id="f-blocktime" min="00:05" max="12:00"/>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="f-blocktime-h" onchange="syncBlockTime()" style="flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.88rem;font-family:var(--font);color:var(--navy);background:#fff;-webkit-appearance:none;appearance:none">
+            <option value="">hrs</option>
+            <option>0</option><option>1</option><option>2</option><option>3</option>
+            <option>4</option><option>5</option><option>6</option><option>7</option>
+            <option>8</option><option>9</option><option>10</option><option>11</option>
+            <option>12</option>
+          </select>
+          <span style="font-weight:700;color:var(--muted);font-size:1rem">:</span>
+          <select id="f-blocktime-m" onchange="syncBlockTime()" style="flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.88rem;font-family:var(--font);color:var(--navy);background:#fff;-webkit-appearance:none;appearance:none">
+            <option value="">min</option>
+            <option>00</option><option>05</option><option>10</option><option>15</option>
+            <option>20</option><option>25</option><option>30</option><option>35</option>
+            <option>40</option><option>45</option><option>50</option><option>55</option>
+          </select>
+        </div>
+        <!-- Hidden field holds the combined hh:mm value for saveEntry/clearForm -->
+        <input type="hidden" id="f-blocktime"/>
       </div>
       <div class="field">
         <label>Delay (minutes)</label>
@@ -1468,7 +1485,7 @@ function editEntry(id){
   document.getElementById('f-sta').value = e.sta||'';
   document.getElementById('f-safety').value = e.safety||'';
   document.getElementById('f-firstaid').value = e.firstAid||'';
-  document.getElementById('f-blocktime').value = e.blockTime||'';
+  setBlockTime(e.blockTime||'');
   document.getElementById('f-delay').value = e.delay||'';
   document.getElementById('f-delayreason').value = e.delayReason||'';
   document.getElementById('f-status').value = e.status||'';
@@ -1562,6 +1579,7 @@ function clearForm(){
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   selectedCrew=[];
   renderCrewTags();
+  clearBlockTime();
   clearRouteFields();
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
@@ -1607,8 +1625,43 @@ function crewKeydown(e){
 }
 
 // ═══════════════════════════════════════════════
-// MULTI-SECTOR ROUTE BUILDER (New Flight form)
+// BLOCK TIME DURATION PICKER
 // ═══════════════════════════════════════════════
+function syncBlockTime(){
+  const h = document.getElementById('f-blocktime-h')?.value;
+  const m = document.getElementById('f-blocktime-m')?.value;
+  const hidden = document.getElementById('f-blocktime');
+  if(hidden && h !== '' && h !== undefined && m !== '' && m !== undefined){
+    hidden.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  } else if(hidden){
+    hidden.value = '';
+  }
+}
+
+function setBlockTime(val){
+  // Pre-fill duration picker from a stored value like "02:30"
+  if(!val) return;
+  const parts = val.split(':');
+  if(parts.length < 2) return;
+  const h = parseInt(parts[0]);
+  const m = parseInt(parts[1]);
+  const hSel = document.getElementById('f-blocktime-h');
+  const mSel = document.getElementById('f-blocktime-m');
+  if(hSel) hSel.value = String(h);
+  if(mSel) mSel.value = String(m).padStart(2,'0');
+  syncBlockTime();
+}
+
+function clearBlockTime(){
+  const hSel = document.getElementById('f-blocktime-h');
+  const mSel = document.getElementById('f-blocktime-m');
+  if(hSel) hSel.value = '';
+  if(mSel) mSel.value = '';
+  const hidden = document.getElementById('f-blocktime');
+  if(hidden) hidden.value = '';
+}
+
+
 function buildRouteFields(){
   const sectors = parseInt(document.getElementById('f-sector-count').value) || 1;
   const numAirports = sectors + 1;
@@ -1622,7 +1675,7 @@ function buildRouteFields(){
       <div class="route-apt-wrap">
         <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;text-align:center">${label}</div>
         <div style="position:relative">
-          <input class="route-apt-input" id="f-route-${i}" placeholder="APT"
+          <input class="route-apt-input" id="f-route-${i}" placeholder="Airport"
             autocomplete="off"
             oninput="filterRouteApt(${i})"
             onfocus="filterRouteApt(${i})"
@@ -1863,7 +1916,7 @@ function addSectorField(){
   const arrow=document.createElement('span'); arrow.className='sector-arrow'; arrow.textContent='→';
   const input=document.createElement('input');
   input.className='sector-input'; input.id='sector-'+sectorFieldCount;
-  input.placeholder=placeholders[sectorFieldCount]||'APT';
+  input.placeholder=placeholders[sectorFieldCount]||'Airport';
   builder.insertBefore(arrow, addBtn);
   builder.insertBefore(input, addBtn);
   sectorFieldCount++;
