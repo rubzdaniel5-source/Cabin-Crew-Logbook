@@ -309,21 +309,35 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .menu-btn span{display:block;width:20px;height:2.5px;background:#fff;border-radius:2px;transition:all .25s}
 
 /* ── MENU DRAWER ─────────────────────────────────────────── */
-.menu-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300}
-.menu-overlay.open{display:block}
-.menu-drawer{position:fixed;top:0;left:-290px;width:272px;height:100%;background:var(--navy);z-index:301;transition:left .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+.menu-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;opacity:0;transition:opacity .3s}
+.menu-overlay.open{display:block;opacity:1}
+.menu-drawer{position:fixed;top:0;left:-290px;width:272px;height:100%;background:var(--navy);z-index:301;transition:left .32s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,.4)}
 .menu-drawer.open{left:0}
-.menu-drawer-header{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.menu-drawer-header{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08);opacity:0;transform:translateY(-14px);transition:opacity .28s .06s, transform .28s .06s}
+.menu-drawer.open .menu-drawer-header{opacity:1;transform:translateY(0)}
 .menu-app-name{font-size:1rem;font-weight:800;color:#fff;letter-spacing:.02em}
 .menu-app-version{font-size:.68rem;color:#7A9BB8;margin-top:3px}
 .menu-items{flex:1;overflow-y:auto;padding:6px 0}
-.menu-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:#cfe0ee;font-size:.88rem;font-weight:600;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:var(--font);transition:background .15s}
+.menu-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:#cfe0ee;font-size:.88rem;font-weight:600;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:var(--font);transition:background .15s,opacity .22s,transform .22s;opacity:0;transform:translateY(-10px)}
+.menu-drawer.open .menu-item{opacity:1;transform:translateY(0)}
+.menu-drawer.open .menu-items .menu-item:nth-child(1){transition-delay:.10s}
+.menu-drawer.open .menu-items .menu-item:nth-child(2){transition-delay:.16s}
+.menu-drawer.open .menu-items .menu-item:nth-child(3){transition-delay:.20s}
+.menu-drawer.open .menu-items .menu-item:nth-child(4){transition-delay:.24s}
+.menu-drawer.open .menu-items .menu-item:nth-child(5){transition-delay:.28s}
+.menu-drawer.open .menu-items .menu-item:nth-child(6){transition-delay:.32s}
+.menu-drawer.open .menu-items .menu-item:nth-child(7){transition-delay:.36s}
+.menu-drawer.open .menu-items .menu-item:nth-child(8){transition-delay:.40s}
+.menu-drawer.open .menu-items .menu-item:nth-child(9){transition-delay:.44s}
+.menu-drawer.open .menu-items .menu-item:nth-child(10){transition-delay:.48s}
 .menu-item:hover,.menu-item:active{background:rgba(255,255,255,.07)}
 .menu-item-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0}
 .menu-item-badge{margin-left:auto;background:rgba(201,168,76,.25);color:var(--gold);border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:800;letter-spacing:.04em}
-.menu-divider{height:1px;background:rgba(255,255,255,.07);margin:5px 16px}
+.menu-divider{height:1px;background:rgba(255,255,255,.07);margin:5px 16px;opacity:0;transition:opacity .2s .4s}
+.menu-drawer.open .menu-divider{opacity:1}
 .menu-item.logout-item{color:#F1948A}
-.menu-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,.07);font-size:.62rem;color:#4A6A84}
+.menu-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,.07);font-size:.62rem;color:#4A6A84;opacity:0;transition:opacity .2s .52s}
+.menu-drawer.open .menu-footer{opacity:1}
 
 /* ── FULL-SCREEN OVERLAYS (profile, announcements, settings) ─ */
 .fs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;padding:20px 12px}
@@ -349,11 +363,19 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .ann-cat-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .ann-cat-tab{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer;color:var(--muted);transition:all .15s;font-family:var(--font)}
 .ann-cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff}
-.ann-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
-.ann-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
-.ann-title-text{font-size:.92rem;font-weight:800;color:var(--navy)}
+/* Title list items */
+.ann-list-item{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:13px 15px;margin-bottom:8px;cursor:pointer;transition:border-color .18s,box-shadow .18s}
+.ann-list-item:hover{border-color:var(--sky);box-shadow:var(--shadow)}
+.ann-list-item-left{display:flex;flex-direction:column;gap:3px;flex:1}
+.ann-list-title{font-size:.88rem;font-weight:700;color:var(--navy)}
+.ann-list-lang{font-size:.65rem;color:var(--muted)}
+.ann-list-chevron{color:var(--sky);font-size:1rem;flex-shrink:0;margin-left:8px}
+/* Detail card */
+.ann-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.ann-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px}
+.ann-title-text{font-size:.95rem;font-weight:800;color:var(--navy);line-height:1.3}
 .ann-lang-badge{font-size:.65rem;background:var(--ice2);color:var(--sky);border-radius:8px;padding:2px 8px;font-weight:700;flex-shrink:0}
-.ann-content-text{font-size:.83rem;color:#2C3E50;line-height:1.7;white-space:pre-wrap}
+.ann-content-text{font-size:.85rem;color:#2C3E50;line-height:1.75;white-space:pre-wrap}
 .ann-admin-btns{display:flex;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)}
 
 /* ── CREW LINK PROMPT BANNER ─────────────────────────────── */
@@ -361,6 +383,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .crew-link-banner p{font-size:.8rem;font-weight:600;color:var(--navy)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -773,8 +796,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights CSV</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem CSV</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights (.xlsx)</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem (.xlsx)</button>
   </div>
   <div id="log-list"></div>
 </div>
@@ -830,8 +853,37 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
   </div>
 
-  <div class="db-tabs" id="db-tab-bar"></div>
+  <!-- Announcements admin panel (admin only) -->
+  <div class="card" id="db-ann-panel" style="display:none">
+    <div class="card-title">📢 Announcements</div>
+    <div class="form-grid" style="margin-bottom:10px">
+      <div class="field">
+        <label>Category</label>
+        <select id="ann-cat-sel" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
+          <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Language</label>
+        <input type="text" id="ann-lang-inp" value="English"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field full">
+        <label>Title</label>
+        <input type="text" id="ann-title-inp" placeholder="e.g. Welcome Aboard"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field full">
+        <label>Announcement Text</label>
+        <textarea id="ann-content-inp" rows="6" placeholder="Type the full announcement here…"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.85rem;font-family:var(--font);resize:vertical"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveAnnouncement()" style="margin-bottom:12px">💾 Save Announcement</button>
+    <div class="db-list" id="db-ann-list" style="max-height:260px;overflow-y:auto"></div>
+  </div>
 
+  <div class="db-tabs" id="db-tab-bar"></div>
   <div id="db-panels"></div>
 
 </div>
@@ -846,20 +898,19 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="menu-app-version" id="menu-version-text">Version —</div>
   </div>
   <div class="menu-items">
+    <button class="menu-item" onclick="openMenuSection('agent')">
+      <span class="menu-item-icon">🤖</span>Nexa Crew AI
+      <span class="menu-item-badge">Phase 2</span>
+    </button>
     <button class="menu-item" onclick="openMenuSection('announcements')">
       <span class="menu-item-icon">📢</span>Onboard Announcements
-    </button>
-    <div class="menu-divider"></div>
-    <button class="menu-item" onclick="openMenuSection('mydocs')">
-      <span class="menu-item-icon">📁</span>My Documents
-      <span class="menu-item-badge">Phase 2</span>
     </button>
     <button class="menu-item" onclick="openMenuSection('manuals')">
       <span class="menu-item-icon">📖</span>Manuals
       <span class="menu-item-badge">Phase 2</span>
     </button>
-    <button class="menu-item" onclick="openMenuSection('agent')">
-      <span class="menu-item-icon">🤖</span>Ask Crew Agent
+    <button class="menu-item" onclick="openMenuSection('mydocs')">
+      <span class="menu-item-icon">📁</span>My Documents
       <span class="menu-item-badge">Phase 2</span>
     </button>
     <div class="menu-divider"></div>
@@ -871,6 +922,9 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     </button>
     <button class="menu-item" onclick="toast('App version: '+APP_VERSION);closeMenu()">
       <span class="menu-item-icon">ℹ️</span>App Version
+    </button>
+    <button class="menu-item" onclick="openMenuSection('help')">
+      <span class="menu-item-icon">💬</span>Help & Feedback
     </button>
     <div class="menu-divider"></div>
     <button class="menu-item logout-item" onclick="closeMenu();confirmSignOut()">
@@ -944,36 +998,27 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <button class="fs-close" onclick="closeAnn()">✕</button>
     </div>
     <div style="padding:16px">
-      <!-- Admin: add new announcement -->
-      <div id="ann-add-section" style="display:none;margin-bottom:14px">
-        <div class="card">
-          <div class="card-title">➕ Add Announcement</div>
-          <div class="field" style="margin-bottom:8px">
-            <label>Category</label>
-            <select id="ann-cat-sel" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
-              <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option>
-            </select>
-          </div>
-          <div class="field" style="margin-bottom:8px">
-            <label>Title</label>
-            <input type="text" id="ann-title-inp" placeholder="e.g. Welcome Aboard"
-              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
-          </div>
-          <div class="field" style="margin-bottom:10px">
-            <label>Announcement Text</label>
-            <textarea id="ann-content-inp" rows="6" placeholder="Type the full announcement here…"
-              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.85rem;font-family:var(--font);resize:vertical"></textarea>
-          </div>
-          <button class="btn btn-primary" onclick="saveAnnouncement()">💾 Save Announcement</button>
-        </div>
-      </div>
       <!-- Category tabs -->
       <div class="ann-cat-tabs">
         <button class="ann-cat-tab active" onclick="switchAnnCat('Pre-Flight',this)">Pre-Flight</button>
         <button class="ann-cat-tab" onclick="switchAnnCat('Inflight',this)">Inflight</button>
         <button class="ann-cat-tab" onclick="switchAnnCat('After Landing',this)">After Landing</button>
       </div>
+      <!-- List view (titles only) -->
       <div id="ann-list"></div>
+      <!-- Detail view (full announcement) -->
+      <div id="ann-detail" style="display:none">
+        <div class="ann-card">
+          <div class="ann-title-row">
+            <span class="ann-title-text" id="ann-detail-title"></span>
+            <span class="ann-lang-badge" id="ann-detail-lang">English</span>
+          </div>
+          <div class="ann-content-text" id="ann-detail-content"></div>
+          <div style="margin-top:16px">
+            <button class="btn btn-ghost" style="width:100%" onclick="closeAnnDetail()">← Back to List</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1008,6 +1053,41 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div style="margin-top:18px">
         <button class="btn btn-ghost" onclick="closeSettings()" style="width:100%">Close</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HELP & FEEDBACK OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="help-overlay">
+  <div class="fs-modal">
+    <div class="fs-modal-hdr">
+      <h2>💬 Help & Feedback</h2>
+      <button class="fs-close" onclick="closeHelp()">✕</button>
+    </div>
+    <div style="padding:18px">
+      <div class="field" style="margin-bottom:10px">
+        <label>Type</label>
+        <select id="help-type" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
+          <option value="bug">🐛 Report a Bug</option>
+          <option value="feature">💡 Suggest a Feature</option>
+          <option value="contact">📩 Contact Admin</option>
+          <option value="other">📝 Other</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label>Subject</label>
+        <input type="text" id="help-subject" placeholder="Brief summary…"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Details</label>
+        <textarea id="help-message" rows="5" placeholder="Describe the issue or suggestion in detail…"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.85rem;font-family:var(--font);resize:vertical"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="submitFeedback()" style="margin-bottom:10px">📤 Submit</button>
+      <button class="btn btn-ghost" onclick="closeHelp()" style="width:100%">Close</button>
     </div>
   </div>
 </div>
@@ -1415,6 +1495,7 @@ function openMenuSection(section){
   closeMenu();
   if(section === 'announcements'){ loadAnnouncements(); document.getElementById('ann-overlay').classList.add('open'); }
   else if(section === 'settings'){ document.getElementById('settings-overlay').classList.add('open'); }
+  else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
   else { toast('🚧 Coming in Phase 2!'); }
 }
 
@@ -1509,7 +1590,24 @@ function getCachedAnn(){
   try{ return JSON.parse(localStorage.getItem('ccl_ann_cache')||'[]'); }catch{ return []; }
 }
 function closeAnn(){
+  closeAnnDetail();
   document.getElementById('ann-overlay').classList.remove('open');
+}
+function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
+
+async function submitFeedback(){
+  const type    = document.getElementById('help-type').value;
+  const subject = document.getElementById('help-subject').value.trim();
+  const message = document.getElementById('help-message').value.trim();
+  if(!subject || !message){ toast('⚠ Please fill in subject and details.'); return; }
+  const crewName = localStorage.getItem('ccl_crew_name') || currentUser?.email || 'Unknown';
+  try{
+    await sb.from('feedback').insert({ type, subject, message, submitted_by:currentUser?.id, crew_name:crewName });
+  }catch(e){}
+  document.getElementById('help-subject').value = '';
+  document.getElementById('help-message').value = '';
+  toast('✅ Feedback submitted — thank you!');
+  closeHelp();
 }
 function switchAnnCat(cat, btn){
   _annCat = cat;
@@ -1518,23 +1616,42 @@ function switchAnnCat(cat, btn){
   renderAnnList();
 }
 function renderAnnList(){
-  const listEl = document.getElementById('ann-list');
-  const items  = _annCache.filter(a => a.category === _annCat);
+  const listEl  = document.getElementById('ann-list');
+  const detailEl = document.getElementById('ann-detail');
+  if(listEl)  listEl.style.display  = 'block';
+  if(detailEl) detailEl.style.display = 'none';
+
+  const items = _annCache.filter(a => a.category === _annCat);
   if(!items.length){
     listEl.innerHTML = '<div class="empty" style="padding:30px 0"><div class="empty-icon">📢</div><h3>No announcements yet</h3><p>Nothing in this category.</p></div>';
     return;
   }
   listEl.innerHTML = items.map(a => `
-    <div class="ann-card">
-      <div class="ann-title-row">
-        <span class="ann-title-text">${escHtml(a.title)}</span>
-        <span class="ann-lang-badge">${a.language||'English'}</span>
+    <div class="ann-list-item" onclick="openAnnDetail('${a.id}')">
+      <div class="ann-list-item-left">
+        <div class="ann-list-title">${escHtml(a.title)}</div>
+        <div class="ann-list-lang">${a.language||'English'}</div>
       </div>
-      <div class="ann-content-text">${escHtml(a.content)}</div>
-      ${isAdmin ? `<div class="ann-admin-btns">
-        <button class="btn btn-danger btn-sm" onclick="deleteAnn('${a.id}')">🗑 Delete</button>
-      </div>` : ''}
+      <span class="ann-list-chevron">›</span>
     </div>`).join('');
+}
+
+function openAnnDetail(id){
+  const a = _annCache.find(x => x.id === id);
+  if(!a) return;
+  document.getElementById('ann-detail-title').textContent   = a.title;
+  document.getElementById('ann-detail-lang').textContent    = a.language || 'English';
+  document.getElementById('ann-detail-content').textContent = a.content;
+  document.getElementById('ann-list').style.display   = 'none';
+  document.getElementById('ann-detail').style.display = 'block';
+  // Scroll modal to top
+  const overlay = document.getElementById('ann-overlay');
+  if(overlay) overlay.scrollTop = 0;
+}
+
+function closeAnnDetail(){
+  document.getElementById('ann-detail').style.display = 'none';
+  document.getElementById('ann-list').style.display   = 'block';
 }
 async function saveAnnouncement(){
   if(!isAdmin){ toast('⚠ Admin only.'); return; }
@@ -1555,6 +1672,7 @@ async function saveAnnouncement(){
     b.classList.toggle('active', ['Pre-Flight','Inflight','After Landing'][i] === cat);
   });
   renderAnnList();
+  renderDBAnnList();
   toast('✅ Announcement saved!');
 }
 async function deleteAnn(id){
@@ -1564,6 +1682,7 @@ async function deleteAnn(id){
   _annCache = _annCache.filter(a => a.id !== id);
   localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
   renderAnnList();
+  renderDBAnnList();
   toast('🗑 Announcement deleted.');
 }
 
@@ -1769,7 +1888,7 @@ function showTab(name){
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
   if(name==='log')     renderLog();
-  if(name==='db')      renderDB();
+  if(name==='db'){ loadAnnouncements().then(()=>renderDB()); }
   if(name==='perdiem') renderPerDiemTab();
 }
 
@@ -2377,12 +2496,31 @@ function renderPerDiemTab(){
 // DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
+  // Show announcements panel for admins only
+  const annPanel = document.getElementById('db-ann-panel');
+  if(annPanel) annPanel.style.display = isAdmin ? 'block' : 'none';
+  if(isAdmin) renderDBAnnList();
+
   const bar=document.getElementById('db-tab-bar');
   bar.innerHTML=Object.entries(DB_SCHEMA).map(([k,s])=>
     `<button class="db-tab ${k===currentDbTab?'active':''}" onclick="switchDbTab('${k}')">${s.icon} ${s.label}</button>`
   ).join('');
   const panels=document.getElementById('db-panels');
   panels.innerHTML=Object.entries(DB_SCHEMA).map(([k,s])=>renderDBPanel(k,s)).join('');
+}
+
+function renderDBAnnList(){
+  const listEl = document.getElementById('db-ann-list');
+  if(!listEl) return;
+  if(!_annCache.length){ listEl.innerHTML='<div class="db-empty">No announcements yet.</div>'; return; }
+  listEl.innerHTML = _annCache.map((a,i) => `
+    <div class="db-item">
+      <div style="flex:1">
+        <div class="db-item-text">${escHtml(a.title)}</div>
+        <div class="db-item-sub">${a.category} · ${a.language||'English'}</div>
+      </div>
+      <button class="btn btn-danger btn-icon btn-sm" onclick="deleteAnn('${a.id}')">✕</button>
+    </div>`).join('');
 }
 
 function renderDBPanel(key,schema){
@@ -2523,30 +2661,54 @@ async function removeDBItem(key,id){
 // EXPORT (CSV only — shared DB lives in the cloud now)
 // ═══════════════════════════════════════════════
 function exportCSV(){
-  const data=cache.flights;
+  const data = cache.flights;
   if(!data.length){ toast('Nothing to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
-  const meta = `"Exported by:","${crewName}"\n"Export date:","${today()}"\n\n`;
-  const headers=['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status'];
-  const rows=data.map(e=>[e.date,e.flightNum,e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.firstAid,e.blockTime,e.delay,e.delayReason,e.status]
-    .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv=meta+[headers.join(','),...rows].join('\n');
-  const safeName=crewName.replace(/[^a-zA-Z0-9]/g,'-');
-  dl(new Blob([csv],{type:'text/csv'}),`${safeName}-Flights-${today()}.csv`);
-  toast('📥 CSV exported!');
+  const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
+
+  // Meta rows at top
+  const meta = [
+    ['Exported by:', crewName],
+    ['Export date:', today()],
+    [],
+    ['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status']
+  ];
+  const rows = data.map(e=>[
+    e.date, e.flightNum, e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),
+    e.dep, e.arr, e.reg, e.actype, e.position, e.captain, e.fo,
+    e.crew, e.pax, e.std, e.sta, e.safety, e.firstAid,
+    e.blockTime, e.delay, e.delayReason, e.status
+  ].map(v => v??''));
+
+  const ws = XLSX.utils.aoa_to_sheet([...meta, ...rows]);
+  // Bold the header row (row 4, index 3)
+  ws['!cols'] = Array(20).fill({wch:16});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Flights');
+  XLSX.writeFile(wb, `${safeName}-Flights-${today()}.xlsx`);
+  toast('📥 Excel file exported!');
 }
+
 function exportPerDiemCSV(){
-  const data=cache.perDiem;
+  const data = cache.perDiem;
   if(!data.length){ toast('No per diem data to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
-  const meta = `"Exported by:","${crewName}"\n"Export date:","${today()}"\n\n`;
-  const headers=['Date','Flight Number','Nights','Amount (USD)','Notes'];
-  const rows=data.map(p=>[p.date,p.flightNum,p.nights,p.nights*PERDIEM_RATE,p.notes]
-    .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv=meta+[headers.join(','),...rows].join('\n');
-  const safeName=crewName.replace(/[^a-zA-Z0-9]/g,'-');
-  dl(new Blob([csv],{type:'text/csv'}),`${safeName}-PerDiem-${today()}.csv`);
-  toast('📥 Per diem CSV exported!');
+  const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
+
+  const meta = [
+    ['Exported by:', crewName],
+    ['Export date:', today()],
+    [],
+    ['Date','Flight Number','Nights','Amount (USD)','Notes']
+  ];
+  const rows = data.map(p => [p.date, p.flightNum, p.nights, p.nights*PERDIEM_RATE, p.notes||'']);
+
+  const ws = XLSX.utils.aoa_to_sheet([...meta, ...rows]);
+  ws['!cols'] = Array(5).fill({wch:18});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Per Diem');
+  XLSX.writeFile(wb, `${safeName}-PerDiem-${today()}.xlsx`);
+  toast('📥 Excel file exported!');
 }
 function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
 function today(){ return new Date().toISOString().slice(0,10); }
