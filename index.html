@@ -303,6 +303,62 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .route-arrow-sep{color:var(--gold);font-size:1rem;font-weight:900;flex-shrink:0}
 
 @keyframes pulse{50%{opacity:.3}}
+
+/* ── HAMBURGER MENU BUTTON ───────────────────────────────── */
+.menu-btn{background:none;border:none;cursor:pointer;padding:6px 8px;display:flex;flex-direction:column;gap:5px;align-items:center;margin-right:6px;flex-shrink:0}
+.menu-btn span{display:block;width:20px;height:2.5px;background:#fff;border-radius:2px;transition:all .25s}
+
+/* ── MENU DRAWER ─────────────────────────────────────────── */
+.menu-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300}
+.menu-overlay.open{display:block}
+.menu-drawer{position:fixed;top:0;left:-290px;width:272px;height:100%;background:var(--navy);z-index:301;transition:left .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+.menu-drawer.open{left:0}
+.menu-drawer-header{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.menu-app-name{font-size:1rem;font-weight:800;color:#fff;letter-spacing:.02em}
+.menu-app-version{font-size:.68rem;color:#7A9BB8;margin-top:3px}
+.menu-items{flex:1;overflow-y:auto;padding:6px 0}
+.menu-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:#cfe0ee;font-size:.88rem;font-weight:600;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:var(--font);transition:background .15s}
+.menu-item:hover,.menu-item:active{background:rgba(255,255,255,.07)}
+.menu-item-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0}
+.menu-item-badge{margin-left:auto;background:rgba(201,168,76,.25);color:var(--gold);border:1px solid rgba(201,168,76,.4);border-radius:10px;padding:1px 8px;font-size:.62rem;font-weight:800;letter-spacing:.04em}
+.menu-divider{height:1px;background:rgba(255,255,255,.07);margin:5px 16px}
+.menu-item.logout-item{color:#F1948A}
+.menu-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,.07);font-size:.62rem;color:#4A6A84}
+
+/* ── FULL-SCREEN OVERLAYS (profile, announcements, settings) ─ */
+.fs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;overflow-y:auto;padding:20px 12px}
+.fs-overlay.open{display:block}
+.fs-modal{background:#fff;border-radius:18px;max-width:460px;margin:0 auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.fs-modal-hdr{background:var(--navy);color:#fff;padding:15px 18px;display:flex;justify-content:space-between;align-items:center}
+.fs-modal-hdr h2{font-size:.98rem;font-weight:800}
+.fs-close{background:none;border:none;color:#7A9BB8;font-size:1.4rem;cursor:pointer;line-height:1;padding:0 4px}
+
+/* ── PROFILE MODAL ───────────────────────────────────────── */
+.profile-avatar-lg{width:64px;height:64px;border-radius:50%;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;margin:0 auto 10px}
+.profile-hdr-inner{padding:20px;text-align:center;background:var(--navy)}
+.profile-name-hdr{color:#fff;font-size:1rem;font-weight:800}
+.profile-email-hdr{color:#7A9BB8;font-size:.75rem;margin-top:2px}
+.psection{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+.psection::after{content:'';flex:1;height:1px;background:var(--border2)}
+.prow{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border2)}
+.prow:last-child{border-bottom:none}
+.prow-lbl{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
+.prow-val{font-size:.85rem;font-weight:600;color:var(--navy);text-align:right}
+
+/* ── ANNOUNCEMENTS ───────────────────────────────────────── */
+.ann-cat-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.ann-cat-tab{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer;color:var(--muted);transition:all .15s;font-family:var(--font)}
+.ann-cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.ann-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.ann-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.ann-title-text{font-size:.92rem;font-weight:800;color:var(--navy)}
+.ann-lang-badge{font-size:.65rem;background:var(--ice2);color:var(--sky);border-radius:8px;padding:2px 8px;font-weight:700;flex-shrink:0}
+.ann-content-text{font-size:.83rem;color:#2C3E50;line-height:1.7;white-space:pre-wrap}
+.ann-admin-btns{display:flex;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)}
+
+/* ── CREW LINK PROMPT BANNER ─────────────────────────────── */
+.crew-link-banner{background:rgba(201,168,76,.12);border:1.5px solid var(--gold);border-radius:var(--radius);padding:12px 15px;margin:12px 14px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.crew-link-banner p{font-size:.8rem;font-weight:600;color:var(--navy)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -353,7 +409,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 <!-- ── HEADER ─────────────────────────────────────────────── -->
 <header>
   <div class="hdr-top">
-    <div class="brand">
+    <div class="brand" style="display:flex;align-items:center;gap:8px">
+      <button class="menu-btn" onclick="openMenu()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
       <div class="brand-icon">✈</div>
       <div>
         <h1>CREW LOGBOOK</h1>
@@ -366,7 +425,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <div class="num" id="hdr-total">0</div>
         <div class="lbl">Flights</div>
       </div>
-      <div class="user-pill" id="user-pill" onclick="confirmSignOut()" title="Tap to sign out">
+      <div class="user-pill" id="user-pill" onclick="openProfile()" title="My Profile">
         <div class="user-pill-avatar" id="user-avatar">?</div>
         <div class="user-pill-email" id="user-email-display"></div>
       </div>
@@ -528,8 +587,8 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field full">
         <label>Number of Sectors</label>
         <select id="f-sector-count" onchange="buildRouteFields()">
-          <option value="1">1 Sector — e.g. EBB → LGW</option>
-          <option value="2">2 Sectors — e.g. EBB → JNB → EBB</option>
+          <option value="1">1 Sector — e.g. EBB → NBO</option>
+          <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
           <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
           <option value="4">4 Sectors — e.g. EBB → NBO → EBB → BJM → EBB</option>
         </select>
@@ -775,6 +834,182 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
   <div id="db-panels"></div>
 
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MENU DRAWER
+════════════════════════════════════════════════════════════ -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+<div class="menu-drawer" id="menu-drawer">
+  <div class="menu-drawer-header">
+    <div class="menu-app-name">✈ Crew Logbook</div>
+    <div class="menu-app-version" id="menu-version-text">Version —</div>
+  </div>
+  <div class="menu-items">
+    <button class="menu-item" onclick="openMenuSection('announcements')">
+      <span class="menu-item-icon">📢</span>Onboard Announcements
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item" onclick="openMenuSection('mydocs')">
+      <span class="menu-item-icon">📁</span>My Documents
+      <span class="menu-item-badge">Phase 2</span>
+    </button>
+    <button class="menu-item" onclick="openMenuSection('manuals')">
+      <span class="menu-item-icon">📖</span>Manuals
+      <span class="menu-item-badge">Phase 2</span>
+    </button>
+    <button class="menu-item" onclick="openMenuSection('agent')">
+      <span class="menu-item-icon">🤖</span>Ask Crew Agent
+      <span class="menu-item-badge">Phase 2</span>
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item" onclick="openMenuSection('settings')">
+      <span class="menu-item-icon">⚙️</span>Settings
+    </button>
+    <button class="menu-item" onclick="checkForUpdates()">
+      <span class="menu-item-icon">🔄</span>Check for Updates
+    </button>
+    <button class="menu-item" onclick="toast('App version: '+APP_VERSION);closeMenu()">
+      <span class="menu-item-icon">ℹ️</span>App Version
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item logout-item" onclick="closeMenu();confirmSignOut()">
+      <span class="menu-item-icon">🚪</span>Logout
+    </button>
+  </div>
+  <div class="menu-footer">Crew Logbook · Concept House</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PROFILE MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="profile-overlay">
+  <div class="fs-modal">
+    <div class="profile-hdr-inner">
+      <div class="profile-avatar-lg" id="profile-avatar-lg">?</div>
+      <div class="profile-name-hdr" id="profile-name-hdr">—</div>
+      <div class="profile-email-hdr" id="profile-email-hdr">—</div>
+    </div>
+    <div style="padding:18px">
+
+      <div class="psection">Crew Identity</div>
+      <div class="prow"><span class="prow-lbl">Linked Crew Name</span><span class="prow-val" id="profile-crew-name">Not linked</span></div>
+      <div class="prow"><span class="prow-lbl">Default Position</span><span class="prow-val" id="profile-position-display">—</span></div>
+
+      <div class="psection" style="margin-top:18px">Link Your Name</div>
+      <div class="field" style="margin-bottom:9px">
+        <label>Select your name from the crew list</label>
+        <div class="combo-wrap">
+          <input type="text" id="profile-crew-input" placeholder="Type your name…" autocomplete="off"
+            oninput="filterCombo('profile-crew-input','dd-profile-crew',getDB('crewNames'))"
+            onfocus="filterCombo('profile-crew-input','dd-profile-crew',getDB('crewNames'))"
+            onblur="delayClose('dd-profile-crew')"/>
+          <div class="combo-dropdown" id="dd-profile-crew"></div>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Default Position</label>
+        <select id="profile-position-sel" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
+          <option value="">Select…</option>
+          <option>Senior Purser</option><option>Purser</option>
+          <option>Cabin Crew</option><option>Trainee</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="saveProfile()" style="margin-bottom:6px">💾 Save Profile</button>
+
+      <div class="psection" style="margin-top:16px">Change Password</div>
+      <div class="field" style="margin-bottom:8px">
+        <label>New Password (min 8 characters)</label>
+        <input type="password" id="profile-new-pw" placeholder="New password"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Confirm New Password</label>
+        <input type="password" id="profile-new-pw2" placeholder="Repeat password"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <button class="btn btn-ghost" onclick="changePassword()" style="width:100%;margin-bottom:12px">🔒 Update Password</button>
+      <button class="btn btn-ghost" onclick="closeProfile()" style="width:100%">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ANNOUNCEMENTS OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="ann-overlay">
+  <div class="fs-modal" style="max-width:500px">
+    <div class="fs-modal-hdr">
+      <h2>📢 Onboard Announcements</h2>
+      <button class="fs-close" onclick="closeAnn()">✕</button>
+    </div>
+    <div style="padding:16px">
+      <!-- Admin: add new announcement -->
+      <div id="ann-add-section" style="display:none;margin-bottom:14px">
+        <div class="card">
+          <div class="card-title">➕ Add Announcement</div>
+          <div class="field" style="margin-bottom:8px">
+            <label>Category</label>
+            <select id="ann-cat-sel" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
+              <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:8px">
+            <label>Title</label>
+            <input type="text" id="ann-title-inp" placeholder="e.g. Welcome Aboard"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <label>Announcement Text</label>
+            <textarea id="ann-content-inp" rows="6" placeholder="Type the full announcement here…"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.85rem;font-family:var(--font);resize:vertical"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveAnnouncement()">💾 Save Announcement</button>
+        </div>
+      </div>
+      <!-- Category tabs -->
+      <div class="ann-cat-tabs">
+        <button class="ann-cat-tab active" onclick="switchAnnCat('Pre-Flight',this)">Pre-Flight</button>
+        <button class="ann-cat-tab" onclick="switchAnnCat('Inflight',this)">Inflight</button>
+        <button class="ann-cat-tab" onclick="switchAnnCat('After Landing',this)">After Landing</button>
+      </div>
+      <div id="ann-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SETTINGS OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="settings-overlay">
+  <div class="fs-modal">
+    <div class="fs-modal-hdr">
+      <h2>⚙️ Settings</h2>
+      <button class="fs-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div style="padding:18px">
+      <div class="detail-row">
+        <span class="d-lbl">Dark Mode</span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode(this.checked)" style="width:18px;height:18px;cursor:pointer"/>
+          <span style="font-size:.82rem;color:var(--muted)">Enable</span>
+        </label>
+      </div>
+      <div class="detail-row">
+        <span class="d-lbl">Language</span>
+        <select id="lang-sel" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 10px;font-size:.82rem;font-family:var(--font)">
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="detail-row">
+        <span class="d-lbl">App Version</span>
+        <span class="d-val" id="settings-version">—</span>
+      </div>
+      <div style="margin-top:18px">
+        <button class="btn btn-ghost" onclick="closeSettings()" style="width:100%">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── FAB ─────────────────────────────────────────────────── -->
@@ -1127,18 +1362,239 @@ async function doSignUp(){
 
 function confirmSignOut(){
   const name = document.getElementById('user-email-display').textContent || 'your account';
-  if(confirm(`Sign out of ${name}?`)){
-    sb.auth.signOut();
+  if(confirm(`Sign out of ${name}?`)) sb.auth.signOut();
+}
+
+// ═══════════════════════════════════════════════
+// APP VERSION
+// ═══════════════════════════════════════════════
+const APP_VERSION = '1.0.0';
+
+async function loadAppVersion(){
+  const verEl  = document.getElementById('menu-version-text');
+  const setEl  = document.getElementById('settings-version');
+  if(verEl) verEl.textContent = `Version ${APP_VERSION}`;
+  if(setEl) setEl.textContent = APP_VERSION;
+  if(!isOnline) return;
+  try{
+    const { data } = await sb.from('app_config').select('value').eq('key','app_version').single();
+    if(data?.value && data.value !== APP_VERSION){
+      if(verEl) verEl.textContent = `v${APP_VERSION} · ⚡ Update available`;
+    }
+  }catch{}
+}
+
+async function checkForUpdates(){
+  closeMenu();
+  if(!isOnline){ toast('📴 Connect to the internet to check for updates.'); return; }
+  try{
+    const { data } = await sb.from('app_config').select('value').eq('key','app_version').single();
+    const latest = data?.value || APP_VERSION;
+    if(latest === APP_VERSION){
+      toast(`✅ You're on the latest version (${APP_VERSION}).`);
+    } else {
+      if(confirm(`New version ${latest} available!\nYou have ${APP_VERSION}.\n\nReload now to update?`)){
+        window.location.reload(true);
+      }
+    }
+  }catch{ toast('⚠ Could not check for updates.'); }
+}
+
+// ═══════════════════════════════════════════════
+// MENU DRAWER
+// ═══════════════════════════════════════════════
+function openMenu(){
+  document.getElementById('menu-overlay').classList.add('open');
+  document.getElementById('menu-drawer').classList.add('open');
+}
+function closeMenu(){
+  document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-drawer').classList.remove('open');
+}
+function openMenuSection(section){
+  closeMenu();
+  if(section === 'announcements'){ loadAnnouncements(); document.getElementById('ann-overlay').classList.add('open'); }
+  else if(section === 'settings'){ document.getElementById('settings-overlay').classList.add('open'); }
+  else { toast('🚧 Coming in Phase 2!'); }
+}
+
+// ═══════════════════════════════════════════════
+// PROFILE MODAL
+// ═══════════════════════════════════════════════
+async function openProfile(){
+  const overlay = document.getElementById('profile-overlay');
+  overlay.classList.add('open');
+  const displayName = document.getElementById('user-email-display').textContent || '—';
+  const email = currentUser?.email || '—';
+  document.getElementById('profile-avatar-lg').textContent = displayName.charAt(0).toUpperCase();
+  document.getElementById('profile-name-hdr').textContent = displayName;
+  document.getElementById('profile-email-hdr').textContent = email;
+  // Load latest profile from Supabase
+  try{
+    const { data } = await sb.from('profiles').select('full_name,crew_name,position,is_admin').eq('id',currentUser.id).single();
+    document.getElementById('profile-crew-name').textContent = data?.crew_name || 'Not linked';
+    document.getElementById('profile-position-display').textContent = data?.position || '—';
+    document.getElementById('profile-crew-input').value = data?.crew_name || '';
+    document.getElementById('profile-position-sel').value = data?.position || '';
+  }catch{}
+}
+function closeProfile(){
+  document.getElementById('profile-overlay').classList.remove('open');
+}
+async function saveProfile(){
+  const crewName = document.getElementById('profile-crew-input').value.trim();
+  const position = document.getElementById('profile-position-sel').value;
+  if(!crewName){ toast('⚠ Select your name from the crew list.'); return; }
+  const { error } = await sb.from('profiles').update({ crew_name: crewName, position }).eq('id', currentUser.id);
+  if(error){ toast('⚠ '+error.message); return; }
+  localStorage.setItem('ccl_crew_name', crewName);
+  localStorage.setItem('ccl_position', position);
+  document.getElementById('profile-crew-name').textContent = crewName;
+  document.getElementById('profile-position-display').textContent = position || '—';
+  // Remove the link banner if it was showing
+  const banner = document.getElementById('crew-link-banner');
+  if(banner) banner.remove();
+  toast('✅ Profile saved!');
+  closeProfile();
+}
+async function changePassword(){
+  const pw  = document.getElementById('profile-new-pw').value;
+  const pw2 = document.getElementById('profile-new-pw2').value;
+  if(pw.length < 8){ toast('⚠ Password must be at least 8 characters.'); return; }
+  if(pw !== pw2){ toast('⚠ Passwords do not match.'); return; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if(error){ toast('⚠ '+error.message); return; }
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-new-pw2').value = '';
+  toast('✅ Password updated successfully!');
+}
+
+// ═══════════════════════════════════════════════
+// CREW NAME LINK PROMPT
+// ═══════════════════════════════════════════════
+function checkCrewNameLinked(profile){
+  const existing = document.getElementById('crew-link-banner');
+  if(existing) existing.remove();
+  if(!profile?.crew_name){
+    const banner = document.createElement('div');
+    banner.id = 'crew-link-banner';
+    banner.className = 'crew-link-banner';
+    banner.innerHTML = `<p>👤 Link your crew name to complete your profile</p>
+      <button class="btn btn-gold btn-sm" onclick="openProfile()">Set Up</button>`;
+    const dash = document.getElementById('tab-dash');
+    if(dash) dash.insertAdjacentElement('afterbegin', banner);
   }
 }
+
+// ═══════════════════════════════════════════════
+// ANNOUNCEMENTS
+// ═══════════════════════════════════════════════
+let _annCache = [];
+let _annCat   = 'Pre-Flight';
+
+async function loadAnnouncements(){
+  document.getElementById('ann-add-section').style.display = isAdmin ? 'block' : 'none';
+  if(isOnline){
+    try{
+      const { data } = await sb.from('announcements').select('*').order('sort_order').order('created_at');
+      _annCache = data || [];
+      localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+    }catch{ _annCache = getCachedAnn(); }
+  } else {
+    _annCache = getCachedAnn();
+  }
+  renderAnnList();
+}
+function getCachedAnn(){
+  try{ return JSON.parse(localStorage.getItem('ccl_ann_cache')||'[]'); }catch{ return []; }
+}
+function closeAnn(){
+  document.getElementById('ann-overlay').classList.remove('open');
+}
+function switchAnnCat(cat, btn){
+  _annCat = cat;
+  document.querySelectorAll('.ann-cat-tab').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderAnnList();
+}
+function renderAnnList(){
+  const listEl = document.getElementById('ann-list');
+  const items  = _annCache.filter(a => a.category === _annCat);
+  if(!items.length){
+    listEl.innerHTML = '<div class="empty" style="padding:30px 0"><div class="empty-icon">📢</div><h3>No announcements yet</h3><p>Nothing in this category.</p></div>';
+    return;
+  }
+  listEl.innerHTML = items.map(a => `
+    <div class="ann-card">
+      <div class="ann-title-row">
+        <span class="ann-title-text">${escHtml(a.title)}</span>
+        <span class="ann-lang-badge">${a.language||'English'}</span>
+      </div>
+      <div class="ann-content-text">${escHtml(a.content)}</div>
+      ${isAdmin ? `<div class="ann-admin-btns">
+        <button class="btn btn-danger btn-sm" onclick="deleteAnn('${a.id}')">🗑 Delete</button>
+      </div>` : ''}
+    </div>`).join('');
+}
+async function saveAnnouncement(){
+  if(!isAdmin){ toast('⚠ Admin only.'); return; }
+  const cat     = document.getElementById('ann-cat-sel').value;
+  const title   = document.getElementById('ann-title-inp').value.trim();
+  const content = document.getElementById('ann-content-inp').value.trim();
+  if(!title || !content){ toast('⚠ Title and announcement text are required.'); return; }
+  const { data, error } = await sb.from('announcements')
+    .insert({ category: cat, title, content, language: 'English', added_by: currentUser.id })
+    .select().single();
+  if(error){ toast('⚠ '+error.message); return; }
+  _annCache.push(data);
+  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+  document.getElementById('ann-title-inp').value = '';
+  document.getElementById('ann-content-inp').value = '';
+  _annCat = cat;
+  document.querySelectorAll('.ann-cat-tab').forEach((b,i) => {
+    b.classList.toggle('active', ['Pre-Flight','Inflight','After Landing'][i] === cat);
+  });
+  renderAnnList();
+  toast('✅ Announcement saved!');
+}
+async function deleteAnn(id){
+  if(!confirm('Delete this announcement for all crew?')) return;
+  const { error } = await sb.from('announcements').delete().eq('id', id);
+  if(error){ toast('⚠ '+error.message); return; }
+  _annCache = _annCache.filter(a => a.id !== id);
+  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+  renderAnnList();
+  toast('🗑 Announcement deleted.');
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+function closeSettings(){
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+function toggleDarkMode(on){
+  document.body.classList.toggle('dark-mode', on);
+  localStorage.setItem('ccl_dark_mode', on ? '1' : '0');
+}
+
+// ═══════════════════════════════════════════════
+// HELPER
+// ═══════════════════════════════════════════════
+function escHtml(str){
+  if(!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+
 
 async function onLoggedIn(){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('auth-screen').style.display='none';
 
-  // Fetch profile — name + admin status
+  // Fetch profile — name + admin + crew name + position
   const { data: profile } = await sb.from('profiles')
-    .select('full_name, is_admin').eq('id', currentUser.id).single();
+    .select('full_name, is_admin, crew_name, position').eq('id', currentUser.id).single();
 
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
   isAdmin = profile?.is_admin === true;
@@ -1146,15 +1602,32 @@ async function onLoggedIn(){
   document.getElementById('user-email-display').textContent = displayName;
   document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
+  // Cache crew name + position for CSV exports
+  if(profile?.crew_name) localStorage.setItem('ccl_crew_name', profile.crew_name);
+  if(profile?.position)  localStorage.setItem('ccl_position', profile.position);
+
   // Show Database tab only for admins
   const dbTabBtn = document.getElementById('tab-btn-db');
   if(dbTabBtn) dbTabBtn.style.display = isAdmin ? '' : 'none';
 
-  // Show admin badge on user pill if admin
+  // Gold avatar for admin
   if(isAdmin){
     const pill = document.getElementById('user-pill');
-    if(pill) pill.title = 'Admin — tap to sign out';
+    if(pill) pill.title = 'Admin · My Profile';
     document.getElementById('user-avatar').style.background = 'var(--gold)';
+  }
+
+  // Prompt crew to link their name if not done yet
+  checkCrewNameLinked(profile);
+
+  // Load app version
+  loadAppVersion();
+
+  // Restore dark mode preference
+  if(localStorage.getItem('ccl_dark_mode') === '1'){
+    document.body.classList.add('dark-mode');
+    const t = document.getElementById('dark-mode-toggle');
+    if(t) t.checked = true;
   }
 
   await refreshAllData();
@@ -2052,20 +2525,27 @@ async function removeDBItem(key,id){
 function exportCSV(){
   const data=cache.flights;
   if(!data.length){ toast('Nothing to export.'); return; }
-  const headers=['Date','Flight','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','Safety Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status'];
-  const rows=data.map(e=>[e.date,e.flightNum,e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.firstAid,e.blockTime,e.delay,e.delayReason,e.status]
+  const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
+  const meta = `"Exported by:","${crewName}"\n"Export date:","${today()}"\n\n`;
+  const headers=['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status'];
+  const rows=data.map(e=>[e.date,e.flightNum,e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),e.dep,e.arr,e.reg,e.actype,e.position,e.captain,e.fo,e.crew,e.pax,e.std,e.sta,e.safety,e.firstAid,e.blockTime,e.delay,e.delayReason,e.status]
     .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv=[headers.join(','),...rows].join('\n');
-  dl(new Blob([csv],{type:'text/csv'}),`crew-logbook-${today()}.csv`);
+  const csv=meta+[headers.join(','),...rows].join('\n');
+  const safeName=crewName.replace(/[^a-zA-Z0-9]/g,'-');
+  dl(new Blob([csv],{type:'text/csv'}),`${safeName}-Flights-${today()}.csv`);
   toast('📥 CSV exported!');
 }
 function exportPerDiemCSV(){
   const data=cache.perDiem;
   if(!data.length){ toast('No per diem data to export.'); return; }
+  const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
+  const meta = `"Exported by:","${crewName}"\n"Export date:","${today()}"\n\n`;
   const headers=['Date','Flight Number','Nights','Amount (USD)','Notes'];
-  const rows=data.map(p=>[p.date,p.flightNum,p.nights,p.nights*PERDIEM_RATE,p.notes].map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv=[headers.join(','),...rows].join('\n');
-  dl(new Blob([csv],{type:'text/csv'}),`per-diem-${today()}.csv`);
+  const rows=data.map(p=>[p.date,p.flightNum,p.nights,p.nights*PERDIEM_RATE,p.notes]
+    .map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv=meta+[headers.join(','),...rows].join('\n');
+  const safeName=crewName.replace(/[^a-zA-Z0-9]/g,'-');
+  dl(new Blob([csv],{type:'text/csv'}),`${safeName}-PerDiem-${today()}.csv`);
   toast('📥 Per diem CSV exported!');
 }
 function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
