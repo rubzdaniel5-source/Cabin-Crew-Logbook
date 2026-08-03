@@ -1574,7 +1574,6 @@ let _annCache = [];
 let _annCat   = 'Pre-Flight';
 
 async function loadAnnouncements(){
-  document.getElementById('ann-add-section').style.display = isAdmin ? 'block' : 'none';
   if(isOnline){
     try{
       const { data } = await sb.from('announcements').select('*').order('sort_order').order('created_at');
