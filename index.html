@@ -403,6 +403,39 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .upload-progress-bar{height:8px;background:var(--border2);border-radius:4px;overflow:hidden;margin-top:6px}
 .upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--sky),var(--gold));border-radius:4px;width:0;transition:width .3s}
 
+/* ── NEXA CREW AI ────────────────────────────────────────── */
+.nexa-overlay{display:none;position:fixed;inset:0;background:var(--navy);z-index:600;flex-direction:column}
+.nexa-overlay.open{display:flex}
+.nexa-header{background:#0a1628;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)}
+.nexa-avatar{width:36px;height:36px;background:linear-gradient(135deg,#1C6EAF,#C9A84C);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.nexa-title-wrap{flex:1}
+.nexa-title{color:#fff;font-size:.92rem;font-weight:800}
+.nexa-subtitle{color:#7A9BB8;font-size:.65rem;margin-top:1px}
+.nexa-close{background:none;border:none;color:#7A9BB8;font-size:1.3rem;cursor:pointer;padding:0 4px;line-height:1}
+.nexa-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;-webkit-overflow-scrolling:touch}
+.nexa-msg{display:flex;gap:10px;align-items:flex-start;max-width:100%}
+.nexa-msg.user{flex-direction:row-reverse}
+.nexa-bubble{padding:11px 14px;border-radius:16px;font-size:.85rem;line-height:1.6;max-width:82%;word-break:break-word}
+.nexa-msg.assistant .nexa-bubble{background:rgba(255,255,255,.07);color:#e8f0f8;border-bottom-left-radius:4px}
+.nexa-msg.user .nexa-bubble{background:var(--sky);color:#fff;border-bottom-right-radius:4px}
+.nexa-msg-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:2px}
+.nexa-msg.assistant .nexa-msg-avatar{background:linear-gradient(135deg,#1C6EAF,#C9A84C)}
+.nexa-msg.user .nexa-msg-avatar{background:var(--sky)}
+.nexa-typing{display:flex;align-items:center;gap:5px;padding:11px 14px;background:rgba(255,255,255,.07);border-radius:16px;border-bottom-left-radius:4px;width:fit-content}
+.nexa-typing span{width:7px;height:7px;background:#7A9BB8;border-radius:50%;animation:nexaBounce .9s infinite}
+.nexa-typing span:nth-child(2){animation-delay:.15s}
+.nexa-typing span:nth-child(3){animation-delay:.30s}
+@keyframes nexaBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.nexa-input-bar{background:#0a1628;padding:10px 14px;display:flex;gap:8px;align-items:flex-end;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.nexa-inp{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 14px;color:#fff;font-size:.88rem;font-family:var(--font);resize:none;min-height:42px;max-height:120px;line-height:1.4}
+.nexa-inp::placeholder{color:rgba(255,255,255,.35)}
+.nexa-inp:focus{outline:none;border-color:var(--gold)}
+.nexa-send{background:var(--gold);color:var(--navy);border:none;border-radius:10px;width:42px;height:42px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
+.nexa-send:disabled{opacity:.4;cursor:not-allowed}
+.nexa-api-key-prompt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:14px}
+.nexa-key-inp{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px 14px;color:#fff;font-size:.85rem;font-family:var(--font);text-align:center}
+.nexa-key-inp:focus{outline:none;border-color:var(--gold)}
+
 /* ── CREW LINK PROMPT BANNER ─────────────────────────────── */
 .crew-link-banner{background:rgba(201,168,76,.12);border:1.5px solid var(--gold);border-radius:var(--radius);padding:12px 15px;margin:12px 14px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .crew-link-banner p{font-size:.8rem;font-weight:600;color:var(--navy)}
@@ -968,7 +1001,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div class="menu-items">
     <button class="menu-item" onclick="openMenuSection('agent')">
       <span class="menu-item-icon">🤖</span>Nexa Crew AI
-      <span class="menu-item-badge">Phase 2</span>
     </button>
     <button class="menu-item" onclick="openMenuSection('announcements')">
       <span class="menu-item-icon">📢</span>Onboard Announcements
@@ -1179,6 +1211,43 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
   <!-- Canvas scroll container -->
   <div id="ios-pdf-canvas-wrap" style="display:none;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#3a3a3a;padding:12px 8px;box-sizing:border-box"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NEXA CREW AI OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="nexa-overlay" id="nexa-overlay">
+  <div class="nexa-header">
+    <div class="nexa-avatar">🤖</div>
+    <div class="nexa-title-wrap">
+      <div class="nexa-title">Nexa Crew AI</div>
+      <div class="nexa-subtitle" id="nexa-status">Powered by Claude · Ready</div>
+    </div>
+    <button class="nexa-close" onclick="closeNexa()">✕</button>
+  </div>
+
+  <!-- API key setup prompt (shown until key is entered) -->
+  <div class="nexa-api-key-prompt" id="nexa-key-prompt" style="display:none">
+    <div style="font-size:2.5rem">🔑</div>
+    <div style="color:#fff;font-size:.95rem;font-weight:700">Enter your Anthropic API Key</div>
+    <div style="color:#7A9BB8;font-size:.78rem;line-height:1.5">Your key is stored only on this device and never sent anywhere except directly to Anthropic's API.</div>
+    <input class="nexa-key-inp" type="password" id="nexa-key-inp" placeholder="sk-ant-api03-…"/>
+    <button class="btn btn-gold" style="width:100%" onclick="saveNexaKey()">Save & Start Chatting</button>
+    <div style="color:#4A6A84;font-size:.68rem">Get your key at console.anthropic.com</div>
+  </div>
+
+  <!-- Chat interface -->
+  <div class="nexa-messages" id="nexa-messages"></div>
+
+  <!-- Input bar -->
+  <div class="nexa-input-bar" id="nexa-input-bar">
+    <textarea class="nexa-inp" id="nexa-inp"
+      placeholder="Ask Nexa anything about procedures, manuals, regulations…"
+      rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendNexaMessage()}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+    <button class="nexa-send" id="nexa-send-btn" onclick="sendNexaMessage()" title="Send">➤</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1621,6 +1690,7 @@ function openMenuSection(section){
   else if(section === 'settings'){ document.getElementById('settings-overlay').classList.add('open'); }
   else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
   else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
+  else if(section === 'agent'){ openNexa(); }
   else { toast('🚧 Coming soon!'); }
 }
 
@@ -2082,13 +2152,11 @@ async function openPDFInDeviceViewer(url, title, isBlob){
 }
 
 async function openIOSPDFViewer(url, title, isBlob){
-  // Initialise PDF.js worker
   if(window.pdfjsLib){
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
   }
 
-  // Show overlay
   const overlay  = document.getElementById('ios-pdf-overlay');
   const loading  = document.getElementById('ios-pdf-loading');
   const loadText = document.getElementById('ios-pdf-load-text');
@@ -2105,70 +2173,106 @@ async function openIOSPDFViewer(url, title, isBlob){
   if(_iosBlobUrl){ URL.revokeObjectURL(_iosBlobUrl); _iosBlobUrl = null; }
   if(isBlob) _iosBlobUrl = url;
 
-  // Load PDF
   try{
-    loadText.textContent = 'Loading PDF…';
-    const resp   = url.startsWith('blob:') ? await fetch(url) : await fetch(url);
+    loadText.textContent = 'Loading…';
+    const resp   = await fetch(url);
     const buffer = await resp.arrayBuffer();
     _iosPdfDoc   = await pdfjsLib.getDocument({ data: buffer }).promise;
 
     const total = _iosPdfDoc.numPages;
-    const dpr   = window.devicePixelRatio || 1; // KEY: retina fix
+    const dpr   = Math.min(window.devicePixelRatio || 1, 2);
 
-    // Calculate scale to fit phone screen width — fill the viewport
     const firstPage = await _iosPdfDoc.getPage(1);
     const baseVp    = firstPage.getViewport({ scale: 1 });
-    const fitWidth  = (window.innerWidth - 16); // 8px padding each side
-    const fitScale  = fitWidth / baseVp.width;
+    const fitScale  = (window.innerWidth - 16) / baseVp.width;
+    const pageH     = baseVp.height * fitScale;
 
+    // Build grey placeholders for all pages instantly
     wrap.innerHTML = '';
+    const rendered = new Set();
 
-    // Render all pages
     for(let i = 1; i <= total; i++){
-      loadText.textContent = `Rendering page ${i} of ${total}…`;
-
-      const page     = await _iosPdfDoc.getPage(i);
-      const viewport = page.getViewport({ scale: fitScale });
-
-      // Create canvas at physical pixel size (retina-sharp)
-      const canvas   = document.createElement('canvas');
-      canvas.style.width  = viewport.width  + 'px';   // CSS size
-      canvas.style.height = viewport.height + 'px';
-      canvas.style.display = 'block';
-      canvas.style.marginBottom = '10px';
-      canvas.style.borderRadius = '4px';
-      canvas.style.boxShadow = '0 3px 12px rgba(0,0,0,.4)';
-      canvas.style.maxWidth = '100%';
-      canvas.width  = Math.floor(viewport.width  * dpr);  // physical pixels
-      canvas.height = Math.floor(viewport.height * dpr);
+      const ph = document.createElement('div');
+      ph.id = `ios-ph${i}`;
+      ph.style.cssText = `width:100%;height:${pageH}px;background:#555;border-radius:4px;margin-bottom:10px;display:flex;align-items:center;justify-content:center`;
+      ph.innerHTML = `<span style="color:rgba(255,255,255,.3);font-size:.75rem">Page ${i}</span>`;
+      const canvas = document.createElement('canvas');
       canvas.id = `ios-p${i}`;
-
-      wrap.appendChild(canvas);
-
-      // Scale context by dpr before rendering — this is the retina fix
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-      await page.render({ canvasContext: ctx, viewport }).promise;
-
-      // Build search index in background
-      const content = await page.getTextContent();
-      const text    = content.items.map(s => s.str).join(' ');
-      _iosPdfIndex.push({ page: i, text: text.toLowerCase() });
+      canvas.style.cssText = 'display:none;border-radius:4px;box-shadow:0 3px 12px rgba(0,0,0,.4);max-width:100%';
+      ph.appendChild(canvas);
+      wrap.appendChild(ph);
     }
 
+    // Show viewer immediately — page 1 renders in ~1 second
     loading.style.display = 'none';
     wrap.style.display    = 'block';
 
-    // Page counter
     const pageInfo = document.getElementById('ios-pdf-page-info');
     pageInfo.style.display = 'block';
     pageInfo.textContent   = `1 / ${total}`;
 
-    // Scroll listener to update page counter
+    async function renderPage(pageNum){
+      if(rendered.has(pageNum)) return;
+      rendered.add(pageNum);
+      const page     = await _iosPdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: fitScale });
+      const canvas   = document.getElementById(`ios-p${pageNum}`);
+      const ph       = document.getElementById(`ios-ph${pageNum}`);
+      if(!canvas || !ph) return;
+      canvas.style.width  = viewport.width  + 'px';
+      canvas.style.height = viewport.height + 'px';
+      canvas.width  = Math.floor(viewport.width  * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      ph.style.height = 'auto';
+      ph.style.background = 'none';
+      ph.innerHTML = '';
+      ph.appendChild(canvas);
+      canvas.style.display = 'block';
+    }
+
+    // Render first 3 pages immediately
+    await renderPage(1);
+    renderPage(2);
+    renderPage(3);
+
+    // Render remaining pages on scroll via IntersectionObserver
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          const num = parseInt(entry.target.id.replace('ios-ph',''));
+          if(!isNaN(num)){
+            renderPage(num);
+            if(num + 1 <= total) renderPage(num + 1);
+            if(num + 2 <= total) renderPage(num + 2);
+          }
+        }
+      });
+    }, { root: wrap, rootMargin: '300px' });
+
+    for(let i = 4; i <= total; i++){
+      const ph = document.getElementById(`ios-ph${i}`);
+      if(ph) observer.observe(ph);
+    }
+
+    // Build search index in background (non-blocking)
+    (async () => {
+      for(let i = 1; i <= total; i++){
+        const page    = await _iosPdfDoc.getPage(i);
+        const content = await page.getTextContent();
+        const text    = content.items.map(s => s.str).join(' ');
+        _iosPdfIndex.push({ page: i, text: text.toLowerCase() });
+      }
+    })();
+
+    // Page counter on scroll
     wrap.onscroll = () => {
+      const rect = wrap.getBoundingClientRect();
       for(let i = total; i >= 1; i--){
-        const c = document.getElementById(`ios-p${i}`);
-        if(c && c.getBoundingClientRect().top <= window.innerHeight * 0.6){
+        const ph = document.getElementById(`ios-ph${i}`);
+        if(ph && ph.getBoundingClientRect().top <= rect.top + wrap.clientHeight * 0.5){
           pageInfo.textContent = `${i} / ${total}`;
           break;
         }
@@ -2177,10 +2281,11 @@ async function openIOSPDFViewer(url, title, isBlob){
 
   }catch(e){
     loading.style.display = 'none';
-    toast('⚠ Could not render PDF: ' + e.message);
+    toast('\u26a0 Could not render PDF: ' + e.message);
     closeIOSPDF();
   }
 }
+
 
 function closeIOSPDF(){
   const overlay = document.getElementById('ios-pdf-overlay');
@@ -2337,6 +2442,190 @@ function formatBytes(bytes){
   if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
   return (bytes/(1024*1024)).toFixed(1) + ' MB';
 }
+
+// ═══════════════════════════════════════════════
+// NEXA CREW AI
+// ═══════════════════════════════════════════════
+const NEXA_MODEL      = 'claude-haiku-4-5-20251001';
+const NEXA_KEY_STORE  = 'ccl_nexa_key';
+const NEXA_MAX_HIST   = 20; // messages kept in context
+
+let _nexaHistory  = []; // [{role, content}]
+let _nexaBusy     = false;
+
+const NEXA_SYSTEM = `You are Nexa, an AI assistant for cabin crew at an airline. You help crew members with:
+- Questions about cabin crew procedures, safety, and regulations
+- Interpreting information from their manuals and operations documents
+- Per diem calculations, flight time allowances, and logbook queries
+- Emergency procedures, first aid, and safety topics
+- General aviation knowledge relevant to cabin crew
+
+Be concise, professional, and use aviation terminology appropriately. If you're unsure about specific airline-specific procedures not mentioned in context, say so clearly and recommend the crew consult their official manuals.
+
+When answering questions related to safety or emergency procedures, always remind the crew to verify against their current approved manuals.`;
+
+function getNexaKey(){
+  return localStorage.getItem(NEXA_KEY_STORE) || '';
+}
+
+function saveNexaKey(){
+  const key = document.getElementById('nexa-key-inp').value.trim();
+  if(!key.startsWith('sk-ant')){
+    toast('⚠ Invalid key format. Should start with sk-ant…');
+    return;
+  }
+  localStorage.setItem(NEXA_KEY_STORE, key);
+  document.getElementById('nexa-key-prompt').style.display = 'none';
+  document.getElementById('nexa-messages').style.display = 'flex';
+  document.getElementById('nexa-input-bar').style.display = 'flex';
+  nexaAddWelcome();
+  toast('✅ API key saved!');
+}
+
+function openNexa(){
+  document.getElementById('nexa-overlay').classList.add('open');
+  const hasKey = !!getNexaKey();
+  document.getElementById('nexa-key-prompt').style.display  = hasKey ? 'none'  : 'flex';
+  document.getElementById('nexa-messages').style.display    = hasKey ? 'flex'  : 'none';
+  document.getElementById('nexa-input-bar').style.display   = hasKey ? 'flex'  : 'none';
+  if(hasKey && _nexaHistory.length === 0) nexaAddWelcome();
+}
+
+function closeNexa(){
+  document.getElementById('nexa-overlay').classList.remove('open');
+}
+
+function nexaAddWelcome(){
+  const crewName = localStorage.getItem('ccl_crew_name') || 'there';
+  nexaAppendMessage('assistant',
+    `Hello ${crewName}! I'm **Nexa**, your Crew AI assistant. I can help you with cabin crew procedures, safety questions, manual lookups, and more.\n\nWhat would you like to know?`
+  );
+}
+
+function nexaAppendMessage(role, content){
+  const msgs  = document.getElementById('nexa-messages');
+  const wrap  = document.createElement('div');
+  wrap.className = `nexa-msg ${role}`;
+
+  const avatarEl = document.createElement('div');
+  avatarEl.className = 'nexa-msg-avatar';
+  avatarEl.textContent = role === 'assistant' ? '🤖' : '👤';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'nexa-bubble';
+  // Simple markdown: bold, line breaks
+  bubble.innerHTML = content
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+
+  wrap.appendChild(avatarEl);
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return wrap;
+}
+
+function nexaShowTyping(){
+  const msgs = document.getElementById('nexa-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'nexa-msg assistant';
+  wrap.id = 'nexa-typing-wrap';
+  const avatarEl = document.createElement('div');
+  avatarEl.className = 'nexa-msg-avatar';
+  avatarEl.textContent = '🤖';
+  const typing = document.createElement('div');
+  typing.className = 'nexa-typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(avatarEl);
+  wrap.appendChild(typing);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function nexaRemoveTyping(){
+  const el = document.getElementById('nexa-typing-wrap');
+  if(el) el.remove();
+}
+
+async function sendNexaMessage(){
+  if(_nexaBusy) return;
+  const inp  = document.getElementById('nexa-inp');
+  const text = inp.value.trim();
+  if(!text) return;
+
+  const key = getNexaKey();
+  if(!key){ toast('⚠ Add your Anthropic API key first.'); return; }
+  if(!isOnline){ toast('📴 Nexa needs an internet connection.'); return; }
+
+  inp.value = '';
+  inp.style.height = 'auto';
+  _nexaBusy = true;
+  document.getElementById('nexa-send-btn').disabled = true;
+  document.getElementById('nexa-status').textContent = 'Thinking…';
+
+  // Add user message to UI + history
+  nexaAppendMessage('user', text);
+  _nexaHistory.push({ role: 'user', content: text });
+
+  // Keep history within limit
+  if(_nexaHistory.length > NEXA_MAX_HIST){
+    _nexaHistory = _nexaHistory.slice(-NEXA_MAX_HIST);
+  }
+
+  nexaShowTyping();
+
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: NEXA_MODEL,
+        max_tokens: 1024,
+        system: NEXA_SYSTEM,
+        messages: _nexaHistory
+      })
+    });
+
+    const data = await resp.json();
+
+    if(!resp.ok){
+      const errMsg = data?.error?.message || `API error ${resp.status}`;
+      // Invalid key — clear it so user is prompted to re-enter
+      if(resp.status === 401){
+        localStorage.removeItem(NEXA_KEY_STORE);
+        nexaRemoveTyping();
+        toast('⚠ Invalid API key — please re-enter it.');
+        document.getElementById('nexa-key-prompt').style.display  = 'flex';
+        document.getElementById('nexa-messages').style.display    = 'none';
+        document.getElementById('nexa-input-bar').style.display   = 'none';
+        return;
+      }
+      throw new Error(errMsg);
+    }
+
+    const reply = data.content?.[0]?.text || '(no response)';
+    nexaRemoveTyping();
+    nexaAppendMessage('assistant', reply);
+    _nexaHistory.push({ role: 'assistant', content: reply });
+
+  }catch(err){
+    nexaRemoveTyping();
+    nexaAppendMessage('assistant', `⚠ Sorry, I encountered an error: ${err.message}\n\nPlease try again.`);
+    // Remove failed user message from history
+    _nexaHistory.pop();
+  }finally{
+    _nexaBusy = false;
+    document.getElementById('nexa-send-btn').disabled = false;
+    document.getElementById('nexa-status').textContent = 'Powered by Claude · Ready';
+  }
+}
+
 
 function escHtml(str){
   if(!str) return '';
