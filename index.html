@@ -409,6 +409,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 </head>
 <body>
 
@@ -1151,19 +1152,33 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     iOS PWA PDF VIEWER (full-screen iframe for standalone mode)
+     iOS PWA PDF VIEWER (PDF.js, retina-aware canvas renderer)
 ════════════════════════════════════════════════════════════ -->
-<div id="ios-pdf-overlay" style="display:none;position:fixed;inset:0;z-index:700;background:#525659;flex-direction:column">
-  <div style="background:var(--navy);padding:11px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0">
-    <button onclick="closeIOSPDF()" style="background:none;border:none;color:#7A9BB8;font-size:1.3rem;cursor:pointer;padding:0;line-height:1">✕</button>
-    <span id="ios-pdf-title" style="color:#fff;font-size:.88rem;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
-    <span style="color:#7A9BB8;font-size:.7rem">Pinch to zoom · Scroll to read</span>
+<div id="ios-pdf-overlay" style="display:none;position:fixed;inset:0;z-index:700;background:#3a3a3a;flex-direction:column">
+  <!-- Toolbar -->
+  <div style="background:var(--navy);padding:11px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:50px">
+    <button onclick="closeIOSPDF()" style="background:none;border:none;color:#7A9BB8;font-size:1.5rem;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0">✕</button>
+    <span id="ios-pdf-title" style="color:#fff;font-size:.85rem;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    <button onclick="toggleIOSSearch()" style="background:none;border:none;color:#C9A84C;font-size:1.1rem;cursor:pointer;padding:0 4px;flex-shrink:0" title="Search">🔍</button>
   </div>
-  <iframe id="ios-pdf-frame"
-    style="flex:1;width:100%;border:none;display:block;-webkit-overflow-scrolling:touch"
-    allow="fullscreen"
-    src="about:blank">
-  </iframe>
+  <!-- Search bar -->
+  <div id="ios-search-bar" style="display:none;background:var(--navy);padding:8px 12px;display:none;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.1)">
+    <input id="ios-search-inp" placeholder="Search in document…"
+      style="flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 12px;color:#fff;font-size:.85rem;font-family:var(--font)"
+      onkeydown="if(event.key==='Enter') iosPDFSearch()"/>
+    <button onclick="iosPDFSearch()" style="background:var(--gold);color:var(--navy);border:none;border-radius:8px;padding:8px 13px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap">Find</button>
+    <span id="ios-search-results" style="color:rgba(255,255,255,.6);font-size:.72rem;white-space:nowrap;min-width:40px"></span>
+    <button onclick="clearIOSSearch()" style="background:none;border:none;color:#7A9BB8;font-size:1.1rem;cursor:pointer;padding:0">✕</button>
+  </div>
+  <!-- Page counter badge -->
+  <div id="ios-pdf-page-info" style="display:none;position:absolute;bottom:20px;right:16px;background:rgba(0,0,0,.6);color:#fff;border-radius:12px;padding:4px 12px;font-size:.75rem;font-weight:700;z-index:10;pointer-events:none"></div>
+  <!-- Loading -->
+  <div id="ios-pdf-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:14px">
+    <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite"></div>
+    <div id="ios-pdf-load-text" style="font-size:.85rem;opacity:.7">Loading…</div>
+  </div>
+  <!-- Canvas scroll container -->
+  <div id="ios-pdf-canvas-wrap" style="display:none;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#3a3a3a;padding:12px 8px;box-sizing:border-box"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -2021,14 +2036,20 @@ async function renderCrewManualsList(){
 // Detect iOS standalone (home screen) mode
 function isIOSStandalone(){
   return (
-    window.navigator.standalone === true ||   // iOS Safari standalone
-    window.matchMedia('(display-mode: standalone)').matches  // generic PWA
+    window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches
   ) && /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
 // ═══════════════════════════════════════════════
-// MANUALS — PDF VIEWER (native device viewer)
+// MANUALS — PDF VIEWER (native viewer / PDF.js for iOS PWA)
 // ═══════════════════════════════════════════════
+let _iosPdfDoc    = null;
+let _iosPdfIndex  = []; // [{page, text}] — built once for fast search
+let _iosSearchHits = [];
+let _iosSearchHitIdx = 0;
+let _iosBlobUrl   = null;
+
 async function openManual(id){
   const manual = _manualsCache.find(m => m.id === id);
   if(!manual) return;
@@ -2046,43 +2067,185 @@ async function openManual(id){
   }
 }
 
-function openPDFInDeviceViewer(url, title, isBlob){
+async function openPDFInDeviceViewer(url, title, isBlob){
   if(isIOSStandalone()){
-    // iOS PWA: can't open external URLs — use full-screen iframe instead
-    const overlay = document.getElementById('ios-pdf-overlay');
-    const frame   = document.getElementById('ios-pdf-frame');
-    const titleEl = document.getElementById('ios-pdf-title');
-    titleEl.textContent = title;
-    overlay.style.display = 'flex';
-    // Small delay lets overlay render before heavy iframe load
-    setTimeout(()=>{ frame.src = url; }, 80);
-    // Store blob URL to revoke when closed
-    if(isBlob) frame.dataset.blobUrl = url;
-    else delete frame.dataset.blobUrl;
+    // iOS PWA: use PDF.js canvas viewer (iframe blocked by iOS)
+    await openIOSPDFViewer(url, title, isBlob);
   } else {
-    // Desktop, Android, iOS browser — native viewer works fine
+    // Desktop, Android, iOS browser — native viewer
     const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast(`📖 Opening "${title}" — tap Done or Back to return`);
     if(isBlob) setTimeout(()=> URL.revokeObjectURL(url), 60000);
   }
 }
 
+async function openIOSPDFViewer(url, title, isBlob){
+  // Initialise PDF.js worker
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+
+  // Show overlay
+  const overlay  = document.getElementById('ios-pdf-overlay');
+  const loading  = document.getElementById('ios-pdf-loading');
+  const loadText = document.getElementById('ios-pdf-load-text');
+  const wrap     = document.getElementById('ios-pdf-canvas-wrap');
+
+  document.getElementById('ios-pdf-title').textContent = title;
+  overlay.style.display = 'flex';
+  loading.style.display = 'flex';
+  wrap.style.display    = 'none';
+  wrap.innerHTML        = '';
+  _iosPdfDoc = null; _iosPdfIndex = [];
+  _iosSearchHits = []; _iosSearchHitIdx = 0;
+
+  if(_iosBlobUrl){ URL.revokeObjectURL(_iosBlobUrl); _iosBlobUrl = null; }
+  if(isBlob) _iosBlobUrl = url;
+
+  // Load PDF
+  try{
+    loadText.textContent = 'Loading PDF…';
+    const resp   = url.startsWith('blob:') ? await fetch(url) : await fetch(url);
+    const buffer = await resp.arrayBuffer();
+    _iosPdfDoc   = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+    const total = _iosPdfDoc.numPages;
+    const dpr   = window.devicePixelRatio || 1; // KEY: retina fix
+
+    // Calculate scale to fit phone screen width — fill the viewport
+    const firstPage = await _iosPdfDoc.getPage(1);
+    const baseVp    = firstPage.getViewport({ scale: 1 });
+    const fitWidth  = (window.innerWidth - 16); // 8px padding each side
+    const fitScale  = fitWidth / baseVp.width;
+
+    wrap.innerHTML = '';
+
+    // Render all pages
+    for(let i = 1; i <= total; i++){
+      loadText.textContent = `Rendering page ${i} of ${total}…`;
+
+      const page     = await _iosPdfDoc.getPage(i);
+      const viewport = page.getViewport({ scale: fitScale });
+
+      // Create canvas at physical pixel size (retina-sharp)
+      const canvas   = document.createElement('canvas');
+      canvas.style.width  = viewport.width  + 'px';   // CSS size
+      canvas.style.height = viewport.height + 'px';
+      canvas.style.display = 'block';
+      canvas.style.marginBottom = '10px';
+      canvas.style.borderRadius = '4px';
+      canvas.style.boxShadow = '0 3px 12px rgba(0,0,0,.4)';
+      canvas.style.maxWidth = '100%';
+      canvas.width  = Math.floor(viewport.width  * dpr);  // physical pixels
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.id = `ios-p${i}`;
+
+      wrap.appendChild(canvas);
+
+      // Scale context by dpr before rendering — this is the retina fix
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      // Build search index in background
+      const content = await page.getTextContent();
+      const text    = content.items.map(s => s.str).join(' ');
+      _iosPdfIndex.push({ page: i, text: text.toLowerCase() });
+    }
+
+    loading.style.display = 'none';
+    wrap.style.display    = 'block';
+
+    // Page counter
+    const pageInfo = document.getElementById('ios-pdf-page-info');
+    pageInfo.style.display = 'block';
+    pageInfo.textContent   = `1 / ${total}`;
+
+    // Scroll listener to update page counter
+    wrap.onscroll = () => {
+      for(let i = total; i >= 1; i--){
+        const c = document.getElementById(`ios-p${i}`);
+        if(c && c.getBoundingClientRect().top <= window.innerHeight * 0.6){
+          pageInfo.textContent = `${i} / ${total}`;
+          break;
+        }
+      }
+    };
+
+  }catch(e){
+    loading.style.display = 'none';
+    toast('⚠ Could not render PDF: ' + e.message);
+    closeIOSPDF();
+  }
+}
+
 function closeIOSPDF(){
   const overlay = document.getElementById('ios-pdf-overlay');
-  const frame   = document.getElementById('ios-pdf-frame');
-  if(frame.dataset.blobUrl){
-    URL.revokeObjectURL(frame.dataset.blobUrl);
-    delete frame.dataset.blobUrl;
-  }
-  frame.src = 'about:blank'; // stop loading / free memory
   overlay.style.display = 'none';
+  document.getElementById('ios-pdf-canvas-wrap').innerHTML = '';
+  document.getElementById('ios-pdf-page-info').style.display = 'none';
+  clearIOSSearch();
+  if(_iosBlobUrl){ URL.revokeObjectURL(_iosBlobUrl); _iosBlobUrl = null; }
+  _iosPdfDoc = null; _iosPdfIndex = [];
 }
+
+function toggleIOSSearch(){
+  const bar = document.getElementById('ios-search-bar');
+  const visible = bar.style.display !== 'none';
+  bar.style.display = visible ? 'none' : 'flex';
+  if(!visible) setTimeout(()=> document.getElementById('ios-search-inp').focus(), 80);
+}
+
+function iosPDFSearch(){
+  const term = document.getElementById('ios-search-inp').value.trim().toLowerCase();
+  const resultsEl = document.getElementById('ios-search-results');
+  if(!term){ resultsEl.textContent = ''; return; }
+
+  // Index is already built — search is instant
+  _iosSearchHits = _iosPdfIndex
+    .filter(p => p.text.includes(term))
+    .map(p => p.page);
+
+  if(!_iosSearchHits.length){
+    resultsEl.textContent = 'Not found';
+    return;
+  }
+
+  _iosSearchHitIdx = 0;
+  scrollToIOSSearchHit();
+}
+
+function scrollToIOSSearchHit(){
+  const hits = _iosSearchHits;
+  if(!hits.length) return;
+  const page = hits[_iosSearchHitIdx];
+  const resultsEl = document.getElementById('ios-search-results');
+  resultsEl.textContent = `${_iosSearchHitIdx + 1}/${hits.length}`;
+  _iosSearchHitIdx = (_iosSearchHitIdx + 1) % hits.length;
+
+  const canvas = document.getElementById(`ios-p${page}`);
+  if(canvas){
+    canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Flash gold outline to show the page found
+    canvas.style.outline = '3px solid #C9A84C';
+    setTimeout(()=>{ canvas.style.outline = ''; }, 1200);
+  }
+}
+
+function clearIOSSearch(){
+  const inp = document.getElementById('ios-search-inp');
+  const res = document.getElementById('ios-search-results');
+  const bar = document.getElementById('ios-search-bar');
+  if(inp) inp.value = '';
+  if(res) res.textContent = '';
+  if(bar) bar.style.display = 'none';
+  _iosSearchHits = []; _iosSearchHitIdx = 0;
+}
+
+
 
 // ═══════════════════════════════════════════════
 // MANUALS — OFFLINE CACHING (IndexedDB)
