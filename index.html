@@ -1151,6 +1151,22 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     iOS PWA PDF VIEWER (full-screen iframe for standalone mode)
+════════════════════════════════════════════════════════════ -->
+<div id="ios-pdf-overlay" style="display:none;position:fixed;inset:0;z-index:700;background:#525659;flex-direction:column">
+  <div style="background:var(--navy);padding:11px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+    <button onclick="closeIOSPDF()" style="background:none;border:none;color:#7A9BB8;font-size:1.3rem;cursor:pointer;padding:0;line-height:1">✕</button>
+    <span id="ios-pdf-title" style="color:#fff;font-size:.88rem;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    <span style="color:#7A9BB8;font-size:.7rem">Pinch to zoom · Scroll to read</span>
+  </div>
+  <iframe id="ios-pdf-frame"
+    style="flex:1;width:100%;border:none;display:block;-webkit-overflow-scrolling:touch"
+    allow="fullscreen"
+    src="about:blank">
+  </iframe>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      HELP & FEEDBACK OVERLAY
 ════════════════════════════════════════════════════════════ -->
 <div class="fs-overlay" id="help-overlay">
@@ -2002,6 +2018,14 @@ async function renderCrewManualsList(){
   }).join('');
 }
 
+// Detect iOS standalone (home screen) mode
+function isIOSStandalone(){
+  return (
+    window.navigator.standalone === true ||   // iOS Safari standalone
+    window.matchMedia('(display-mode: standalone)').matches  // generic PWA
+  ) && /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
 // ═══════════════════════════════════════════════
 // MANUALS — PDF VIEWER (native device viewer)
 // ═══════════════════════════════════════════════
@@ -2009,38 +2033,55 @@ async function openManual(id){
   const manual = _manualsCache.find(m => m.id === id);
   if(!manual) return;
 
-  // Try cached blob from IndexedDB first (offline support)
   const cachedBlob = await getManualFromIDB(id);
 
   if(cachedBlob){
-    // Serve from local cache — works offline
     const blobUrl = URL.createObjectURL(cachedBlob);
-    openPDFInDeviceViewer(blobUrl, manual.title);
-    // Revoke after a delay to free memory
-    setTimeout(()=> URL.revokeObjectURL(blobUrl), 60000);
+    openPDFInDeviceViewer(blobUrl, manual.title, true);
   } else if(isOnline){
-    // Open directly from Supabase URL
-    openPDFInDeviceViewer(manual.file_url, manual.title);
-    // Cache silently in background for next time
+    openPDFInDeviceViewer(manual.file_url, manual.title, false);
     cacheManualById(id, manual);
   } else {
     toast('📴 This manual isn\'t cached yet. Connect to the internet to read it.');
   }
 }
 
-function openPDFInDeviceViewer(url, title){
-  // Opens in the device's native PDF viewer (iOS Files/Preview, Android PDF viewer)
-  // User taps Done/Back to return to the app
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  // On iOS this opens in Safari's built-in PDF viewer which has full search, zoom, etc.
-  // On Android this opens in Chrome's PDF viewer or the default PDF app
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  toast(`📖 Opening "${title}" — tap Done or Back to return`);
+function openPDFInDeviceViewer(url, title, isBlob){
+  if(isIOSStandalone()){
+    // iOS PWA: can't open external URLs — use full-screen iframe instead
+    const overlay = document.getElementById('ios-pdf-overlay');
+    const frame   = document.getElementById('ios-pdf-frame');
+    const titleEl = document.getElementById('ios-pdf-title');
+    titleEl.textContent = title;
+    overlay.style.display = 'flex';
+    // Small delay lets overlay render before heavy iframe load
+    setTimeout(()=>{ frame.src = url; }, 80);
+    // Store blob URL to revoke when closed
+    if(isBlob) frame.dataset.blobUrl = url;
+    else delete frame.dataset.blobUrl;
+  } else {
+    // Desktop, Android, iOS browser — native viewer works fine
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast(`📖 Opening "${title}" — tap Done or Back to return`);
+    if(isBlob) setTimeout(()=> URL.revokeObjectURL(url), 60000);
+  }
+}
+
+function closeIOSPDF(){
+  const overlay = document.getElementById('ios-pdf-overlay');
+  const frame   = document.getElementById('ios-pdf-frame');
+  if(frame.dataset.blobUrl){
+    URL.revokeObjectURL(frame.dataset.blobUrl);
+    delete frame.dataset.blobUrl;
+  }
+  frame.src = 'about:blank'; // stop loading / free memory
+  overlay.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════
