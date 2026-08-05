@@ -394,30 +394,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .manual-progress{position:absolute;bottom:0;left:0;height:3px;background:var(--sky);border-radius:0 0 var(--radius) var(--radius);transition:width .3s;width:0}
 
 /* ── PDF VIEWER OVERLAY ──────────────────────────────────── */
-.pdf-overlay{display:none;position:fixed;inset:0;background:#525659;z-index:600;flex-direction:column}
-.pdf-overlay.open{display:flex}
-.pdf-toolbar{background:var(--navy);padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0}
-.pdf-toolbar-title{color:#fff;font-size:.85rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pdf-close-btn{background:none;border:none;color:#7A9BB8;font-size:1.4rem;cursor:pointer;flex-shrink:0;padding:0 4px;line-height:1}
-.pdf-search-bar{background:var(--navy);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.08)}
-.pdf-search-inp{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 12px;color:#fff;font-size:.84rem;font-family:var(--font)}
-.pdf-search-inp::placeholder{color:rgba(255,255,255,.4)}
-.pdf-search-inp:focus{outline:none;border-color:var(--gold)}
-.pdf-search-btn{background:var(--gold);color:var(--navy);border:none;border-radius:8px;padding:7px 13px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0}
-.pdf-search-results{color:rgba(255,255,255,.7);font-size:.75rem;flex-shrink:0;white-space:nowrap}
-.pdf-nav-bar{background:rgba(0,0,0,.5);padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:10px;flex-shrink:0}
-.pdf-nav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:8px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
-.pdf-nav-btn:hover{background:rgba(255,255,255,.28)}
-.pdf-nav-btn:disabled{opacity:.3;cursor:not-allowed}
-.pdf-page-info{color:#fff;font-size:.82rem;font-weight:600;min-width:80px;text-align:center}
-.pdf-zoom-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:8px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.pdf-zoom-btn:hover{background:rgba(255,255,255,.28)}
-.pdf-canvas-wrap{flex:1;overflow-y:auto;overflow-x:auto;display:flex;flex-direction:column;align-items:center;padding:14px 8px;gap:10px;-webkit-overflow-scrolling:touch}
-.pdf-page-canvas{display:block;box-shadow:0 4px 20px rgba(0,0,0,.5);background:#fff;max-width:100%}
-.pdf-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#fff;gap:14px}
-.pdf-loading .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.pdf-offline-msg{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#fff;gap:12px;text-align:center;padding:30px}
 
 /* ── MANUAL UPLOAD (in DB tab) ───────────────────────────── */
 .manual-upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:border-color .18s,background .18s;background:var(--white)}
@@ -433,7 +409,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 </head>
 <body>
 
@@ -1149,46 +1124,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     PDF VIEWER OVERLAY (PDF.js canvas renderer)
+     PDF VIEWER — opens in device native viewer
 ════════════════════════════════════════════════════════════ -->
-<div class="pdf-overlay" id="pdf-overlay">
-  <!-- Top toolbar -->
-  <div class="pdf-toolbar">
-    <button class="pdf-close-btn" onclick="closePDFViewer()" title="Close">✕</button>
-    <div class="pdf-toolbar-title" id="pdf-title">Manual</div>
-    <button class="pdf-search-btn" onclick="togglePDFSearch()" title="Search">🔍</button>
-  </div>
-  <!-- Search bar (hidden by default) -->
-  <div class="pdf-search-bar" id="pdf-search-bar" style="display:none">
-    <input class="pdf-search-inp" id="pdf-search-inp" placeholder="Search in document…"
-      onkeydown="if(event.key==='Enter') pdfFindNext()"/>
-    <button class="pdf-search-btn" onclick="pdfFindNext()">Next</button>
-    <span class="pdf-search-results" id="pdf-search-results"></span>
-    <button onclick="clearPDFSearch()" style="background:none;border:none;color:#7A9BB8;font-size:1.1rem;cursor:pointer;padding:0 4px">✕</button>
-  </div>
-  <!-- Loading state -->
-  <div class="pdf-loading" id="pdf-loading">
-    <div class="spinner"></div>
-    <div style="font-size:.85rem;opacity:.7" id="pdf-loading-text">Loading manual…</div>
-  </div>
-  <!-- Offline state -->
-  <div class="pdf-offline-msg" id="pdf-offline-msg">
-    <div style="font-size:2.5rem">📴</div>
-    <div style="font-weight:700;font-size:.95rem">Not available offline</div>
-    <div style="font-size:.8rem;opacity:.7">This manual hasn't been cached.<br>Connect to read it.</div>
-  </div>
-  <!-- Canvas scroll area — all pages rendered here -->
-  <div class="pdf-canvas-wrap" id="pdf-canvas-wrap" style="display:none"></div>
-  <!-- Bottom navigation bar -->
-  <div class="pdf-nav-bar" id="pdf-nav-bar" style="display:none">
-    <button class="pdf-nav-btn" id="pdf-prev" onclick="pdfGoPage(-1)" title="Previous page">‹</button>
-    <span class="pdf-page-info" id="pdf-page-info">1 / 1</span>
-    <button class="pdf-nav-btn" id="pdf-next" onclick="pdfGoPage(1)" title="Next page">›</button>
-    <div style="width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px"></div>
-    <button class="pdf-zoom-btn" onclick="pdfZoom(-0.25)" title="Zoom out">−</button>
-    <button class="pdf-zoom-btn" onclick="pdfZoom(0.25)" title="Zoom in">+</button>
-  </div>
-</div>
+<!-- No overlay needed — native viewer handles everything -->
+<!-- Offline-only fallback notice shown as toast -->
 
 <!-- ═══════════════════════════════════════════════════════════
      MANUALS LIST OVERLAY (for crew viewing)
@@ -2064,230 +2003,44 @@ async function renderCrewManualsList(){
 }
 
 // ═══════════════════════════════════════════════
-// MANUALS — PDF VIEWER (PDF.js canvas renderer)
+// MANUALS — PDF VIEWER (native device viewer)
 // ═══════════════════════════════════════════════
-let _pdfDoc      = null;  // loaded PDF document
-let _pdfPage     = 1;     // current page number
-let _pdfScale    = 1.0;   // current zoom scale
-let _pdfBlobUrl  = null;  // blob URL to revoke on close
-let _pdfSearchMatches = []; // search result page numbers
-let _pdfSearchIdx = 0;
-
-// Set PDF.js worker (required)
-function initPDFJS(){
-  if(window.pdfjsLib){
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-  }
-}
-
 async function openManual(id){
   const manual = _manualsCache.find(m => m.id === id);
   if(!manual) return;
 
-  initPDFJS();
-
-  // Show overlay, loading state
-  document.getElementById('pdf-overlay').classList.add('open');
-  document.getElementById('pdf-title').textContent = manual.title;
-  document.getElementById('pdf-loading').style.display = 'flex';
-  document.getElementById('pdf-loading-text').textContent = 'Loading manual…';
-  document.getElementById('pdf-offline-msg').style.display = 'none';
-  document.getElementById('pdf-canvas-wrap').style.display = 'none';
-  document.getElementById('pdf-nav-bar').style.display = 'none';
-  document.getElementById('pdf-canvas-wrap').innerHTML = '';
-  _pdfDoc = null; _pdfPage = 1; _pdfScale = 1.0;
-
-  // Revoke previous blob URL
-  if(_pdfBlobUrl){ URL.revokeObjectURL(_pdfBlobUrl); _pdfBlobUrl = null; }
-
-  let pdfData = null;
-
-  // Try IndexedDB (offline) first
+  // Try cached blob from IndexedDB first (offline support)
   const cachedBlob = await getManualFromIDB(id);
+
   if(cachedBlob){
-    pdfData = await cachedBlob.arrayBuffer();
+    // Serve from local cache — works offline
+    const blobUrl = URL.createObjectURL(cachedBlob);
+    openPDFInDeviceViewer(blobUrl, manual.title);
+    // Revoke after a delay to free memory
+    setTimeout(()=> URL.revokeObjectURL(blobUrl), 60000);
   } else if(isOnline){
-    try{
-      document.getElementById('pdf-loading-text').textContent = 'Downloading…';
-      const resp = await fetch(manual.file_url);
-      if(!resp.ok) throw new Error('Fetch failed');
-      const blob = await resp.blob();
-      pdfData = await blob.arrayBuffer();
-      // Cache silently in background
-      cacheManualById(id, manual);
-    }catch(e){
-      toast('⚠ Could not load PDF: ' + e.message);
-      document.getElementById('pdf-loading').style.display = 'none';
-      return;
-    }
+    // Open directly from Supabase URL
+    openPDFInDeviceViewer(manual.file_url, manual.title);
+    // Cache silently in background for next time
+    cacheManualById(id, manual);
   } else {
-    document.getElementById('pdf-loading').style.display = 'none';
-    document.getElementById('pdf-offline-msg').style.display = 'flex';
-    return;
-  }
-
-  try{
-    // Load with PDF.js
-    _pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-    document.getElementById('pdf-loading').style.display = 'none';
-    document.getElementById('pdf-canvas-wrap').style.display = 'flex';
-    document.getElementById('pdf-nav-bar').style.display = 'flex';
-
-    // Auto-scale to fit phone screen width
-    const firstPage = await _pdfDoc.getPage(1);
-    const viewport  = firstPage.getViewport({ scale: 1 });
-    const fitScale  = (window.innerWidth - 16) / viewport.width;
-    _pdfScale = Math.min(fitScale, 1.5); // don't over-zoom on large screens
-
-    await renderAllPages();
-    updatePageNav();
-  }catch(e){
-    toast('⚠ PDF render error: ' + e.message);
-    document.getElementById('pdf-loading').style.display = 'none';
+    toast('📴 This manual isn\'t cached yet. Connect to the internet to read it.');
   }
 }
 
-async function renderAllPages(){
-  const wrap = document.getElementById('pdf-canvas-wrap');
-  wrap.innerHTML = '';
-  const total = _pdfDoc.numPages;
-  for(let i = 1; i <= total; i++){
-    const page     = await _pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale: _pdfScale });
-    const canvas   = document.createElement('canvas');
-    canvas.className = 'pdf-page-canvas';
-    canvas.id = `pdf-canvas-p${i}`;
-    canvas.width  = viewport.width;
-    canvas.height = viewport.height;
-    wrap.appendChild(canvas);
-    // Small gap label between pages
-    if(i < total){
-      const sep = document.createElement('div');
-      sep.style.cssText = 'color:rgba(255,255,255,.4);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase';
-      sep.textContent = `Page ${i+1}`;
-      wrap.appendChild(sep);
-    }
-    // Render this page
-    const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    // Update loading text while rendering
-    document.getElementById('pdf-loading-text').textContent = `Rendering page ${i} of ${total}…`;
-  }
-  document.getElementById('pdf-loading').style.display = 'none';
-  updatePageNav();
-  // Scroll listener to update current page number
-  wrap.addEventListener('scroll', onPDFScroll, { passive: true });
-}
-
-function onPDFScroll(){
-  // Detect which page canvas is most visible
-  const wrap = document.getElementById('pdf-canvas-wrap');
-  const scrollTop = wrap.scrollTop + wrap.clientHeight / 2;
-  let current = 1;
-  for(let i = 1; i <= _pdfDoc.numPages; i++){
-    const c = document.getElementById(`pdf-canvas-p${i}`);
-    if(c && c.offsetTop <= scrollTop) current = i;
-  }
-  _pdfPage = current;
-  updatePageNav();
-}
-
-function updatePageNav(){
-  if(!_pdfDoc) return;
-  const total = _pdfDoc.numPages;
-  document.getElementById('pdf-page-info').textContent = `${_pdfPage} / ${total}`;
-  document.getElementById('pdf-prev').disabled = _pdfPage <= 1;
-  document.getElementById('pdf-next').disabled = _pdfPage >= total;
-}
-
-function pdfGoPage(delta){
-  if(!_pdfDoc) return;
-  const target = Math.max(1, Math.min(_pdfDoc.numPages, _pdfPage + delta));
-  const canvas = document.getElementById(`pdf-canvas-p${target}`);
-  if(canvas){
-    canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    _pdfPage = target;
-    updatePageNav();
-  }
-}
-
-async function pdfZoom(delta){
-  if(!_pdfDoc) return;
-  _pdfScale = Math.max(0.5, Math.min(3.0, _pdfScale + delta));
-  const currentPage = _pdfPage;
-  // Re-render all at new scale
-  document.getElementById('pdf-loading').style.display = 'flex';
-  document.getElementById('pdf-loading-text').textContent = 'Zooming…';
-  document.getElementById('pdf-canvas-wrap').style.display = 'none';
-  await renderAllPages();
-  document.getElementById('pdf-canvas-wrap').style.display = 'flex';
-  // Scroll back to same page
-  const canvas = document.getElementById(`pdf-canvas-p${currentPage}`);
-  if(canvas) canvas.scrollIntoView({ block: 'start' });
-  _pdfPage = currentPage;
-}
-
-function closePDFViewer(){
-  document.getElementById('pdf-overlay').classList.remove('open');
-  document.getElementById('pdf-canvas-wrap').innerHTML = '';
-  document.getElementById('pdf-search-bar').style.display = 'none';
-  document.getElementById('pdf-search-inp').value = '';
-  document.getElementById('pdf-search-results').textContent = '';
-  if(_pdfBlobUrl){ URL.revokeObjectURL(_pdfBlobUrl); _pdfBlobUrl = null; }
-  _pdfDoc = null; _pdfSearchMatches = []; _pdfSearchIdx = 0;
-}
-
-function togglePDFSearch(){
-  const bar = document.getElementById('pdf-search-bar');
-  const isOpen = bar.style.display !== 'none';
-  bar.style.display = isOpen ? 'none' : 'flex';
-  if(!isOpen) setTimeout(()=>document.getElementById('pdf-search-inp').focus(), 100);
-}
-
-async function pdfFindNext(){
-  if(!_pdfDoc) return;
-  const term = document.getElementById('pdf-search-inp').value.trim().toLowerCase();
-  if(!term){ document.getElementById('pdf-search-results').textContent = ''; return; }
-
-  // Search through all pages for text matches
-  _pdfSearchMatches = [];
-  for(let i = 1; i <= _pdfDoc.numPages; i++){
-    const page    = await _pdfDoc.getPage(i);
-    const content = await page.getTextContent();
-    const text    = content.items.map(s => s.str).join(' ').toLowerCase();
-    if(text.includes(term)) _pdfSearchMatches.push(i);
-  }
-
-  const resultsEl = document.getElementById('pdf-search-results');
-  if(!_pdfSearchMatches.length){
-    resultsEl.textContent = 'Not found';
-    return;
-  }
-
-  // Navigate to next match
-  _pdfSearchIdx = (_pdfSearchIdx % _pdfSearchMatches.length);
-  const targetPage = _pdfSearchMatches[_pdfSearchIdx];
-  resultsEl.textContent = `${_pdfSearchIdx + 1} of ${_pdfSearchMatches.length}`;
-  _pdfSearchIdx++;
-
-  const canvas = document.getElementById(`pdf-canvas-p${targetPage}`);
-  if(canvas){
-    canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    _pdfPage = targetPage;
-    updatePageNav();
-    // Highlight the canvas briefly
-    canvas.style.outline = '3px solid var(--gold)';
-    setTimeout(()=>{ canvas.style.outline = ''; }, 1500);
-  }
-}
-
-function clearPDFSearch(){
-  document.getElementById('pdf-search-inp').value = '';
-  document.getElementById('pdf-search-results').textContent = '';
-  document.getElementById('pdf-search-bar').style.display = 'none';
-  _pdfSearchMatches = []; _pdfSearchIdx = 0;
+function openPDFInDeviceViewer(url, title){
+  // Opens in the device's native PDF viewer (iOS Files/Preview, Android PDF viewer)
+  // User taps Done/Back to return to the app
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  // On iOS this opens in Safari's built-in PDF viewer which has full search, zoom, etc.
+  // On Android this opens in Chrome's PDF viewer or the default PDF app
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast(`📖 Opening "${title}" — tap Done or Back to return`);
 }
 
 // ═══════════════════════════════════════════════
