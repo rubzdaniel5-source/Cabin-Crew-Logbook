@@ -380,6 +380,45 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .ann-content-text{font-size:.85rem;color:#2C3E50;line-height:1.75;white-space:pre-wrap}
 .ann-admin-btns{display:flex;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)}
 
+/* ── MANUALS ─────────────────────────────────────────────── */
+.manual-item{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .18s,box-shadow .18s;position:relative}
+.manual-item:hover{border-color:var(--sky);box-shadow:var(--shadow)}
+.manual-icon{width:44px;height:52px;background:linear-gradient(135deg,#e74c3c,#c0392b);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;color:#fff;font-weight:800;font-size:.65rem;letter-spacing:.04em}
+.manual-info{flex:1;min-width:0}
+.manual-title{font-size:.92rem;font-weight:800;color:var(--navy);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.manual-desc{font-size:.73rem;color:var(--muted);margin-bottom:4px}
+.manual-meta{font-size:.68rem;color:var(--muted2)}
+.manual-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.manual-cached-badge{font-size:.62rem;background:var(--green-bg);color:var(--green);border-radius:8px;padding:2px 7px;font-weight:700}
+.manual-cache-btn{font-size:.65rem;background:var(--ice2);color:var(--sky);border:1px solid var(--ice);border-radius:8px;padding:3px 9px;cursor:pointer;font-weight:700;font-family:var(--font)}
+.manual-progress{position:absolute;bottom:0;left:0;height:3px;background:var(--sky);border-radius:0 0 var(--radius) var(--radius);transition:width .3s;width:0}
+
+/* ── PDF VIEWER OVERLAY ──────────────────────────────────── */
+.pdf-overlay{display:none;position:fixed;inset:0;background:var(--navy);z-index:600;flex-direction:column}
+.pdf-overlay.open{display:flex}
+.pdf-toolbar{background:var(--navy);padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.pdf-toolbar-title{color:#fff;font-size:.85rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdf-close-btn{background:none;border:none;color:#7A9BB8;font-size:1.4rem;cursor:pointer;flex-shrink:0;padding:0 4px;line-height:1}
+.pdf-search-bar{background:rgba(255,255,255,.08);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pdf-search-inp{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 12px;color:#fff;font-size:.84rem;font-family:var(--font)}
+.pdf-search-inp::placeholder{color:rgba(255,255,255,.4)}
+.pdf-search-inp:focus{outline:none;border-color:var(--gold)}
+.pdf-search-btn{background:var(--gold);color:var(--navy);border:none;border-radius:8px;padding:7px 13px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0}
+.pdf-frame-wrap{flex:1;overflow:hidden;background:#525659}
+.pdf-frame-wrap iframe{width:100%;height:100%;border:none;display:block}
+.pdf-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#fff;gap:14px}
+.pdf-loading .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pdf-offline-msg{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#fff;gap:12px;text-align:center;padding:30px}
+
+/* ── MANUAL UPLOAD (in DB tab) ───────────────────────────── */
+.manual-upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:border-color .18s,background .18s;background:var(--white)}
+.manual-upload-area:hover,.manual-upload-area.drag-over{border-color:var(--sky);background:var(--ice2)}
+.manual-upload-area input[type=file]{display:none}
+.upload-progress-wrap{margin-top:12px;display:none}
+.upload-progress-bar{height:8px;background:var(--border2);border-radius:4px;overflow:hidden;margin-top:6px}
+.upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--sky),var(--gold));border-radius:4px;width:0;transition:width .3s}
+
 /* ── CREW LINK PROMPT BANNER ─────────────────────────────── */
 .crew-link-banner{background:rgba(201,168,76,.12);border:1.5px solid var(--gold);border-radius:var(--radius);padding:12px 15px;margin:12px 14px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .crew-link-banner p{font-size:.8rem;font-weight:600;color:var(--navy)}
@@ -885,6 +924,48 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="db-list" id="db-ann-list" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
+  <!-- Manuals upload panel (admin only) -->
+  <div class="card" id="db-manuals-panel" style="display:none">
+    <div class="card-title">📖 Manuals</div>
+    <div class="form-grid" style="margin-bottom:10px">
+      <div class="field">
+        <label>Title *</label>
+        <input type="text" id="manual-title-inp" placeholder="e.g. Cabin Crew Operations Manual"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="manual-desc-inp" placeholder="e.g. Rev 4 — Jan 2025"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      <div class="field full">
+        <label>PDF File *</label>
+        <div class="manual-upload-area" id="manual-drop-area" onclick="document.getElementById('manual-file-inp').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleManualDrop(event)">
+          <div style="font-size:2rem;margin-bottom:8px">📄</div>
+          <div style="font-size:.85rem;font-weight:700;color:var(--navy)">Tap to choose a PDF</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:4px">or drag and drop here · Max 50MB</div>
+          <div id="manual-file-name" style="margin-top:8px;font-size:.78rem;color:var(--sky);font-weight:600"></div>
+          <input type="file" id="manual-file-inp" accept=".pdf,application/pdf" onchange="handleManualFileSelect(event)"/>
+        </div>
+        <div class="upload-progress-wrap" id="manual-upload-progress">
+          <div style="font-size:.75rem;color:var(--muted);display:flex;justify-content:space-between">
+            <span id="upload-status-text">Uploading…</span>
+            <span id="upload-pct">0%</span>
+          </div>
+          <div class="upload-progress-bar"><div class="upload-progress-fill" id="upload-fill"></div></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="manual-upload-btn" onclick="uploadManual()" style="margin-bottom:14px">⬆ Upload Manual</button>
+
+    <!-- List of uploaded manuals (admin can delete) -->
+    <div class="card-title" style="margin-top:4px">Uploaded Manuals</div>
+    <div id="db-manuals-list" style="max-height:300px;overflow-y:auto"></div>
+  </div>
+
   <div class="db-tabs" id="db-tab-bar"></div>
   <div id="db-panels"></div>
 
@@ -909,7 +990,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     </button>
     <button class="menu-item" onclick="openMenuSection('manuals')">
       <span class="menu-item-icon">📖</span>Manuals
-      <span class="menu-item-badge">Phase 2</span>
     </button>
     <button class="menu-item" onclick="openMenuSection('mydocs')">
       <span class="menu-item-icon">📁</span>My Documents
@@ -1054,6 +1134,56 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </div>
       <div style="margin-top:18px">
         <button class="btn btn-ghost" onclick="closeSettings()" style="width:100%">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PDF VIEWER OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="pdf-overlay" id="pdf-overlay">
+  <div class="pdf-toolbar">
+    <button class="pdf-close-btn" onclick="closePDFViewer()">✕</button>
+    <div class="pdf-toolbar-title" id="pdf-title">Manual</div>
+    <button class="pdf-search-btn" onclick="togglePDFSearch()" title="Search in document">🔍</button>
+  </div>
+  <div class="pdf-search-bar" id="pdf-search-bar" style="display:none">
+    <input class="pdf-search-inp" id="pdf-search-inp" placeholder="Search in document… (then use browser find)" 
+      onkeydown="if(event.key==='Enter') triggerPDFFind()"/>
+    <button class="pdf-search-btn" onclick="triggerPDFFind()">Find</button>
+    <button onclick="togglePDFSearch()" style="background:none;border:none;color:#7A9BB8;font-size:1.1rem;cursor:pointer">✕</button>
+  </div>
+  <div class="pdf-frame-wrap" id="pdf-frame-wrap">
+    <div class="pdf-loading" id="pdf-loading">
+      <div class="spinner"></div>
+      <div style="font-size:.88rem;color:rgba(255,255,255,.7)">Loading manual…</div>
+    </div>
+    <div class="pdf-offline-msg" id="pdf-offline-msg">
+      <div style="font-size:2rem">📴</div>
+      <div style="font-weight:700">Not available offline</div>
+      <div style="font-size:.82rem;color:rgba(255,255,255,.6)">This manual hasn't been cached yet.<br>Connect to the internet to read it.</div>
+    </div>
+    <!-- iframe injected dynamically -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MANUALS LIST OVERLAY (for crew viewing)
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="manuals-overlay">
+  <div class="fs-modal" style="max-width:500px">
+    <div class="fs-modal-hdr">
+      <h2>📖 Manuals</h2>
+      <button class="fs-close" onclick="closeManualsOverlay()">✕</button>
+    </div>
+    <div style="padding:16px">
+      <div id="manuals-list-view">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+          <span>Tap a manual to read it</span>
+          <span id="manuals-cached-count" style="font-size:.68rem;color:var(--green);font-weight:700"></span>
+        </div>
+        <div id="manuals-crew-list"></div>
       </div>
     </div>
   </div>
@@ -1498,7 +1628,8 @@ function openMenuSection(section){
   if(section === 'announcements'){ loadAnnouncements(); document.getElementById('ann-overlay').classList.add('open'); }
   else if(section === 'settings'){ document.getElementById('settings-overlay').classList.add('open'); }
   else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
-  else { toast('🚧 Coming in Phase 2!'); }
+  else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
+  else { toast('🚧 Coming soon!'); }
 }
 
 // ═══════════════════════════════════════════════
@@ -1701,6 +1832,380 @@ function toggleDarkMode(on){
 // ═══════════════════════════════════════════════
 // HELPER
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// MANUALS — UPLOAD (admin, from DB tab)
+// ═══════════════════════════════════════════════
+let _manualFile = null;
+let _manualsCache = []; // list of manual metadata objects
+
+function handleManualFileSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('⚠ Please select a PDF file.'); return; }
+  if(file.size > 50*1024*1024){ toast('⚠ File is larger than 50MB.'); return; }
+  _manualFile = file;
+  const nameEl = document.getElementById('manual-file-name');
+  if(nameEl) nameEl.textContent = `✓ ${file.name} (${formatBytes(file.size)})`;
+}
+
+function handleManualDrop(e){
+  e.preventDefault();
+  document.getElementById('manual-drop-area').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  // Simulate file select
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('manual-file-inp').files = dt.files;
+  handleManualFileSelect({ target: { files: [file] } });
+}
+
+async function uploadManual(){
+  const title = document.getElementById('manual-title-inp').value.trim();
+  const desc  = document.getElementById('manual-desc-inp').value.trim();
+  if(!title){ toast('⚠ Please enter a title.'); return; }
+  if(!_manualFile){ toast('⚠ Please select a PDF file.'); return; }
+  if(!isAdmin){ toast('⚠ Admin only.'); return; }
+
+  const btn = document.getElementById('manual-upload-btn');
+  const progressWrap = document.getElementById('manual-upload-progress');
+  const fillEl = document.getElementById('upload-fill');
+  const pctEl  = document.getElementById('upload-pct');
+  const statusEl = document.getElementById('upload-status-text');
+
+  btn.disabled = true;
+  btn.textContent = 'Uploading…';
+  progressWrap.style.display = 'block';
+  fillEl.style.width = '0%';
+  pctEl.textContent = '0%';
+  statusEl.textContent = 'Uploading to cloud…';
+
+  // Generate unique filename
+  const safeName = _manualFile.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const filePath = `${Date.now()}_${safeName}`;
+
+  try{
+    // Upload to Supabase Storage
+    const { data: storageData, error: storageError } = await sb.storage
+      .from('manuals')
+      .upload(filePath, _manualFile, {
+        contentType: 'application/pdf',
+        upsert: false,
+        onUploadProgress: (e) => {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          fillEl.style.width = pct + '%';
+          pctEl.textContent = pct + '%';
+        }
+      });
+
+    if(storageError) throw storageError;
+
+    // Get the public URL
+    const { data: urlData } = sb.storage.from('manuals').getPublicUrl(filePath);
+    const publicUrl = urlData.publicUrl;
+
+    statusEl.textContent = 'Saving metadata…';
+    fillEl.style.width = '100%';
+    pctEl.textContent = '100%';
+
+    // Save metadata to manuals table
+    const { data: manualData, error: dbError } = await sb.from('manuals').insert({
+      title,
+      description: desc,
+      filename: _manualFile.name,
+      file_path: filePath,
+      file_size: _manualFile.size,
+      file_url: publicUrl,
+      uploaded_by: currentUser.id
+    }).select().single();
+
+    if(dbError) throw dbError;
+
+    _manualsCache.push(manualData);
+    try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
+
+    // Reset form
+    document.getElementById('manual-title-inp').value = '';
+    document.getElementById('manual-desc-inp').value = '';
+    document.getElementById('manual-file-inp').value = '';
+    document.getElementById('manual-file-name').textContent = '';
+    _manualFile = null;
+    progressWrap.style.display = 'none';
+    toast(`✅ "${title}" uploaded successfully!`);
+    renderDBManualsList();
+
+  }catch(err){
+    toast('⚠ Upload failed: ' + (err.message || err));
+    progressWrap.style.display = 'none';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '⬆ Upload Manual';
+  }
+}
+
+async function deleteManual(id, filePath){
+  if(!confirm('Delete this manual for all crew? This cannot be undone.')) return;
+  // Delete from storage
+  await sb.storage.from('manuals').remove([filePath]);
+  // Delete metadata
+  await sb.from('manuals').delete().eq('id', id);
+  // Remove from local IndexedDB cache
+  await deleteManualFromIDB(id);
+  _manualsCache = _manualsCache.filter(m => m.id !== id);
+  try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
+  toast('🗑 Manual deleted.');
+  renderDBManualsList();
+}
+
+function renderDBManualsList(){
+  const el = document.getElementById('db-manuals-list');
+  if(!el) return;
+  if(!_manualsCache.length){
+    el.innerHTML = '<div class="db-empty">No manuals uploaded yet.</div>';
+    return;
+  }
+  el.innerHTML = _manualsCache.map(m => `
+    <div class="db-item">
+      <div style="flex:1;min-width:0">
+        <div class="db-item-text">${escHtml(m.title)}</div>
+        <div class="db-item-sub">${m.description||''} · ${formatBytes(m.file_size||0)}</div>
+      </div>
+      <button class="btn btn-danger btn-icon btn-sm" onclick="deleteManual('${m.id}','${m.file_path}')">✕</button>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// MANUALS — LOAD & CREW VIEW
+// ═══════════════════════════════════════════════
+async function loadManualsMetadata(){
+  if(isOnline){
+    try{
+      const { data } = await sb.from('manuals').select('*').order('created_at');
+      _manualsCache = data || [];
+      try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
+    }catch{
+      _manualsCache = getCachedManualsMeta();
+    }
+  } else {
+    _manualsCache = getCachedManualsMeta();
+  }
+}
+
+function getCachedManualsMeta(){
+  try{ return JSON.parse(localStorage.getItem('ccl_manuals_meta')||'[]'); }catch{ return []; }
+}
+
+function closeManualsOverlay(){
+  document.getElementById('manuals-overlay').classList.remove('open');
+}
+
+async function loadManualsForCrew(){
+  await loadManualsMetadata();
+  renderCrewManualsList();
+  // Auto-cache in background after loading
+  if(isOnline) cacheAllManualsInBackground();
+}
+
+async function renderCrewManualsList(){
+  const el = document.getElementById('manuals-crew-list');
+  if(!el) return;
+
+  if(!_manualsCache.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div><h3>No manuals yet</h3><p>Check back soon.</p></div>';
+    return;
+  }
+
+  // Check which are cached in IDB
+  const cachedIds = await getCachedManualIds();
+  const countEl = document.getElementById('manuals-cached-count');
+  if(countEl) countEl.textContent = `${cachedIds.size} of ${_manualsCache.length} available offline`;
+
+  el.innerHTML = _manualsCache.map(m => {
+    const isCached = cachedIds.has(m.id);
+    return `
+    <div class="manual-item" onclick="openManual('${m.id}')">
+      <div class="manual-icon">PDF</div>
+      <div class="manual-info">
+        <div class="manual-title">${escHtml(m.title)}</div>
+        ${m.description ? `<div class="manual-desc">${escHtml(m.description)}</div>` : ''}
+        <div class="manual-meta">${formatBytes(m.file_size||0)}</div>
+      </div>
+      <div class="manual-actions">
+        ${isCached
+          ? `<span class="manual-cached-badge">✓ Offline</span>`
+          : `<button class="manual-cache-btn" onclick="event.stopPropagation();cacheManual('${m.id}',this)">⬇ Save offline</button>`
+        }
+      </div>
+      <div class="manual-progress" id="mp-${m.id}"></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// MANUALS — PDF VIEWER
+// ═══════════════════════════════════════════════
+async function openManual(id){
+  const manual = _manualsCache.find(m => m.id === id);
+  if(!manual) return;
+
+  // Open viewer overlay
+  document.getElementById('pdf-overlay').classList.add('open');
+  document.getElementById('pdf-title').textContent = manual.title;
+  document.getElementById('pdf-loading').style.display = 'flex';
+  document.getElementById('pdf-offline-msg').style.display = 'none';
+
+  // Remove any existing iframe
+  const wrap = document.getElementById('pdf-frame-wrap');
+  const existing = wrap.querySelector('iframe');
+  if(existing) existing.remove();
+
+  let pdfUrl = null;
+
+  // Try IndexedDB first (offline)
+  const cachedBlob = await getManualFromIDB(id);
+  if(cachedBlob){
+    pdfUrl = URL.createObjectURL(cachedBlob);
+  } else if(isOnline){
+    pdfUrl = manual.file_url;
+    // Cache it in the background while user reads
+    cacheManualById(id, manual);
+  } else {
+    document.getElementById('pdf-loading').style.display = 'none';
+    document.getElementById('pdf-offline-msg').style.display = 'flex';
+    return;
+  }
+
+  // Create iframe
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'width:100%;height:100%;border:none;display:block';
+  iframe.src = pdfUrl;
+  iframe.onload = () => {
+    document.getElementById('pdf-loading').style.display = 'none';
+  };
+  wrap.appendChild(iframe);
+}
+
+function closePDFViewer(){
+  document.getElementById('pdf-overlay').classList.remove('open');
+  // Revoke any object URLs to free memory
+  const iframe = document.getElementById('pdf-frame-wrap').querySelector('iframe');
+  if(iframe){
+    if(iframe.src.startsWith('blob:')) URL.revokeObjectURL(iframe.src);
+    iframe.src = '';
+    iframe.remove();
+  }
+  document.getElementById('pdf-search-bar').style.display = 'none';
+  document.getElementById('pdf-search-inp').value = '';
+}
+
+function togglePDFSearch(){
+  const bar = document.getElementById('pdf-search-bar');
+  const isVisible = bar.style.display !== 'none';
+  bar.style.display = isVisible ? 'none' : 'flex';
+  if(!isVisible) document.getElementById('pdf-search-inp').focus();
+}
+
+function triggerPDFFind(){
+  // The most reliable cross-browser approach: copy the search term and
+  // instruct the user — direct iframe find API is not exposed for security reasons
+  const term = document.getElementById('pdf-search-inp').value.trim();
+  if(!term) return;
+  // Copy to clipboard so user can paste into browser find
+  navigator.clipboard?.writeText(term).catch(()=>{});
+  toast(`🔍 "${term}" copied — use Ctrl+F / ⌘F inside the PDF to find it`);
+}
+
+// ═══════════════════════════════════════════════
+// MANUALS — OFFLINE CACHING (IndexedDB)
+// ═══════════════════════════════════════════════
+const MANUALS_IDB = 'ccl_manuals_store';
+
+async function openManualsIDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open('ccl_manuals_db', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(MANUALS_IDB, {keyPath:'id'});
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function cacheManualById(id, manual){
+  if(!manual?.file_url) return;
+  try{
+    const resp = await fetch(manual.file_url);
+    if(!resp.ok) return;
+    const blob = await resp.blob();
+    const db   = await openManualsIDB();
+    const tx   = db.transaction(MANUALS_IDB,'readwrite');
+    tx.objectStore(MANUALS_IDB).put({ id, blob, cachedAt: Date.now() });
+  }catch(e){ console.warn('Manual cache failed:', e); }
+}
+
+async function cacheManual(id, btn){
+  const manual = _manualsCache.find(m => m.id === id);
+  if(!manual) return;
+  if(!isOnline){ toast('📴 Connect to internet to download.'); return; }
+  if(btn){ btn.textContent = '⬇ Downloading…'; btn.disabled = true; }
+  // Show progress bar
+  const progress = document.getElementById(`mp-${id}`);
+  if(progress){ progress.style.width = '30%'; }
+  await cacheManualById(id, manual);
+  if(progress){ progress.style.width = '100%'; setTimeout(()=>{ progress.style.width='0'; },600); }
+  toast(`✅ "${manual.title}" saved for offline reading.`);
+  renderCrewManualsList(); // refresh to show cached badge
+}
+
+async function cacheAllManualsInBackground(){
+  const cachedIds = await getCachedManualIds();
+  for(const m of _manualsCache){
+    if(!cachedIds.has(m.id)) await cacheManualById(m.id, m);
+  }
+  // Refresh cached count display
+  const cachedIds2 = await getCachedManualIds();
+  const countEl = document.getElementById('manuals-cached-count');
+  if(countEl) countEl.textContent = `${cachedIds2.size} of ${_manualsCache.length} available offline`;
+}
+
+async function getManualFromIDB(id){
+  try{
+    const db = await openManualsIDB();
+    return new Promise((res)=>{
+      const req = db.transaction(MANUALS_IDB,'readonly').objectStore(MANUALS_IDB).get(id);
+      req.onsuccess = ()=> res(req.result?.blob || null);
+      req.onerror   = ()=> res(null);
+    });
+  }catch{ return null; }
+}
+
+async function deleteManualFromIDB(id){
+  try{
+    const db = await openManualsIDB();
+    const tx = db.transaction(MANUALS_IDB,'readwrite');
+    tx.objectStore(MANUALS_IDB).delete(id);
+  }catch{}
+}
+
+async function getCachedManualIds(){
+  try{
+    const db = await openManualsIDB();
+    return new Promise((res)=>{
+      const req = db.transaction(MANUALS_IDB,'readonly').objectStore(MANUALS_IDB).getAllKeys();
+      req.onsuccess = ()=> res(new Set(req.result||[]));
+      req.onerror   = ()=> res(new Set());
+    });
+  }catch{ return new Set(); }
+}
+
+// ═══════════════════════════════════════════════
+// MANUALS — HELPER
+// ═══════════════════════════════════════════════
+function formatBytes(bytes){
+  if(!bytes) return '—';
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
 function escHtml(str){
   if(!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1742,6 +2247,9 @@ async function onLoggedIn(){
 
   // Load app version
   loadAppVersion();
+
+  // Pre-load manuals metadata (so offline list is ready)
+  loadManualsMetadata();
 
   // Restore dark mode preference
   if(localStorage.getItem('ccl_dark_mode') === '1'){
@@ -1889,7 +2397,7 @@ function showTab(name){
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
   if(name==='log')     renderLog();
-  if(name==='db'){ loadAnnouncements().then(()=>renderDB()); }
+  if(name==='db'){ loadAnnouncements().then(()=>{ loadManualsMetadata().then(()=>renderDB()); }); }
   if(name==='perdiem') renderPerDiemTab();
 }
 
@@ -2501,6 +3009,11 @@ function renderDB(){
   const annPanel = document.getElementById('db-ann-panel');
   if(annPanel) annPanel.style.display = isAdmin ? 'block' : 'none';
   if(isAdmin) renderDBAnnList();
+
+  // Show manuals panel for admins only
+  const manPanel = document.getElementById('db-manuals-panel');
+  if(manPanel) manPanel.style.display = isAdmin ? 'block' : 'none';
+  if(isAdmin) renderDBManualsList();
 
   const bar=document.getElementById('db-tab-bar');
   bar.innerHTML=Object.entries(DB_SCHEMA).map(([k,s])=>
