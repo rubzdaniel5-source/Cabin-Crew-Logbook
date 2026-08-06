@@ -1991,9 +1991,16 @@ async function uploadManual(){
     document.getElementById('manual-desc-inp').value = '';
     document.getElementById('manual-file-inp').value = '';
     document.getElementById('manual-file-name').textContent = '';
+
+    // Extract text and store chunks (runs after upload, shows progress)
+    statusEl.textContent = 'Extracting text for Nexa AI…';
+    progressWrap.style.display = 'block';
+    const file = _manualFile;
     _manualFile = null;
+    await extractAndStoreChunks(manualData, file, statusEl, fillEl, pctEl);
+
     progressWrap.style.display = 'none';
-    toast(`✅ "${title}" uploaded successfully!`);
+    toast(`✅ "${title}" uploaded and indexed for Nexa!`);
     renderDBManualsList();
 
   }catch(err){
@@ -2007,11 +2014,9 @@ async function uploadManual(){
 
 async function deleteManual(id, filePath){
   if(!confirm('Delete this manual for all crew? This cannot be undone.')) return;
-  // Delete from storage
   await sb.storage.from('manuals').remove([filePath]);
-  // Delete metadata
+  await sb.from('manual_chunks').delete().eq('manual_id', id);
   await sb.from('manuals').delete().eq('id', id);
-  // Remove from local IndexedDB cache
   await deleteManualFromIDB(id);
   _manualsCache = _manualsCache.filter(m => m.id !== id);
   try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
@@ -2030,7 +2035,11 @@ function renderDBManualsList(){
     <div class="db-item">
       <div style="flex:1;min-width:0">
         <div class="db-item-text">${escHtml(m.title)}</div>
-        <div class="db-item-sub">${m.description||''} · ${formatBytes(m.file_size||0)}</div>
+        <div class="db-item-sub">${m.description||''} · ${formatBytes(m.file_size||0)} ·
+          ${m.has_text
+            ? `<span style="color:var(--green)">✓ Indexed (${m.chunk_count} chunks)</span>`
+            : `<span style="color:var(--orange)">⚠ Not indexed — re-upload to enable Nexa</span>`}
+        </div>
       </div>
       <button class="btn btn-danger btn-icon btn-sm" onclick="deleteManual('${m.id}','${m.file_path}')">✕</button>
     </div>`).join('');
@@ -2450,19 +2459,24 @@ const NEXA_MODEL      = 'claude-haiku-4-5-20251001';
 const NEXA_KEY_STORE  = 'ccl_nexa_key';
 const NEXA_MAX_HIST   = 20; // messages kept in context
 
-let _nexaHistory  = []; // [{role, content}]
-let _nexaBusy     = false;
+let _nexaHistory      = []; // [{role, content}]
+let _nexaBusy         = false;
+let _hasManualContext = false; // tracks if last message included manual context
 
-const NEXA_SYSTEM = `You are Nexa, an AI assistant for cabin crew at an airline. You help crew members with:
+const NEXA_SYSTEM = `You are Nexa, an AI assistant for cabin crew at an airline. You have access to two sources of information that may be included in messages:
+
+1. RELEVANT MANUAL EXCERPTS — text from the crew's uploaded cabin crew and operations manuals. When provided, cite them as "According to the [Manual Name]..." and treat them as authoritative.
+
+2. LOGBOOK DATA — the crew member's own flight records, block hours, per diem, and allowances pulled live from their logbook. Use this to answer personal questions about their flights and pay accurately.
+
+You help crew members with:
 - Questions about cabin crew procedures, safety, and regulations
-- Interpreting information from their manuals and operations documents
-- Per diem calculations, flight time allowances, and logbook queries
+- Interpreting their manuals and operations documents
+- Personal logbook queries: block hours, flight time allowances, per diem earned
 - Emergency procedures, first aid, and safety topics
 - General aviation knowledge relevant to cabin crew
 
-Be concise, professional, and use aviation terminology appropriately. If you're unsure about specific airline-specific procedures not mentioned in context, say so clearly and recommend the crew consult their official manuals.
-
-When answering questions related to safety or emergency procedures, always remind the crew to verify against their current approved manuals.`;
+When manual excerpts are provided, prioritise them. When logbook data is provided, use exact figures. For safety-critical procedures, always remind crew to verify against their current approved manuals. Be concise and professional.`;
 
 function getNexaKey(){
   return localStorage.getItem(NEXA_KEY_STORE) || '';
@@ -2562,18 +2576,27 @@ async function sendNexaMessage(){
   inp.style.height = 'auto';
   _nexaBusy = true;
   document.getElementById('nexa-send-btn').disabled = true;
-  document.getElementById('nexa-status').textContent = 'Thinking…';
+  document.getElementById('nexa-status').textContent = 'Searching manuals…';
 
-  // Add user message to UI + history
   nexaAppendMessage('user', text);
-  _nexaHistory.push({ role: 'user', content: text });
+  nexaShowTyping();
 
-  // Keep history within limit
+  // Fetch relevant manual context + crew's own flight data
+  const manualContext = await fetchNexaContext(text);
+  const flightContext = buildFlightContext(text);
+  const context = [manualContext, flightContext].filter(Boolean).join('\n\n');
+  _hasManualContext = !!context;
+
+  const messageWithContext = context
+    ? `${text}\n\n${context}`
+    : text;
+
+  _nexaHistory.push({ role: 'user', content: messageWithContext });
   if(_nexaHistory.length > NEXA_MAX_HIST){
     _nexaHistory = _nexaHistory.slice(-NEXA_MAX_HIST);
   }
 
-  nexaShowTyping();
+  document.getElementById('nexa-status').textContent = 'Thinking…';
 
   try{
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2596,7 +2619,6 @@ async function sendNexaMessage(){
 
     if(!resp.ok){
       const errMsg = data?.error?.message || `API error ${resp.status}`;
-      // Invalid key — clear it so user is prompted to re-enter
       if(resp.status === 401){
         localStorage.removeItem(NEXA_KEY_STORE);
         nexaRemoveTyping();
@@ -2617,15 +2639,231 @@ async function sendNexaMessage(){
   }catch(err){
     nexaRemoveTyping();
     nexaAppendMessage('assistant', `⚠ Sorry, I encountered an error: ${err.message}\n\nPlease try again.`);
-    // Remove failed user message from history
     _nexaHistory.pop();
   }finally{
     _nexaBusy = false;
     document.getElementById('nexa-send-btn').disabled = false;
-    document.getElementById('nexa-status').textContent = 'Powered by Claude · Ready';
+    document.getElementById('nexa-status').textContent = _hasManualContext
+      ? 'Powered by Claude · Manual context used'
+      : 'Powered by Claude · Ready';
+    _hasManualContext = false;
   }
 }
 
+
+const CHUNK_SIZE = 500; // words per chunk
+
+async function extractAndStoreChunks(manual, file, statusEl, fillEl, pctEl){
+  try{
+    // Initialise PDF.js
+    if(window.pdfjsLib){
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    }
+
+    // Load PDF from the File object directly
+    const buffer  = await file.arrayBuffer();
+    const pdfDoc  = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const total   = pdfDoc.numPages;
+    let   fullText = []; // [{pageNum, text}]
+
+    // Extract text page by page
+    for(let i = 1; i <= total; i++){
+      const pct = Math.round((i / total) * 60); // 0–60% for extraction
+      if(fillEl) fillEl.style.width = pct + '%';
+      if(pctEl)  pctEl.textContent  = pct + '%';
+      if(statusEl) statusEl.textContent = `Extracting text: page ${i} of ${total}…`;
+
+      const page    = await pdfDoc.getPage(i);
+      const content = await page.getTextContent();
+      const text    = content.items.map(item => item.str).join(' ').replace(/\s+/g,' ').trim();
+      if(text.length > 10) fullText.push({ pageNum: i, text });
+    }
+
+    // Split into chunks of ~CHUNK_SIZE words
+    const chunks = [];
+    let   buffer2 = [];
+    let   wordCount = 0;
+    let   chunkPage = 1;
+
+    for(const { pageNum, text } of fullText){
+      const words = text.split(' ');
+      for(const word of words){
+        buffer2.push(word);
+        wordCount++;
+        if(wordCount >= CHUNK_SIZE){
+          chunks.push({ content: buffer2.join(' '), page: chunkPage });
+          buffer2 = []; wordCount = 0;
+        }
+      }
+      chunkPage = pageNum;
+    }
+    if(buffer2.length > 50) chunks.push({ content: buffer2.join(' '), page: chunkPage });
+
+    if(statusEl) statusEl.textContent = `Saving ${chunks.length} chunks to database…`;
+
+    // Store chunks in Supabase in batches of 20
+    const batchSize = 20;
+    for(let i = 0; i < chunks.length; i += batchSize){
+      const batch = chunks.slice(i, i + batchSize).map((ch, j) => ({
+        manual_id:    manual.id,
+        manual_title: manual.title,
+        chunk_index:  i + j,
+        page_num:     ch.page,
+        content:      ch.content
+      }));
+      const pct = 60 + Math.round(((i + batchSize) / chunks.length) * 40);
+      if(fillEl) fillEl.style.width = Math.min(pct, 99) + '%';
+      if(pctEl)  pctEl.textContent  = Math.min(pct, 99) + '%';
+      const { error } = await sb.from('manual_chunks').insert(batch);
+      if(error) throw error;
+    }
+
+    // Mark manual as indexed
+    await sb.from('manuals').update({
+      has_text: true,
+      chunk_count: chunks.length
+    }).eq('id', manual.id);
+
+    // Update local cache
+    const idx = _manualsCache.findIndex(m => m.id === manual.id);
+    if(idx >= 0){ _manualsCache[idx].has_text = true; _manualsCache[idx].chunk_count = chunks.length; }
+    try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
+
+    if(fillEl) fillEl.style.width = '100%';
+    if(pctEl)  pctEl.textContent  = '100%';
+
+  }catch(err){
+    console.error('Text extraction failed:', err);
+    toast('⚠ Text extraction failed — Nexa won\'t have manual context. Try re-uploading.');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NEXA MANUAL CONTEXT RETRIEVAL
+// ═══════════════════════════════════════════════
+// ─── Build crew flight data context from in-memory cache ───
+function buildFlightContext(question){
+  // Only include if question seems related to logbook/flights/pay
+  const flightKeywords = ['flight','block','hour','per diem','layover','pax','route',
+    'captain','purser','how many','total','month','year','logbook','history',
+    'flew','flying','allowance','fta','salary','pay','night','sector'];
+  const q = question.toLowerCase();
+  const relevant = flightKeywords.some(kw => q.includes(kw));
+  if(!relevant || !cache.flights?.length) return '';
+
+  const crewName = localStorage.getItem('ccl_crew_name') || 'This crew member';
+  const now      = new Date();
+  const thisMonth= `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  // Monthly block time summary (last 6 months)
+  const monthlyStats = {};
+  for(const f of cache.flights){
+    const month = f.date ? f.date.slice(0,7) : null;
+    if(!month) continue;
+    if(!monthlyStats[month]) monthlyStats[month] = { flights:0, blockMins:0, pax:0 };
+    monthlyStats[month].flights++;
+    monthlyStats[month].blockMins += parseBlockTime(f.blockTime||'');
+    monthlyStats[month].pax += parseInt(f.pax||0);
+  }
+
+  // All-time totals
+  const totalFlights   = cache.flights.length;
+  const totalBlockMins = cache.flights.reduce((a,f)=>a+parseBlockTime(f.blockTime||''),0);
+  const totalBlockH    = Math.floor(totalBlockMins/60);
+  const totalBlockM    = totalBlockMins % 60;
+
+  // This month
+  const mf = cache.flights.filter(f=>f.date?.startsWith(thisMonth));
+  const mBlockMins = mf.reduce((a,f)=>a+parseBlockTime(f.blockTime||''),0);
+  const mPax       = mf.reduce((a,f)=>a+parseInt(f.pax||0),0);
+
+  // FTA this month (position-based)
+  const mFTA = mf.reduce((a,f)=>{
+    const rate = FTA_RATES[f.position] ?? 0;
+    return a + (parseBlockTime(f.blockTime||'')/60)*rate;
+  }, 0);
+
+  // Per diem this month
+  const mPD     = cache.perDiem.filter(p=>p.date?.startsWith(thisMonth));
+  const mNights = mPD.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
+  const mPDamt  = mNights * PERDIEM_RATE;
+
+  // All-time per diem
+  const totalNights = cache.perDiem.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
+  const totalPDamt  = totalNights * PERDIEM_RATE;
+
+  // Recent 5 flights
+  const recent = [...cache.flights]
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .slice(0,5)
+    .map(f=>`  • ${f.date} | ${f.flightNum} | ${f.dep||'?'}→${f.arr||'?'} | ${f.blockTime||'?'} | ${f.position||'?'}`)
+    .join('\n');
+
+  return `=== ${crewName.toUpperCase()}'S LOGBOOK DATA ===
+All-time: ${totalFlights} flights · ${totalBlockH}h ${totalBlockM}m block time · $${totalPDamt.toLocaleString()} total per diem (${totalNights} nights)
+
+This month (${thisMonth}):
+  Flights: ${mf.length}
+  Block time: ${Math.floor(mBlockMins/60)}h ${mBlockMins%60}m
+  Flight Time Allowance: $${mFTA.toFixed(2)}
+  Pax carried: ${mPax}
+  Per diem: ${mNights} nights = $${mPDamt}
+
+Recent flights:
+${recent || '  No flights yet'}
+=== END LOGBOOK DATA ===`;
+}
+
+async function fetchNexaContext(question){
+  if(!question || !isOnline) return '';
+
+  try{
+    // Keyword-based relevance: score each chunk by how many question words it contains
+    const stopWords = new Set(['what','is','are','the','a','an','how','do','does','can',
+      'when','where','which','who','why','in','on','of','to','for','and','or','if','this','that']);
+    const keywords = question.toLowerCase()
+      .replace(/[^a-z0-9\s]/g,'')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !stopWords.has(w));
+
+    if(!keywords.length) return '';
+
+    // Fetch all indexed chunks (up to 1000 — enough for 4 × 20MB manuals)
+    const { data: chunks, error } = await sb
+      .from('manual_chunks')
+      .select('manual_title, page_num, content, chunk_index')
+      .order('chunk_index');
+
+    if(error || !chunks?.length) return '';
+
+    // Score each chunk
+    const scored = chunks.map(ch => {
+      const text  = ch.content.toLowerCase();
+      const score = keywords.reduce((s, kw) => {
+        // Count occurrences — more matches = more relevant
+        const matches = (text.match(new RegExp(kw, 'g')) || []).length;
+        return s + matches;
+      }, 0);
+      return { ...ch, score };
+    }).filter(ch => ch.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5); // top 5 chunks
+
+    if(!scored.length) return '';
+
+    // Format as context for Claude
+    const context = scored.map(ch =>
+      `[${ch.manual_title} — Page ~${ch.page_num}]\n${ch.content}`
+    ).join('\n\n---\n\n');
+
+    return `\n\n=== RELEVANT MANUAL EXCERPTS ===\n${context}\n=== END OF EXCERPTS ===`;
+
+  }catch(err){
+    console.warn('Context fetch failed:', err);
+    return '';
+  }
+}
 
 function escHtml(str){
   if(!str) return '';
