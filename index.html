@@ -1149,6 +1149,22 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <span class="d-lbl">App Version</span>
         <span class="d-val" id="settings-version">—</span>
       </div>
+
+      <!-- Admin-only: Nexa API key -->
+      <div id="settings-nexa-section" style="display:none;margin-top:18px;border-top:1px solid var(--border2);padding-top:16px">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin-bottom:10px">🤖 Nexa Crew AI — Admin Key</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          This key is shared with all crew automatically. Only you (admin) need to set it.
+          Get your key at <strong>console.anthropic.com</strong>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input type="password" id="settings-nexa-key" placeholder="sk-ant-api03-…"
+            style="flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:.82rem;font-family:var(--font)"/>
+          <button class="btn btn-primary btn-sm" onclick="saveNexaKeyAdmin()">Save</button>
+        </div>
+        <div id="settings-nexa-status" style="font-size:.72rem;color:var(--muted)">Loading…</div>
+      </div>
+
       <div style="margin-top:18px">
         <button class="btn btn-ghost" onclick="closeSettings()" style="width:100%">Close</button>
       </div>
@@ -1226,14 +1242,11 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button class="nexa-close" onclick="closeNexa()">✕</button>
   </div>
 
-  <!-- API key setup prompt (shown until key is entered) -->
+  <!-- Not configured message (shown to crew if admin hasn't set key yet) -->
   <div class="nexa-api-key-prompt" id="nexa-key-prompt" style="display:none">
-    <div style="font-size:2.5rem">🔑</div>
-    <div style="color:#fff;font-size:.95rem;font-weight:700">Enter your Anthropic API Key</div>
-    <div style="color:#7A9BB8;font-size:.78rem;line-height:1.5">Your key is stored only on this device and never sent anywhere except directly to Anthropic's API.</div>
-    <input class="nexa-key-inp" type="password" id="nexa-key-inp" placeholder="sk-ant-api03-…"/>
-    <button class="btn btn-gold" style="width:100%" onclick="saveNexaKey()">Save & Start Chatting</button>
-    <div style="color:#4A6A84;font-size:.68rem">Get your key at console.anthropic.com</div>
+    <div style="font-size:2.5rem">🤖</div>
+    <div style="color:#fff;font-size:.95rem;font-weight:700">Nexa is not yet configured</div>
+    <div style="color:#7A9BB8;font-size:.78rem;line-height:1.6;text-align:center">Your admin needs to activate Nexa Crew AI.<br>Please check back later.</div>
   </div>
 
   <!-- Chat interface -->
@@ -1687,7 +1700,7 @@ function closeMenu(){
 function openMenuSection(section){
   closeMenu();
   if(section === 'announcements'){ loadAnnouncements(); document.getElementById('ann-overlay').classList.add('open'); }
-  else if(section === 'settings'){ document.getElementById('settings-overlay').classList.add('open'); }
+  else if(section === 'settings'){ openSettings(); }
   else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
   else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
   else if(section === 'agent'){ openNexa(); }
@@ -1886,6 +1899,29 @@ async function deleteAnn(id){
 function closeSettings(){
   document.getElementById('settings-overlay').classList.remove('open');
 }
+
+function openSettings(){
+  const overlay = document.getElementById('settings-overlay');
+  overlay.classList.add('open');
+
+  // Show Nexa key section only for admin
+  const nexaSection = document.getElementById('settings-nexa-section');
+  if(nexaSection) nexaSection.style.display = isAdmin ? 'block' : 'none';
+
+  // Show current key status
+  if(isAdmin){
+    const statusEl = document.getElementById('settings-nexa-status');
+    if(statusEl){
+      if(_nexaApiKey){
+        statusEl.textContent = '✅ Active — Nexa is enabled for all crew.';
+        statusEl.style.color = 'var(--green)';
+      } else {
+        statusEl.textContent = '⚠ Not configured — enter your Anthropic API key above.';
+        statusEl.style.color = 'var(--orange, #e67e22)';
+      }
+    }
+  }
+}
 function toggleDarkMode(on){
   document.body.classList.toggle('dark-mode', on);
   localStorage.setItem('ccl_dark_mode', on ? '1' : '0');
@@ -2019,6 +2055,7 @@ async function deleteManual(id, filePath){
   await sb.from('manuals').delete().eq('id', id);
   await deleteManualFromIDB(id);
   _manualsCache = _manualsCache.filter(m => m.id !== id);
+  _nexaChunkCache = null; // force reload on next Nexa query
   try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
   toast('🗑 Manual deleted.');
   renderDBManualsList();
@@ -2456,12 +2493,12 @@ function formatBytes(bytes){
 // NEXA CREW AI
 // ═══════════════════════════════════════════════
 const NEXA_MODEL      = 'claude-haiku-4-5-20251001';
-const NEXA_KEY_STORE  = 'ccl_nexa_key';
 const NEXA_MAX_HIST   = 20; // messages kept in context
 
 let _nexaHistory      = []; // [{role, content}]
 let _nexaBusy         = false;
-let _hasManualContext = false; // tracks if last message included manual context
+let _hasManualContext = false;
+let _nexaApiKey       = ''; // loaded from Supabase on login, shared across all crew
 
 const NEXA_SYSTEM = `You are Nexa, an AI assistant for cabin crew at an airline. You have access to two sources of information that may be included in messages:
 
@@ -2478,30 +2515,47 @@ You help crew members with:
 
 When manual excerpts are provided, prioritise them. When logbook data is provided, use exact figures. For safety-critical procedures, always remind crew to verify against their current approved manuals. Be concise and professional.`;
 
-function getNexaKey(){
-  return localStorage.getItem(NEXA_KEY_STORE) || '';
+// ── Load shared API key from Supabase (called on login) ───
+async function loadNexaKey(){
+  try{
+    const { data } = await sb.from('app_config')
+      .select('value').eq('key','nexa_api_key').single();
+    _nexaApiKey = data?.value || '';
+  }catch{
+    _nexaApiKey = '';
+  }
 }
 
-function saveNexaKey(){
-  const key = document.getElementById('nexa-key-inp').value.trim();
+function getNexaKey(){ return _nexaApiKey; }
+
+// ── Admin saves key to Supabase (shared with all crew) ───
+async function saveNexaKeyAdmin(){
+  if(!isAdmin){ toast('⚠ Admin only.'); return; }
+  const inp = document.getElementById('settings-nexa-key');
+  const key = (inp?.value || '').trim();
+  if(!key){ toast('⚠ Please enter an API key.'); return; }
   if(!key.startsWith('sk-ant')){
-    toast('⚠ Invalid key format. Should start with sk-ant…');
+    toast('⚠ Invalid key — should start with sk-ant…');
     return;
   }
-  localStorage.setItem(NEXA_KEY_STORE, key);
-  document.getElementById('nexa-key-prompt').style.display = 'none';
-  document.getElementById('nexa-messages').style.display = 'flex';
-  document.getElementById('nexa-input-bar').style.display = 'flex';
-  nexaAddWelcome();
-  toast('✅ API key saved!');
+  const { error } = await sb.from('app_config')
+    .upsert({ key: 'nexa_api_key', value: key }, { onConflict: 'key' });
+  if(error){ toast('⚠ Save failed: ' + error.message); return; }
+  _nexaApiKey = key;
+  if(inp) inp.value = '';
+  const statusEl = document.getElementById('settings-nexa-status');
+  if(statusEl){ statusEl.textContent = '✅ Active — Nexa is enabled for all crew.'; statusEl.style.color = 'var(--green)'; }
+  toast('✅ Nexa API key saved for all crew!');
 }
+
+function saveNexaKey(){ saveNexaKeyAdmin(); } // alias kept for safety
 
 function openNexa(){
   document.getElementById('nexa-overlay').classList.add('open');
   const hasKey = !!getNexaKey();
-  document.getElementById('nexa-key-prompt').style.display  = hasKey ? 'none'  : 'flex';
-  document.getElementById('nexa-messages').style.display    = hasKey ? 'flex'  : 'none';
-  document.getElementById('nexa-input-bar').style.display   = hasKey ? 'flex'  : 'none';
+  document.getElementById('nexa-key-prompt').style.display  = hasKey ? 'none' : 'flex';
+  document.getElementById('nexa-messages').style.display    = hasKey ? 'flex' : 'none';
+  document.getElementById('nexa-input-bar').style.display   = hasKey ? 'flex' : 'none';
   if(hasKey && _nexaHistory.length === 0) nexaAddWelcome();
 }
 
@@ -2620,7 +2674,7 @@ async function sendNexaMessage(){
     if(!resp.ok){
       const errMsg = data?.error?.message || `API error ${resp.status}`;
       if(resp.status === 401){
-        localStorage.removeItem(NEXA_KEY_STORE);
+        _nexaApiKey = ''; // clear bad key from memory
         nexaRemoveTyping();
         toast('⚠ Invalid API key — please re-enter it.');
         document.getElementById('nexa-key-prompt').style.display  = 'flex';
@@ -2651,58 +2705,111 @@ async function sendNexaMessage(){
 }
 
 
-const CHUNK_SIZE = 500; // words per chunk
+const CHUNK_MAX_WORDS  = 600;  // max words per chunk
+const CHUNK_OVERLAP    = 80;   // words of overlap between chunks to avoid cutting mid-procedure
+const HEADING_PATTERN  = /^(\d+[\.\d]*\s+[A-Z]|[A-Z][A-Z\s]{3,}$|CHAPTER|SECTION|PROCEDURE|PART\s+\d)/;
 
 async function extractAndStoreChunks(manual, file, statusEl, fillEl, pctEl){
   try{
-    // Initialise PDF.js
     if(window.pdfjsLib){
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     }
 
-    // Load PDF from the File object directly
-    const buffer  = await file.arrayBuffer();
-    const pdfDoc  = await pdfjsLib.getDocument({ data: buffer }).promise;
-    const total   = pdfDoc.numPages;
-    let   fullText = []; // [{pageNum, text}]
+    const buffer = await file.arrayBuffer();
+    const pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const total  = pdfDoc.numPages;
 
-    // Extract text page by page
+    // ── STEP 1: Extract text with structure awareness ──────────
+    // Extract per-item (not just joined string) so we can detect headings
+    const pages = []; // [{pageNum, items:[{text, fontSize, bold}]}]
+
     for(let i = 1; i <= total; i++){
-      const pct = Math.round((i / total) * 60); // 0–60% for extraction
-      if(fillEl) fillEl.style.width = pct + '%';
-      if(pctEl)  pctEl.textContent  = pct + '%';
+      const pct = Math.round((i / total) * 55);
+      if(fillEl)   fillEl.style.width = pct + '%';
+      if(pctEl)    pctEl.textContent  = pct + '%';
       if(statusEl) statusEl.textContent = `Extracting text: page ${i} of ${total}…`;
 
       const page    = await pdfDoc.getPage(i);
       const content = await page.getTextContent();
-      const text    = content.items.map(item => item.str).join(' ').replace(/\s+/g,' ').trim();
-      if(text.length > 10) fullText.push({ pageNum: i, text });
+      const items   = content.items
+        .filter(it => it.str.trim().length > 0)
+        .map(it => ({
+          text:     it.str,
+          fontSize: Math.round(it.transform[3] || 12),
+          bold:     it.fontName?.toLowerCase().includes('bold') || false,
+        }));
+      if(items.length) pages.push({ pageNum: i, items });
     }
 
-    // Split into chunks of ~CHUNK_SIZE words
-    const chunks = [];
-    let   buffer2 = [];
-    let   wordCount = 0;
-    let   chunkPage = 1;
+    // ── STEP 2: Smart chunking — respect headings and sections ──
+    // Detect the body font size (most common) to identify headings as larger/bolder
+    const allFontSizes = pages.flatMap(p => p.items.map(it => it.fontSize));
+    allFontSizes.sort((a,b) => a-b);
+    const bodyFontSize = allFontSizes[Math.floor(allFontSizes.length * 0.5)] || 12;
 
-    for(const { pageNum, text } of fullText){
-      const words = text.split(' ');
-      for(const word of words){
-        buffer2.push(word);
-        wordCount++;
-        if(wordCount >= CHUNK_SIZE){
-          chunks.push({ content: buffer2.join(' '), page: chunkPage });
-          buffer2 = []; wordCount = 0;
+    function isHeading(item){
+      // Heading if: significantly larger font, or bold, or matches heading pattern
+      return item.fontSize > bodyFontSize + 1
+          || item.bold
+          || HEADING_PATTERN.test(item.text.trim());
+    }
+
+    // Build a flat list of sentences/lines with their page and heading status
+    const lines = [];
+    for(const { pageNum, items } of pages){
+      let lineBuffer = '';
+      for(const item of items){
+        // A new heading flushes the current line buffer
+        if(isHeading(item) && lineBuffer.trim()){
+          lines.push({ text: lineBuffer.trim(), page: pageNum, heading: false });
+          lineBuffer = '';
+        }
+        if(isHeading(item)){
+          lines.push({ text: item.text.trim(), page: pageNum, heading: true });
+        } else {
+          lineBuffer += (lineBuffer ? ' ' : '') + item.text;
         }
       }
-      chunkPage = pageNum;
+      if(lineBuffer.trim()) lines.push({ text: lineBuffer.trim(), page: pageNum, heading: false });
     }
-    if(buffer2.length > 50) chunks.push({ content: buffer2.join(' '), page: chunkPage });
 
-    if(statusEl) statusEl.textContent = `Saving ${chunks.length} chunks to database…`;
+    // ── STEP 3: Group lines into chunks, keeping headings as anchors ──
+    const chunks = [];
+    let   currentHeading = '';
+    let   wordBuf   = [];
+    let   chunkPage = 1;
+    let   overlapBuf = []; // last N words for overlap
 
-    // Store chunks in Supabase in batches of 20
+    function flushChunk(){
+      if(wordBuf.length < 20) return; // skip tiny fragments
+      const content = (currentHeading ? `${currentHeading}\n` : '') + wordBuf.join(' ');
+      chunks.push({ content, page: chunkPage });
+      // Keep last CHUNK_OVERLAP words for next chunk (so procedures aren't cut)
+      overlapBuf = wordBuf.slice(-CHUNK_OVERLAP);
+      wordBuf    = [...overlapBuf]; // start next chunk with overlap
+    }
+
+    for(const line of lines){
+      if(line.heading){
+        // When we hit a new heading, flush current chunk if large enough
+        if(wordBuf.length > CHUNK_OVERLAP + 20) flushChunk();
+        currentHeading = line.text;
+        chunkPage      = line.page;
+      } else {
+        const words = line.text.split(/\s+/);
+        chunkPage = line.page;
+        for(const word of words){
+          wordBuf.push(word);
+          if(wordBuf.length >= CHUNK_MAX_WORDS) flushChunk();
+        }
+      }
+    }
+    flushChunk(); // flush remaining
+
+    if(statusEl) statusEl.textContent = `Saving ${chunks.length} chunks to Supabase…`;
+
+    // ── STEP 4: Store in Supabase in batches ──────────────────
     const batchSize = 20;
     for(let i = 0; i < chunks.length; i += batchSize){
       const batch = chunks.slice(i, i + batchSize).map((ch, j) => ({
@@ -2712,20 +2819,14 @@ async function extractAndStoreChunks(manual, file, statusEl, fillEl, pctEl){
         page_num:     ch.page,
         content:      ch.content
       }));
-      const pct = 60 + Math.round(((i + batchSize) / chunks.length) * 40);
+      const pct = 55 + Math.round(((i + batchSize) / chunks.length) * 45);
       if(fillEl) fillEl.style.width = Math.min(pct, 99) + '%';
       if(pctEl)  pctEl.textContent  = Math.min(pct, 99) + '%';
       const { error } = await sb.from('manual_chunks').insert(batch);
       if(error) throw error;
     }
 
-    // Mark manual as indexed
-    await sb.from('manuals').update({
-      has_text: true,
-      chunk_count: chunks.length
-    }).eq('id', manual.id);
-
-    // Update local cache
+    await sb.from('manuals').update({ has_text: true, chunk_count: chunks.length }).eq('id', manual.id);
     const idx = _manualsCache.findIndex(m => m.id === manual.id);
     if(idx >= 0){ _manualsCache[idx].has_text = true; _manualsCache[idx].chunk_count = chunks.length; }
     try{ localStorage.setItem('ccl_manuals_meta', JSON.stringify(_manualsCache)); }catch{}
@@ -2733,15 +2834,38 @@ async function extractAndStoreChunks(manual, file, statusEl, fillEl, pctEl){
     if(fillEl) fillEl.style.width = '100%';
     if(pctEl)  pctEl.textContent  = '100%';
 
+    // Refresh in-memory chunk cache after extraction
+    await loadChunkCache();
+
   }catch(err){
     console.error('Text extraction failed:', err);
-    toast('⚠ Text extraction failed — Nexa won\'t have manual context. Try re-uploading.');
+    toast('⚠ Text extraction failed. Try re-uploading the manual.');
   }
 }
 
 // ═══════════════════════════════════════════════
-// NEXA MANUAL CONTEXT RETRIEVAL
+// NEXA — IN-MEMORY CHUNK CACHE (loads once, searches instantly)
 // ═══════════════════════════════════════════════
+let _nexaChunkCache = null; // null = not loaded yet, [] = loaded but empty
+
+async function loadChunkCache(){
+  try{
+    const { data, error } = await sb
+      .from('manual_chunks')
+      .select('manual_title, page_num, content, chunk_index')
+      .order('manual_title')
+      .order('chunk_index');
+    _nexaChunkCache = error ? [] : (data || []);
+  }catch{
+    _nexaChunkCache = [];
+  }
+}
+
+// Pre-load on login if online
+async function preloadNexaChunks(){
+  if(isOnline && _nexaChunkCache === null) await loadChunkCache();
+}
+
 // ─── Build crew flight data context from in-memory cache ───
 function buildFlightContext(question){
   // Only include if question seems related to logbook/flights/pay
@@ -2816,53 +2940,54 @@ ${recent || '  No flights yet'}
 }
 
 async function fetchNexaContext(question){
-  if(!question || !isOnline) return '';
+  if(!question) return '';
 
-  try{
-    // Keyword-based relevance: score each chunk by how many question words it contains
-    const stopWords = new Set(['what','is','are','the','a','an','how','do','does','can',
-      'when','where','which','who','why','in','on','of','to','for','and','or','if','this','that']);
-    const keywords = question.toLowerCase()
-      .replace(/[^a-z0-9\s]/g,'')
-      .split(/\s+/)
-      .filter(w => w.length > 2 && !stopWords.has(w));
-
-    if(!keywords.length) return '';
-
-    // Fetch all indexed chunks (up to 1000 — enough for 4 × 20MB manuals)
-    const { data: chunks, error } = await sb
-      .from('manual_chunks')
-      .select('manual_title, page_num, content, chunk_index')
-      .order('chunk_index');
-
-    if(error || !chunks?.length) return '';
-
-    // Score each chunk
-    const scored = chunks.map(ch => {
-      const text  = ch.content.toLowerCase();
-      const score = keywords.reduce((s, kw) => {
-        // Count occurrences — more matches = more relevant
-        const matches = (text.match(new RegExp(kw, 'g')) || []).length;
-        return s + matches;
-      }, 0);
-      return { ...ch, score };
-    }).filter(ch => ch.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5); // top 5 chunks
-
-    if(!scored.length) return '';
-
-    // Format as context for Claude
-    const context = scored.map(ch =>
-      `[${ch.manual_title} — Page ~${ch.page_num}]\n${ch.content}`
-    ).join('\n\n---\n\n');
-
-    return `\n\n=== RELEVANT MANUAL EXCERPTS ===\n${context}\n=== END OF EXCERPTS ===`;
-
-  }catch(err){
-    console.warn('Context fetch failed:', err);
-    return '';
+  // Load chunk cache if not yet loaded
+  if(_nexaChunkCache === null){
+    if(isOnline) await loadChunkCache();
+    else return '';
   }
+  if(!_nexaChunkCache.length) return '';
+
+  const stopWords = new Set(['what','is','are','the','a','an','how','do','does','can',
+    'when','where','which','who','why','in','on','of','to','for','and','or','if',
+    'this','that','with','from','as','at','by','be','was','were','has','have','had',
+    'will','would','should','could','may','might','shall','must']);
+
+  const keywords = question.toLowerCase()
+    .replace(/[^a-z0-9\s]/g,'')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w));
+
+  if(!keywords.length) return '';
+
+  // Score each chunk — instant because it's all in memory
+  const scored = _nexaChunkCache.map(ch => {
+    const text  = ch.content.toLowerCase();
+    const score = keywords.reduce((s, kw) => {
+      // Heading match scores 5x more than body match
+      const headingLine = ch.content.split('\n')[0].toLowerCase();
+      const headingHits = (headingLine.match(new RegExp(kw, 'g')) || []).length * 4;
+      const bodyHits    = (text.match(new RegExp(kw, 'g')) || []).length;
+      return s + headingHits + bodyHits;
+    }, 0);
+    return { ...ch, score };
+  })
+  .filter(ch => ch.score > 0)
+  .sort((a, b) => b.score - a.score);
+
+  if(!scored.length) return '';
+
+  // Take top 8 chunks, then re-sort by chunk_index to restore reading order
+  // This ensures a procedure is presented in the correct sequence to Claude
+  const top = scored.slice(0, 8)
+    .sort((a, b) => a.chunk_index - b.chunk_index);
+
+  const context = top.map(ch =>
+    `[${ch.manual_title} — Page ~${ch.page_num}]\n${ch.content}`
+  ).join('\n\n---\n\n');
+
+  return `\n\n=== RELEVANT MANUAL EXCERPTS ===\n${context}\n=== END OF EXCERPTS ===`;
 }
 
 function escHtml(str){
@@ -2907,8 +3032,14 @@ async function onLoggedIn(){
   // Load app version
   loadAppVersion();
 
+  // Load Nexa API key from Supabase (shared, admin-configured)
+  await loadNexaKey();
+
   // Pre-load manuals metadata (so offline list is ready)
   loadManualsMetadata();
+
+  // Pre-load Nexa chunk cache for instant search
+  preloadNexaChunks();
 
   // Restore dark mode preference
   if(localStorage.getItem('ccl_dark_mode') === '1'){
