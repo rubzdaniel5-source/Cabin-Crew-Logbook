@@ -461,6 +461,57 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .nexa-key-inp{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px 14px;color:#fff;font-size:.85rem;font-family:var(--font);text-align:center}
 .nexa-key-inp:focus{outline:none;border-color:var(--gold)}
 
+/* ── CREW CHAT ───────────────────────────────────────────── */
+.chat-overlay{display:none;position:fixed;inset:0;background:var(--white);z-index:600;flex-direction:column}
+.chat-overlay.open{display:flex}
+.chat-topbar{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:11px;flex-shrink:0;min-height:52px}
+.chat-topbar-back{background:none;border:none;color:#7A9BB8;font-size:1.25rem;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}
+.chat-topbar-avatar{width:34px;height:34px;border-radius:50%;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;flex-shrink:0}
+.chat-topbar-info{flex:1;min-width:0}
+.chat-topbar-name{font-size:.9rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-topbar-sub{font-size:.65rem;color:#7A9BB8;margin-top:1px}
+/* Home screen */
+.chat-home{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.chat-section-hdr{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:14px 16px 6px}
+.chat-conv-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border2);transition:background .15s}
+.chat-conv-item:hover,.chat-conv-item:active{background:var(--ice2)}
+.chat-conv-avatar{width:42px;height:42px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;flex-shrink:0}
+.chat-conv-avatar.group{background:var(--navy)}
+.chat-conv-info{flex:1;min-width:0}
+.chat-conv-name{font-size:.88rem;font-weight:700;color:var(--navy)}
+.chat-conv-preview{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-conv-time{font-size:.65rem;color:var(--muted)}
+.chat-unread-badge{background:var(--sky);color:#fff;border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:800}
+/* Thread view */
+.chat-thread{display:none;flex:1;flex-direction:column;overflow:hidden}
+.chat-thread.open{display:flex}
+.chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch;background:#f0f4f8}
+.chat-msg-wrap{display:flex;gap:8px;align-items:flex-end;max-width:100%}
+.chat-msg-wrap.mine{flex-direction:row-reverse}
+.chat-msg-avatar{width:28px;height:28px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0;margin-bottom:2px}
+.chat-msg-wrap.mine .chat-msg-avatar{background:var(--gold);color:var(--navy)}
+.chat-bubble-wrap{display:flex;flex-direction:column;max-width:75%;gap:2px}
+.chat-msg-wrap.mine .chat-bubble-wrap{align-items:flex-end}
+.chat-sender-name{font-size:.62rem;color:var(--muted);font-weight:600;padding:0 4px}
+.chat-bubble{padding:9px 13px;border-radius:16px;font-size:.84rem;line-height:1.5;word-break:break-word;position:relative}
+.chat-msg-wrap:not(.mine) .chat-bubble{background:#fff;color:var(--navy);border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.chat-msg-wrap.mine .chat-bubble{background:var(--sky);color:#fff;border-bottom-right-radius:4px}
+.chat-bubble-time{font-size:.6rem;opacity:.65;margin-top:2px;padding:0 4px}
+.chat-msg-wrap.mine .chat-bubble-time{text-align:right}
+.chat-del-btn{background:none;border:none;color:rgba(255,255,255,.6);font-size:.7rem;cursor:pointer;padding:0;display:none;position:absolute;top:3px;right:6px}
+.chat-bubble:hover .chat-del-btn{display:block}
+/* Input bar */
+.chat-input-bar{background:#fff;padding:10px 12px;display:flex;gap:8px;align-items:flex-end;border-top:1px solid var(--border2);flex-shrink:0}
+.chat-inp{flex:1;background:var(--ice2);border:1.5px solid var(--border);border-radius:20px;padding:9px 14px;font-size:.88rem;font-family:var(--font);resize:none;min-height:40px;max-height:100px;line-height:1.4;color:var(--navy)}
+.chat-inp:focus{outline:none;border-color:var(--sky)}
+.chat-send-btn{background:var(--sky);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.chat-send-btn:hover{background:var(--navy)}
+/* New chat picker */
+.crew-picker-list{max-height:60vh;overflow-y:auto}
+.crew-picker-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border2);transition:background .15s}
+.crew-picker-item:hover{background:var(--ice2)}
+
 /* ── NOTES ───────────────────────────────────────────────── */
 .notes-overlay{display:none;position:fixed;inset:0;background:var(--white);z-index:600;flex-direction:column}
 .notes-overlay.open{display:flex}
@@ -1055,6 +1106,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button class="menu-item" onclick="openMenuSection('announcements')">
       <span class="menu-item-icon">📢</span>Onboard Announcements
     </button>
+    <button class="menu-item" onclick="openMenuSection('chat')">
+      <span class="menu-item-icon">💬</span>Crew Chat
+      <span class="menu-item-badge" id="chat-unread-menu-badge" style="display:none">0</span>
+    </button>
     <button class="menu-item" onclick="openMenuSection('manuals')">
       <span class="menu-item-icon">📖</span>Manuals
     </button>
@@ -1314,6 +1369,77 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
     <button class="nexa-send" id="nexa-send-btn" onclick="sendNexaMessage()" title="Send">➤</button>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CREW CHAT OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="chat-overlay" id="chat-overlay">
+
+  <!-- ── CHAT HOME ───────────────────────────────────────── -->
+  <div id="chat-home-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div class="chat-topbar">
+      <div style="flex:1">
+        <div class="chat-topbar-name">💬 Crew Chat</div>
+        <div class="chat-topbar-sub" id="chat-online-status">Connecting…</div>
+      </div>
+      <button onclick="openNewChatPicker()" style="background:var(--gold);border:none;color:var(--navy);border-radius:8px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:var(--font);flex-shrink:0">+ Private</button>
+      <button onclick="closeChat()" class="chat-topbar-back" style="font-size:1.3rem">✕</button>
+    </div>
+    <div class="chat-home">
+      <!-- Group chat -->
+      <div class="chat-section-hdr">Group</div>
+      <div class="chat-conv-item" onclick="openThread('group','group','All Crew','✈')">
+        <div class="chat-conv-avatar group">✈</div>
+        <div class="chat-conv-info">
+          <div class="chat-conv-name">All Crew</div>
+          <div class="chat-conv-preview" id="group-preview">Group channel for all crew</div>
+        </div>
+        <div class="chat-conv-meta">
+          <div class="chat-conv-time" id="group-time"></div>
+          <div class="chat-unread-badge" id="group-unread" style="display:none">0</div>
+        </div>
+      </div>
+
+      <!-- Private conversations -->
+      <div class="chat-section-hdr">Private</div>
+      <div id="private-convs-list">
+        <div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap + Private to start one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAT THREAD ──────────────────────────────────────── -->
+  <div class="chat-thread" id="chat-thread-view">
+    <div class="chat-topbar" id="thread-topbar">
+      <button class="chat-topbar-back" onclick="closeThread()">←</button>
+      <div class="chat-topbar-avatar" id="thread-avatar">?</div>
+      <div class="chat-topbar-info">
+        <div class="chat-topbar-name" id="thread-name">—</div>
+        <div class="chat-topbar-sub" id="thread-sub"></div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-bar">
+      <textarea class="chat-inp" id="chat-inp" placeholder="Type a message…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage()}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+      <button class="chat-send-btn" onclick="sendChatMessage()" title="Send">➤</button>
+    </div>
+  </div>
+
+  <!-- ── NEW CHAT PICKER ──────────────────────────────────── -->
+  <div id="chat-picker-view" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div class="chat-topbar">
+      <button class="chat-topbar-back" onclick="closeNewChatPicker()">←</button>
+      <div class="chat-topbar-info">
+        <div class="chat-topbar-name">New Private Chat</div>
+        <div class="chat-topbar-sub">Choose a crew member</div>
+      </div>
+    </div>
+    <div class="crew-picker-list" id="crew-picker-list"></div>
+  </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1639,6 +1765,7 @@ async function initAuth(){
     if(event === 'SIGNED_OUT'){
       currentUser = null;
       isAdmin     = false;
+      unsubscribeChat();
 
       // ── Clear ALL in-memory and local caches ──────────────
       cache.flights  = [];
@@ -1662,7 +1789,8 @@ async function initAuth(){
 
       // Clear user-specific localStorage keys
       ['ccl_crew_name','ccl_position','ccl_user_name',
-       'ccl_ann_cache','ccl_manuals_meta','ccl_shared_cache'].forEach(k=>{
+       'ccl_ann_cache','ccl_manuals_meta','ccl_shared_cache',
+       'ccl_chat_read'].forEach(k=>{
         try{ localStorage.removeItem(k); }catch{}
       });
 
@@ -1833,6 +1961,7 @@ function openMenuSection(section){
   else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
   else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
   else if(section === 'notes'){ openNotes(); }
+  else if(section === 'chat'){ openChat(); }
   else if(section === 'agent'){ openNexa(); }
   else { toast('🚧 Coming soon!'); }
 }
@@ -3121,6 +3250,365 @@ async function fetchNexaContext(question){
 
   return `\n\n=== RELEVANT MANUAL EXCERPTS ===\n${context}\n=== END OF EXCERPTS ===`;
 }
+
+// ═══════════════════════════════════════════════
+// CREW CHAT
+// ═══════════════════════════════════════════════
+let _chatChannel     = null;   // current Supabase Realtime channel
+let _activeThread    = null;   // {channelId, name, type:'group'|'private'}
+let _chatUnreadCounts = {};    // {channelId: count}
+let _lastReadTimes   = {};     // {channelId: timestamp} — persisted in localStorage
+let _privateConvs    = [];     // list of {channelId, otherName, otherInitial}
+
+// ── Private channel ID (deterministic from two user IDs) ──
+function privateChannelId(uid1, uid2){
+  return [uid1, uid2].sort().join('_');
+}
+
+function chatSenderName(){
+  return localStorage.getItem('ccl_crew_name')
+    || document.getElementById('user-email-display').textContent
+    || 'Crew';
+}
+
+// ── Open / Close chat home ────────────────────────────────
+async function openChat(){
+  document.getElementById('chat-overlay').classList.add('open');
+  showChatView('home');
+  _lastReadTimes = JSON.parse(localStorage.getItem('ccl_chat_read')||'{}');
+  await loadChatHome();
+  subscribeToGroupRealtime();
+}
+
+function closeChat(){
+  document.getElementById('chat-overlay').classList.remove('open');
+  unsubscribeChat();
+}
+
+function showChatView(view){
+  document.getElementById('chat-home-view').style.display   = view==='home'   ? 'flex' : 'none';
+  document.getElementById('chat-thread-view').classList.toggle('open', view==='thread');
+  document.getElementById('chat-picker-view').style.display = view==='picker' ? 'flex' : 'none';
+}
+
+// ── Load home: group preview + private convs ──────────────
+async function loadChatHome(){
+  document.getElementById('chat-online-status').textContent = isOnline ? 'Online' : 'Offline';
+
+  if(!isOnline) return;
+
+  // Load last group message for preview
+  const { data: gMsgs } = await sb.from('messages')
+    .select('sender_name,content,created_at')
+    .eq('channel','group')
+    .order('created_at',{ascending:false}).limit(1);
+
+  if(gMsgs?.length){
+    const m = gMsgs[0];
+    document.getElementById('group-preview').textContent = `${m.sender_name}: ${m.content}`;
+    document.getElementById('group-time').textContent = formatChatTime(m.created_at);
+    // Unread count
+    const lastRead = _lastReadTimes['group'] || '1970-01-01';
+    const { count } = await sb.from('messages')
+      .select('id', {count:'exact',head:true})
+      .eq('channel','group')
+      .gt('created_at', lastRead)
+      .neq('sender_id', currentUser.id);
+    const el = document.getElementById('group-unread');
+    if(count > 0){ el.textContent = count; el.style.display = 'block'; }
+    else el.style.display = 'none';
+  }
+
+  // Load private conversations for this user
+  const { data: convs } = await sb.from('chat_channels')
+    .select('*').eq('user_id', currentUser.id)
+    .order('created_at',{ascending:false});
+  _privateConvs = convs || [];
+  await renderPrivateConvList();
+}
+
+async function renderPrivateConvList(){
+  const el = document.getElementById('private-convs-list');
+  if(!_privateConvs.length){
+    el.innerHTML = '<div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap + Private to start one.</div>';
+    return;
+  }
+
+  let html = '';
+  for(const conv of _privateConvs){
+    // Get last message
+    const { data: msgs } = await sb.from('messages')
+      .select('sender_name,content,created_at')
+      .eq('channel', conv.channel_id)
+      .order('created_at',{ascending:false}).limit(1);
+    const lastMsg  = msgs?.[0];
+    const initial  = conv.other_user_name.charAt(0).toUpperCase();
+    const lastRead = _lastReadTimes[conv.channel_id] || '1970-01-01';
+
+    let unreadCount = 0;
+    if(lastMsg){
+      const { count } = await sb.from('messages')
+        .select('id',{count:'exact',head:true})
+        .eq('channel', conv.channel_id)
+        .gt('created_at', lastRead)
+        .neq('sender_id', currentUser.id);
+      unreadCount = count || 0;
+    }
+
+    html += `
+    <div class="chat-conv-item" onclick="openThread('${conv.channel_id}','private','${escHtml(conv.other_user_name)}','${initial}')">
+      <div class="chat-conv-avatar">${initial}</div>
+      <div class="chat-conv-info">
+        <div class="chat-conv-name">${escHtml(conv.other_user_name)}</div>
+        <div class="chat-conv-preview">${lastMsg ? escHtml(lastMsg.sender_name+': '+lastMsg.content) : 'No messages yet'}</div>
+      </div>
+      <div class="chat-conv-meta">
+        <div class="chat-conv-time">${lastMsg ? formatChatTime(lastMsg.created_at) : ''}</div>
+        ${unreadCount > 0 ? `<div class="chat-unread-badge">${unreadCount}</div>` : ''}
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+
+  // Update menu badge
+  const totalUnread = Object.values(_chatUnreadCounts).reduce((a,b)=>a+b,0);
+  const badge = document.getElementById('chat-unread-menu-badge');
+  if(badge){
+    if(totalUnread > 0){ badge.textContent = totalUnread; badge.style.display = 'block'; }
+    else badge.style.display = 'none';
+  }
+}
+
+// ── Open a chat thread ────────────────────────────────────
+async function openThread(channelId, type, name, initial){
+  _activeThread = { channelId, type, name };
+
+  // Update topbar
+  document.getElementById('thread-avatar').textContent = initial;
+  document.getElementById('thread-name').textContent   = name;
+  document.getElementById('thread-sub').textContent    = type==='group' ? 'All crew' : 'Private chat';
+
+  showChatView('thread');
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-inp').value = '';
+
+  await loadThreadMessages(channelId);
+  markChannelRead(channelId);
+  subscribeToThreadRealtime(channelId);
+  scrollChatToBottom();
+}
+
+function closeThread(){
+  unsubscribeChat();
+  showChatView('home');
+  _activeThread = null;
+  subscribeToGroupRealtime();
+  loadChatHome();
+}
+
+// ── Load messages for a thread ────────────────────────────
+async function loadThreadMessages(channelId){
+  const { data, error } = await sb.from('messages')
+    .select('*')
+    .eq('channel', channelId)
+    .order('created_at', {ascending:true})
+    .limit(100);
+
+  if(error){ toast('⚠ Could not load messages.'); return; }
+  const wrap = document.getElementById('chat-messages');
+  wrap.innerHTML = '';
+  (data||[]).forEach(m => appendChatMessage(m, false));
+}
+
+// ── Append a single message bubble ───────────────────────
+function appendChatMessage(msg, scroll=true){
+  const wrap    = document.getElementById('chat-messages');
+  const isMine  = msg.sender_id === currentUser.id;
+  const canDel  = isMine || isAdmin;
+  const initial = msg.sender_name.charAt(0).toUpperCase();
+  const time    = formatChatTime(msg.created_at);
+
+  const div = document.createElement('div');
+  div.className = `chat-msg-wrap${isMine?' mine':''}`;
+  div.id = `msg-${msg.id}`;
+  div.innerHTML = `
+    <div class="chat-msg-avatar">${initial}</div>
+    <div class="chat-bubble-wrap">
+      ${!isMine ? `<div class="chat-sender-name">${escHtml(msg.sender_name)}</div>` : ''}
+      <div class="chat-bubble">
+        ${canDel ? `<button class="chat-del-btn" onclick="deleteChatMessage('${msg.id}')" title="Delete">✕</button>` : ''}
+        ${escHtml(msg.content).replace(/\n/g,'<br>')}
+      </div>
+      <div class="chat-bubble-time">${time}</div>
+    </div>`;
+  wrap.appendChild(div);
+  if(scroll) scrollChatToBottom();
+}
+
+function scrollChatToBottom(){
+  const el = document.getElementById('chat-messages');
+  if(el) setTimeout(()=>{ el.scrollTop = el.scrollHeight; }, 50);
+}
+
+// ── Send a message ────────────────────────────────────────
+async function sendChatMessage(){
+  if(!_activeThread) return;
+  const inp     = document.getElementById('chat-inp');
+  const content = inp.value.trim();
+  if(!content) return;
+  if(!isOnline){ toast('📴 No connection.'); return; }
+
+  const senderName = chatSenderName();
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  const { error } = await sb.from('messages').insert({
+    channel:     _activeThread.channelId,
+    sender_id:   currentUser.id,
+    sender_name: senderName,
+    content
+  });
+
+  if(error) toast('⚠ Message failed: ' + error.message);
+  // Realtime will pick it up and render it
+}
+
+// ── Delete a message ──────────────────────────────────────
+async function deleteChatMessage(id){
+  if(!confirm('Delete this message?')) return;
+  const { error } = await sb.from('messages').delete().eq('id', id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const el = document.getElementById(`msg-${id}`);
+  if(el) el.remove();
+}
+
+// ── Realtime subscriptions ────────────────────────────────
+function subscribeToGroupRealtime(){
+  unsubscribeChat();
+  _chatChannel = sb.channel('group-chat')
+    .on('postgres_changes',{
+      event:'INSERT', schema:'public', table:'messages', filter:'channel=eq.group'
+    }, payload => {
+      // If group thread is open, render it
+      if(_activeThread?.channelId === 'group'){
+        appendChatMessage(payload.new);
+        markChannelRead('group');
+      } else {
+        // Badge the menu
+        _chatUnreadCounts['group'] = (_chatUnreadCounts['group']||0) + 1;
+        updateChatMenuBadge();
+      }
+      // Refresh home preview
+      if(document.getElementById('chat-home-view').style.display !== 'none') loadChatHome();
+    })
+    .subscribe(status=>{
+      document.getElementById('chat-online-status').textContent =
+        status==='SUBSCRIBED' ? 'Online · Live' : 'Connecting…';
+    });
+}
+
+function subscribeToThreadRealtime(channelId){
+  unsubscribeChat();
+  _chatChannel = sb.channel(`thread-${channelId}`)
+    .on('postgres_changes',{
+      event:'INSERT', schema:'public', table:'messages',
+      filter:`channel=eq.${channelId}`
+    }, payload => {
+      appendChatMessage(payload.new);
+      markChannelRead(channelId);
+    })
+    .subscribe();
+}
+
+function unsubscribeChat(){
+  if(_chatChannel){ sb.removeChannel(_chatChannel); _chatChannel = null; }
+}
+
+// ── Read state ────────────────────────────────────────────
+function markChannelRead(channelId){
+  _lastReadTimes[channelId] = new Date().toISOString();
+  try{ localStorage.setItem('ccl_chat_read', JSON.stringify(_lastReadTimes)); }catch{}
+  _chatUnreadCounts[channelId] = 0;
+  updateChatMenuBadge();
+}
+
+function updateChatMenuBadge(){
+  const total = Object.values(_chatUnreadCounts).reduce((a,b)=>a+b,0);
+  const badge = document.getElementById('chat-unread-menu-badge');
+  if(badge){
+    badge.textContent = total;
+    badge.style.display = total > 0 ? 'block' : 'none';
+  }
+}
+
+// ── New private chat picker ───────────────────────────────
+async function openNewChatPicker(){
+  showChatView('picker');
+  const el = document.getElementById('crew-picker-list');
+  el.innerHTML = '<div style="padding:20px;color:var(--muted)">Loading crew…</div>';
+
+  // Load all profiles with a crew name set, excluding self
+  const { data, error } = await sb.from('profiles')
+    .select('id, crew_name, position')
+    .not('crew_name', 'is', null)
+    .neq('id', currentUser.id)
+    .order('crew_name');
+
+  if(error || !data?.length){
+    el.innerHTML = '<div style="padding:20px;color:var(--muted)">No crew members found.</div>';
+    return;
+  }
+
+  el.innerHTML = data.map(p => {
+    const initial = (p.crew_name||'?').charAt(0).toUpperCase();
+    return `
+    <div class="crew-picker-item" onclick="startPrivateChat('${p.id}','${escHtml(p.crew_name)}')">
+      <div class="chat-conv-avatar">${initial}</div>
+      <div>
+        <div style="font-weight:700;font-size:.88rem;color:var(--navy)">${escHtml(p.crew_name)}</div>
+        <div style="font-size:.72rem;color:var(--muted)">${escHtml(p.position||'Crew')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function closeNewChatPicker(){
+  showChatView('home');
+}
+
+async function startPrivateChat(otherUserId, otherName){
+  const channelId = privateChannelId(currentUser.id, otherUserId);
+  const myName    = chatSenderName();
+
+  // Ensure both sides have a chat_channels record
+  await sb.from('chat_channels').upsert({
+    channel_id: channelId, user_id: currentUser.id,
+    other_user_id: otherUserId, other_user_name: otherName
+  }, { onConflict: 'channel_id,user_id' });
+
+  await sb.from('chat_channels').upsert({
+    channel_id: channelId, user_id: otherUserId,
+    other_user_id: currentUser.id, other_user_name: myName
+  }, { onConflict: 'channel_id,user_id' });
+
+  const initial = otherName.charAt(0).toUpperCase();
+  openThread(channelId, 'private', otherName, initial);
+}
+
+// ── Helper ────────────────────────────────────────────────
+function formatChatTime(ts){
+  if(!ts) return '';
+  const d   = new Date(ts);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if(diffDays === 0) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  if(diffDays === 1) return 'Yesterday';
+  if(diffDays < 7)  return d.toLocaleDateString([],{weekday:'short'});
+  return d.toLocaleDateString([],{day:'numeric',month:'short'});
+}
+
+// Also clear chat read times on signout
+// (Already handled by sign-out clearing localStorage keys — add ccl_chat_read)
 
 // ═══════════════════════════════════════════════
 // NOTES
