@@ -18,6 +18,17 @@
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#0B1D3A"/>
 <meta name="description" content="Cabin Crew Flight Logbook — track flights, block time, per diem and more."/>
+<!-- Content Security Policy: restrict resource origins -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline';
+  connect-src 'self' https://*.supabase.co https://api.anthropic.com https://cdn.jsdelivr.net;
+  img-src 'self' data: blob: https://*.supabase.co;
+  font-src 'self';
+  object-src 'none';
+  base-uri 'self';
+"/>
 
 <!-- PWA: Service Worker registration -->
 <script>
@@ -306,6 +317,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
 @keyframes pulse{50%{opacity:.3}}
 
+/* ── PRINT / PDF EXPORT ──────────────────────────────────── */
+@media print{
+  body > *:not(#print-area){ display:none!important }
+  #print-area{ display:block!important; font-family:Arial,sans-serif; font-size:11px; color:#000 }
+  #print-area h2{ font-size:15px; margin-bottom:4px }
+  #print-area .print-meta{ font-size:10px; color:#555; margin-bottom:12px }
+  #print-area table{ width:100%; border-collapse:collapse; font-size:9.5px }
+  #print-area th{ background:#0B1D3A; color:#fff; padding:5px 7px; text-align:left; font-size:9px }
+  #print-area td{ padding:4px 7px; border-bottom:1px solid #ddd; vertical-align:top }
+  #print-area tr:nth-child(even) td{ background:#f7f9fc }
+  @page{ margin:15mm; size:A4 landscape }
+}
+#print-area{ display:none }
+
 /* ── HAMBURGER MENU BUTTON ───────────────────────────────── */
 .menu-btn{background:none;border:none;cursor:pointer;padding:6px 8px;display:flex;flex-direction:column;gap:5px;align-items:center;margin-right:6px;flex-shrink:0}
 .menu-btn span{display:block;width:20px;height:2.5px;background:#fff;border-radius:2px;transition:all .25s}
@@ -435,6 +460,27 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .nexa-api-key-prompt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:14px}
 .nexa-key-inp{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px 14px;color:#fff;font-size:.85rem;font-family:var(--font);text-align:center}
 .nexa-key-inp:focus{outline:none;border-color:var(--gold)}
+
+/* ── NOTES ───────────────────────────────────────────────── */
+.notes-overlay{display:none;position:fixed;inset:0;background:var(--white);z-index:600;flex-direction:column}
+.notes-overlay.open{display:flex}
+.notes-header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.notes-header h2{flex:1;font-size:.95rem;font-weight:800}
+.notes-list-wrap{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
+.note-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.note-card:hover{border-color:var(--sky);box-shadow:var(--shadow)}
+.note-card-title{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:3px}
+.note-card-desc{font-size:.73rem;color:var(--sky);font-weight:600;margin-bottom:5px}
+.note-card-preview{font-size:.78rem;color:var(--muted);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.note-card-date{font-size:.65rem;color:var(--muted2);margin-top:6px}
+/* Note editor */
+.note-editor{display:none;flex-direction:column;flex:1;overflow:hidden}
+.note-editor.open{display:flex}
+.note-editor-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.note-inp{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:.88rem;font-family:var(--font);color:var(--navy)}
+.note-inp:focus{outline:none;border-color:var(--sky)}
+.note-textarea{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:.85rem;font-family:var(--font);color:var(--navy);min-height:200px;resize:vertical;line-height:1.6}
+.note-textarea:focus{outline:none;border-color:var(--sky)}
 
 /* ── CREW LINK PROMPT BANNER ─────────────────────────────── */
 .crew-link-banner{background:rgba(201,168,76,.12);border:1.5px solid var(--gold);border-radius:var(--radius);padding:12px 15px;margin:12px 14px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -855,8 +901,12 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export Flights (.xlsx)</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">⬇ Export Per Diem (.xlsx)</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📊 Flights Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportFlightsPDF()">📄 Flights PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">📊 Per Diem Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportPerDiemPDF()">📄 Per Diem PDF</button>
+    </div>
   </div>
   <div id="log-list"></div>
 </div>
@@ -1008,9 +1058,12 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button class="menu-item" onclick="openMenuSection('manuals')">
       <span class="menu-item-icon">📖</span>Manuals
     </button>
+    <button class="menu-item" onclick="openMenuSection('notes')">
+      <span class="menu-item-icon">📝</span>My Notes
+    </button>
     <button class="menu-item" onclick="openMenuSection('mydocs')">
       <span class="menu-item-icon">📁</span>My Documents
-      <span class="menu-item-badge">Phase 2</span>
+      <span class="menu-item-badge">Coming Soon</span>
     </button>
     <div class="menu-divider"></div>
     <button class="menu-item" onclick="openMenuSection('settings')">
@@ -1264,6 +1317,40 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     NOTES OVERLAY
+════════════════════════════════════════════════════════════ -->
+<div class="notes-overlay" id="notes-overlay">
+
+  <!-- List view header -->
+  <div class="notes-header" id="notes-list-hdr">
+    <h2>📝 My Notes</h2>
+    <button onclick="openNoteEditor(null)" style="background:var(--gold);border:none;color:var(--navy);border-radius:8px;padding:7px 14px;font-size:.82rem;font-weight:800;cursor:pointer;font-family:var(--font)">+ New</button>
+    <button onclick="closeNotes()" style="background:none;border:none;color:#7A9BB8;font-size:1.3rem;cursor:pointer;padding:0 4px">✕</button>
+  </div>
+
+  <!-- Notes list -->
+  <div class="notes-list-wrap" id="notes-list-wrap">
+    <div id="notes-list"></div>
+  </div>
+
+  <!-- Note editor (hidden by default) -->
+  <div class="note-editor" id="note-editor">
+    <div class="notes-header">
+      <button onclick="closeNoteEditor()" style="background:none;border:none;color:#7A9BB8;font-size:1.1rem;cursor:pointer;padding:0 4px">← Back</button>
+      <h2 id="note-editor-heading">New Note</h2>
+      <button onclick="saveNote()" style="background:var(--gold);border:none;color:var(--navy);border-radius:8px;padding:7px 14px;font-size:.82rem;font-weight:800;cursor:pointer;font-family:var(--font)">Save</button>
+    </div>
+    <div class="note-editor-body">
+      <input class="note-inp" id="note-title-inp" placeholder="Title *" maxlength="100"/>
+      <input class="note-inp" id="note-desc-inp" placeholder="Description / category (optional)" maxlength="120"/>
+      <textarea class="note-textarea" id="note-body-inp" placeholder="Write your note here…"></textarea>
+      <button id="note-delete-btn" onclick="deleteNote()" class="btn btn-danger" style="display:none;width:100%">🗑 Delete This Note</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      HELP & FEEDBACK OVERLAY
 ════════════════════════════════════════════════════════════ -->
 <div class="fs-overlay" id="help-overlay">
@@ -1297,6 +1384,9 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     </div>
   </div>
 </div>
+
+<!-- ── PRINT AREA (for PDF export) ───────────────────────── -->
+<div id="print-area"></div>
 
 <!-- ── FAB ─────────────────────────────────────────────────── -->
 <button class="fab" id="fab" onclick="showTab('add')" title="New flight">＋</button>
@@ -1548,6 +1638,45 @@ async function initAuth(){
     }
     if(event === 'SIGNED_OUT'){
       currentUser = null;
+      isAdmin     = false;
+
+      // ── Clear ALL in-memory and local caches ──────────────
+      cache.flights  = [];
+      cache.perDiem  = [];
+      cache.shared   = {};
+      _manualsCache  = [];
+      _annCache      = [];
+      _nexaChunkCache = null;
+      _nexaApiKey    = '';
+      _nexaHistory   = [];
+
+      // Clear IndexedDB flight/perdiem stores (prevents next user seeing old data)
+      if(idb){
+        try{
+          const tx1 = idb.transaction('flights','readwrite');
+          tx1.objectStore('flights').clear();
+          const tx2 = idb.transaction('per_diem','readwrite');
+          tx2.objectStore('per_diem').clear();
+        }catch(e){ console.warn('IDB clear on signout:', e); }
+      }
+
+      // Clear user-specific localStorage keys
+      ['ccl_crew_name','ccl_position','ccl_user_name',
+       'ccl_ann_cache','ccl_manuals_meta','ccl_shared_cache'].forEach(k=>{
+        try{ localStorage.removeItem(k); }catch{}
+      });
+
+      // Reset header UI
+      document.getElementById('user-email-display').textContent = '';
+      document.getElementById('user-avatar').textContent = '?';
+      document.getElementById('user-avatar').style.background = '';
+      document.getElementById('hdr-total').textContent = '0';
+      const dbBtn = document.getElementById('tab-btn-db');
+      if(dbBtn) dbBtn.style.display = 'none';
+      const banner = document.getElementById('crew-link-banner');
+      if(banner) banner.remove();
+
+      // Show auth screen
       document.getElementById('auth-screen').style.display='flex';
       switchAuthTab('signin');
       document.getElementById('signin-email').value='';
@@ -1703,6 +1832,7 @@ function openMenuSection(section){
   else if(section === 'settings'){ openSettings(); }
   else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
   else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
+  else if(section === 'notes'){ openNotes(); }
   else if(section === 'agent'){ openNexa(); }
   else { toast('🚧 Coming soon!'); }
 }
@@ -2625,6 +2755,7 @@ async function sendNexaMessage(){
   const key = getNexaKey();
   if(!key){ toast('⚠ Add your Anthropic API key first.'); return; }
   if(!isOnline){ toast('📴 Nexa needs an internet connection.'); return; }
+  if(!checkNexaRateLimit()) return;
 
   inp.value = '';
   inp.style.height = 'auto';
@@ -2689,6 +2820,7 @@ async function sendNexaMessage(){
     nexaRemoveTyping();
     nexaAppendMessage('assistant', reply);
     _nexaHistory.push({ role: 'assistant', content: reply });
+    incrementNexaMsgCount();
 
   }catch(err){
     nexaRemoveTyping();
@@ -2988,6 +3120,116 @@ async function fetchNexaContext(question){
   ).join('\n\n---\n\n');
 
   return `\n\n=== RELEVANT MANUAL EXCERPTS ===\n${context}\n=== END OF EXCERPTS ===`;
+}
+
+// ═══════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════
+let _notesCache   = []; // in-memory list of notes
+let _editingNoteId = null;
+
+async function openNotes(){
+  document.getElementById('notes-overlay').classList.add('open');
+  document.getElementById('note-editor').classList.remove('open');
+  document.getElementById('notes-list-wrap').style.display = 'block';
+  document.getElementById('notes-list-hdr').style.display = 'flex';
+  await loadNotes();
+}
+
+function closeNotes(){
+  document.getElementById('notes-overlay').classList.remove('open');
+}
+
+async function loadNotes(){
+  if(isOnline){
+    try{
+      const { data } = await sb.from('notes')
+        .select('*').order('updated_at', { ascending: false });
+      _notesCache = data || [];
+    }catch{ /* use existing cache */ }
+  }
+  renderNotesList();
+}
+
+function renderNotesList(){
+  const el = document.getElementById('notes-list');
+  if(!_notesCache.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📝</div>
+      <h3>No notes yet</h3><p>Tap + New to create your first note.</p></div>`;
+    return;
+  }
+  el.innerHTML = _notesCache.map(n => `
+    <div class="note-card" onclick="openNoteEditor('${n.id}')">
+      <div class="note-card-title">${escHtml(n.title)}</div>
+      ${n.description ? `<div class="note-card-desc">${escHtml(n.description)}</div>` : ''}
+      ${n.body ? `<div class="note-card-preview">${escHtml(n.body)}</div>` : ''}
+      <div class="note-card-date">${n.updated_at ? new Date(n.updated_at).toLocaleDateString() : ''}</div>
+    </div>`).join('');
+}
+
+function openNoteEditor(id){
+  _editingNoteId = id;
+  const note = id ? _notesCache.find(n => n.id === id) : null;
+
+  document.getElementById('note-editor-heading').textContent = note ? 'Edit Note' : 'New Note';
+  document.getElementById('note-title-inp').value  = note?.title || '';
+  document.getElementById('note-desc-inp').value   = note?.description || '';
+  document.getElementById('note-body-inp').value   = note?.body || '';
+  document.getElementById('note-delete-btn').style.display = note ? 'block' : 'none';
+
+  // Hide list, show editor
+  document.getElementById('notes-list-wrap').style.display = 'none';
+  document.getElementById('notes-list-hdr').style.display  = 'none';
+  document.getElementById('note-editor').classList.add('open');
+  document.getElementById('note-title-inp').focus();
+}
+
+function closeNoteEditor(){
+  document.getElementById('note-editor').classList.remove('open');
+  document.getElementById('notes-list-wrap').style.display = 'block';
+  document.getElementById('notes-list-hdr').style.display  = 'flex';
+  _editingNoteId = null;
+}
+
+async function saveNote(){
+  const title = document.getElementById('note-title-inp').value.trim();
+  const desc  = document.getElementById('note-desc-inp').value.trim();
+  const body  = document.getElementById('note-body-inp').value.trim();
+
+  if(!title){ toast('⚠ Title is required.'); return; }
+  if(!currentUser){ toast('⚠ Not signed in.'); return; }
+
+  const payload = {
+    user_id: currentUser.id,
+    title, description: desc, body,
+    updated_at: new Date().toISOString()
+  };
+
+  if(_editingNoteId){
+    const { error } = await sb.from('notes').update(payload).eq('id', _editingNoteId);
+    if(error){ toast('⚠ ' + error.message); return; }
+    const idx = _notesCache.findIndex(n => n.id === _editingNoteId);
+    if(idx >= 0) _notesCache[idx] = { ..._notesCache[idx], ...payload };
+  } else {
+    const { data, error } = await sb.from('notes').insert(payload).select().single();
+    if(error){ toast('⚠ ' + error.message); return; }
+    _notesCache.unshift(data);
+  }
+
+  toast('✅ Note saved!');
+  closeNoteEditor();
+  renderNotesList();
+}
+
+async function deleteNote(){
+  if(!_editingNoteId) return;
+  if(!confirm('Delete this note? This cannot be undone.')) return;
+  const { error } = await sb.from('notes').delete().eq('id', _editingNoteId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  _notesCache = _notesCache.filter(n => n.id !== _editingNoteId);
+  toast('🗑 Note deleted.');
+  closeNoteEditor();
+  renderNotesList();
 }
 
 function escHtml(str){
@@ -3669,25 +3911,30 @@ function getRouteFromFields(){
 }
 
 function setRouteFields(dep, arr, fullRoute){
-  // Detect sector count from fullRoute string if available (e.g. "EBB → NBO → EBB" = 2 sectors)
   const sel = document.getElementById('f-sector-count');
   if(!sel) return;
+
   if(fullRoute && fullRoute.includes('→')){
     const parts = fullRoute.split('→').map(s=>s.trim()).filter(Boolean);
     const sectorCount = Math.min(Math.max(parts.length - 1, 1), 4);
     sel.value = String(sectorCount);
     buildRouteFields();
-    for(let i=0; i<parts.length; i++){
-      const el = document.getElementById(`f-route-${i}`);
-      if(el) el.value = parts[i];
-    }
+    // Wait for DOM to settle before setting values
+    requestAnimationFrame(()=>{
+      for(let i = 0; i < parts.length; i++){
+        const el = document.getElementById(`f-route-${i}`);
+        if(el) el.value = parts[i];
+      }
+    });
   } else {
     sel.value = '1';
     buildRouteFields();
-    const i0 = document.getElementById('f-route-0');
-    const i1 = document.getElementById('f-route-1');
-    if(i0) i0.value = dep || '';
-    if(i1) i1.value = arr || '';
+    requestAnimationFrame(()=>{
+      const i0 = document.getElementById('f-route-0');
+      const i1 = document.getElementById('f-route-1');
+      if(i0) i0.value = dep || '';
+      if(i1) i1.value = arr || '';
+    });
   }
 }
 
@@ -4014,6 +4261,48 @@ function exportPerDiemCSV(){
   XLSX.writeFile(wb, `${safeName}-PerDiem-${today()}.xlsx`);
   toast('📥 Excel file exported!');
 }
+
+function exportFlightsPDF(){
+  const data = cache.flights;
+  if(!data.length){ toast('Nothing to export.'); return; }
+  const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
+  const cols = [
+    ['Date','date'],['Flight','flightNum'],['Route','_route'],
+    ['A/C Reg','reg'],['Type','actype'],['Position','position'],
+    ['Captain','captain'],['Block Time','blockTime'],
+    ['Delay (min)','delay'],['Status','status']
+  ];
+  const rows = data.map(f => {
+    f._route = f.fullRoute || [f.dep,f.arr].filter(Boolean).join('→');
+    return cols.map(([,k])=>escHtml(String(f[k]??'')));
+  });
+  const thead = cols.map(([h])=>`<th>${h}</th>`).join('');
+  const tbody = rows.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');
+  document.getElementById('print-area').innerHTML = `
+    <h2>✈ Crew Logbook — Flight Record</h2>
+    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Total flights: ${data.length}</div>
+    <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+  setTimeout(()=>{ window.print(); }, 80);
+}
+
+function exportPerDiemPDF(){
+  const data = cache.perDiem;
+  if(!data.length){ toast('No per diem data to export.'); return; }
+  const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
+  const totalNights = data.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
+  const totalAmt    = totalNights * PERDIEM_RATE;
+  const rows = data.map(p=>`<tr>
+    <td>${escHtml(p.date)}</td><td>${escHtml(p.flightNum||'')}</td>
+    <td>${p.nights}</td><td>$${(p.nights*PERDIEM_RATE).toFixed(2)}</td>
+    <td>${escHtml(p.notes||'')}</td></tr>`).join('');
+  document.getElementById('print-area').innerHTML = `
+    <h2>✈ Crew Logbook — Per Diem Record</h2>
+    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Total: ${totalNights} nights = $${totalAmt.toFixed(2)}</div>
+    <table><thead><tr><th>Date</th><th>Flight</th><th>Nights</th><th>Amount</th><th>Notes</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+  setTimeout(()=>{ window.print(); }, 80);
+}
+
 function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
 function today(){ return new Date().toISOString().slice(0,10); }
 
@@ -4037,6 +4326,39 @@ document.addEventListener('click', function(e){
     picker.style.display='none';
   }
 });
+
+// ═══════════════════════════════════════════════
+// SECURITY: NEXA RATE LIMITING (20 msgs/user/day)
+// ═══════════════════════════════════════════════
+const NEXA_DAILY_LIMIT = 20;
+
+function getNexaMsgCount(){
+  const today = new Date().toISOString().slice(0,10);
+  try{
+    const stored = JSON.parse(localStorage.getItem('ccl_nexa_usage')||'{}');
+    if(stored.date !== today) return 0;
+    return stored.count || 0;
+  }catch{ return 0; }
+}
+
+function incrementNexaMsgCount(){
+  const today = new Date().toISOString().slice(0,10);
+  try{
+    const count = getNexaMsgCount() + 1;
+    localStorage.setItem('ccl_nexa_usage', JSON.stringify({ date: today, count }));
+  }catch{}
+}
+
+function checkNexaRateLimit(){
+  if(isAdmin) return true; // admins are exempt
+  const count = getNexaMsgCount();
+  if(count >= NEXA_DAILY_LIMIT){
+    toast(`⚠ Daily Nexa limit reached (${NEXA_DAILY_LIMIT} messages). Resets tomorrow.`);
+    return false;
+  }
+  return true;
+}
+
 </script>
 </body>
 </html>
