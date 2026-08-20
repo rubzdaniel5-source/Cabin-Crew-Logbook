@@ -1,4 +1,4 @@
-const CACHE = 'crew-logbook-v13';
+const CACHE = 'crew-logbook-v14';
 const ASSETS = [
   './',
   './index.html',
