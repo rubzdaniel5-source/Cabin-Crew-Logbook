@@ -508,16 +508,19 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .chat-send-btn{background:var(--sky);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
 .chat-send-btn:hover{background:var(--navy)}
 /* New chat picker */
-.crew-picker-list{max-height:60vh;overflow-y:auto}
-.crew-picker-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border2);transition:background .15s}
-.crew-picker-item:hover{background:var(--ice2)}
+.crew-picker-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.crew-picker-search{padding:10px 14px;background:#fff;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:2}
+.crew-picker-search input{width:100%;border:1.5px solid var(--border);border-radius:20px;padding:9px 16px;font-size:.88rem;font-family:var(--font);color:var(--navy);background:var(--ice2)}
+.crew-picker-search input:focus{outline:none;border-color:var(--sky)}
+.crew-picker-item{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;border-bottom:1px solid var(--border2);transition:background .15s}
+.crew-picker-item:hover,.crew-picker-item:active{background:var(--ice2)}
 
 /* ── NOTES ───────────────────────────────────────────────── */
 .notes-overlay{display:none;position:fixed;inset:0;background:var(--white);z-index:600;flex-direction:column}
 .notes-overlay.open{display:flex}
 .notes-header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .notes-header h2{flex:1;font-size:.95rem;font-weight:800}
-.notes-list-wrap{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
+.notes-list-wrap{flex:1;overflow-y:auto;padding:14px;padding-bottom:90px;-webkit-overflow-scrolling:touch}
 .note-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .note-card:hover{border-color:var(--sky);box-shadow:var(--shadow)}
 .note-card-title{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:3px}
@@ -1383,10 +1386,9 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <div class="chat-topbar-name">💬 Crew Chat</div>
         <div class="chat-topbar-sub" id="chat-online-status">Connecting…</div>
       </div>
-      <button onclick="openNewChatPicker()" style="background:var(--gold);border:none;color:var(--navy);border-radius:8px;padding:7px 13px;font-size:.8rem;font-weight:800;cursor:pointer;font-family:var(--font);flex-shrink:0">+ Private</button>
       <button onclick="closeChat()" class="chat-topbar-back" style="font-size:1.3rem">✕</button>
     </div>
-    <div class="chat-home">
+    <div class="chat-home" style="position:relative;padding-bottom:80px">
       <!-- Group chat -->
       <div class="chat-section-hdr">Group</div>
       <div class="chat-conv-item" onclick="openThread('group','group','All Crew','✈')">
@@ -1404,8 +1406,13 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <!-- Private conversations -->
       <div class="chat-section-hdr">Private</div>
       <div id="private-convs-list">
-        <div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap + Private to start one.</div>
+        <div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap the button below to start one.</div>
       </div>
+
+      <!-- FAB: + Private (bottom right) -->
+      <button onclick="openNewChatPicker()"
+        style="position:fixed;bottom:28px;right:22px;background:var(--sky);color:#fff;border:none;border-radius:50%;width:54px;height:54px;font-size:1.4rem;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:10;display:flex;align-items:center;justify-content:center"
+        title="New private chat">✚</button>
     </div>
   </div>
 
@@ -1437,6 +1444,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <div class="chat-topbar-sub">Choose a crew member</div>
       </div>
     </div>
+    <div class="crew-picker-search">
+      <input type="text" id="crew-search-inp" placeholder="🔍  Search crew name…"
+        oninput="filterCrewPicker(this.value)"/>
+    </div>
     <div class="crew-picker-list" id="crew-picker-list"></div>
   </div>
 
@@ -1447,16 +1458,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 ════════════════════════════════════════════════════════════ -->
 <div class="notes-overlay" id="notes-overlay">
 
-  <!-- List view header -->
+  <!-- ── NOTES LIST ──────────────────────────────────────── -->
   <div class="notes-header" id="notes-list-hdr">
     <h2>📝 My Notes</h2>
-    <button onclick="openNoteEditor(null)" style="background:var(--gold);border:none;color:var(--navy);border-radius:8px;padding:7px 14px;font-size:.82rem;font-weight:800;cursor:pointer;font-family:var(--font)">+ New</button>
     <button onclick="closeNotes()" style="background:none;border:none;color:#7A9BB8;font-size:1.3rem;cursor:pointer;padding:0 4px">✕</button>
   </div>
 
   <!-- Notes list -->
-  <div class="notes-list-wrap" id="notes-list-wrap">
+  <div class="notes-list-wrap" id="notes-list-wrap" style="position:relative">
     <div id="notes-list"></div>
+    <!-- FAB: + New Note (bottom center) -->
+    <button onclick="openNoteEditor(null)"
+      style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--navy);border:none;border-radius:24px;padding:13px 28px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:var(--font);box-shadow:0 4px 16px rgba(0,0,0,.22);z-index:10;display:flex;align-items:center;gap:8px">
+      ✚ New Note
+    </button>
   </div>
 
   <!-- Note editor (hidden by default) -->
@@ -3542,12 +3557,15 @@ function updateChatMenuBadge(){
 }
 
 // ── New private chat picker ───────────────────────────────
+let _crewPickerData = []; // stored for filtering
+
 async function openNewChatPicker(){
   showChatView('picker');
+  const searchInp = document.getElementById('crew-search-inp');
+  if(searchInp) searchInp.value = '';
   const el = document.getElementById('crew-picker-list');
-  el.innerHTML = '<div style="padding:20px;color:var(--muted)">Loading crew…</div>';
+  el.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center">Loading crew…</div>';
 
-  // Load all profiles with a crew name set, excluding self
   const { data, error } = await sb.from('profiles')
     .select('id, crew_name, position')
     .not('crew_name', 'is', null)
@@ -3555,21 +3573,45 @@ async function openNewChatPicker(){
     .order('crew_name');
 
   if(error || !data?.length){
-    el.innerHTML = '<div style="padding:20px;color:var(--muted)">No crew members found.</div>';
+    el.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center">No crew members found.<br><small>Crew must link their name in their profile first.</small></div>';
     return;
   }
 
+  _crewPickerData = data;
+  renderCrewPickerList(data);
+  if(searchInp) searchInp.focus();
+}
+
+function renderCrewPickerList(data){
+  const el = document.getElementById('crew-picker-list');
+  if(!data.length){
+    el.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center">No crew found matching your search.</div>';
+    return;
+  }
   el.innerHTML = data.map(p => {
     const initial = (p.crew_name||'?').charAt(0).toUpperCase();
     return `
     <div class="crew-picker-item" onclick="startPrivateChat('${p.id}','${escHtml(p.crew_name)}')">
-      <div class="chat-conv-avatar">${initial}</div>
+      <div class="chat-conv-avatar" style="width:42px;height:42px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;flex-shrink:0">${initial}</div>
       <div>
         <div style="font-weight:700;font-size:.88rem;color:var(--navy)">${escHtml(p.crew_name)}</div>
         <div style="font-size:.72rem;color:var(--muted)">${escHtml(p.position||'Crew')}</div>
       </div>
     </div>`;
   }).join('');
+}
+
+function filterCrewPicker(query){
+  if(!query.trim()){
+    renderCrewPickerList(_crewPickerData);
+    return;
+  }
+  const q = query.toLowerCase();
+  const filtered = _crewPickerData.filter(p =>
+    (p.crew_name||'').toLowerCase().includes(q) ||
+    (p.position||'').toLowerCase().includes(q)
+  );
+  renderCrewPickerList(filtered);
 }
 
 function closeNewChatPicker(){
