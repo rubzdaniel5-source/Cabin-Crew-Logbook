@@ -308,6 +308,16 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .bt-item:hover{background:var(--ice2)}
 .bt-item.selected{background:var(--sky);color:#fff;font-weight:800}
 
+/* ── SECTOR DETAIL CARDS ─────────────────────────────────── */
+.sector-card{background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.sector-card-hdr{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sector-card-route{font-size:.78rem;font-weight:700;color:var(--muted);margin-left:auto}
+.sector-card-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sector-card-field label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+.sector-ft-wrap{display:flex;gap:6px;align-items:center}
+.sector-ft-sel{flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 6px;font-size:.85rem;font-family:var(--font);color:var(--navy);background:#fff;width:100%}
+.sector-fl-sel{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 8px;font-size:.85rem;font-family:var(--font);color:var(--navy);background:#fff}
+
 /* ── MULTI-SECTOR ROUTE FIELDS (New Flight) ──────────────── */
 .route-fields{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:4px 0;width:100%;max-width:100%}
 .route-apt-wrap{position:relative;flex:1;min-width:68px}
@@ -768,7 +778,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
       <div class="field full">
         <label>Number of Sectors</label>
-        <select id="f-sector-count" onchange="buildRouteFields()">
+        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails()">
           <option value="1">1 Sector — e.g. EBB → NBO</option>
           <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
           <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
@@ -803,48 +813,9 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </div>
       </div>
 
-      <!-- ── FLIGHT TIME ─────────────────────────────────── -->
-      <div class="field">
-        <label>Flight Time (wheels off → touch down)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div style="flex:1">
-            <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:3px">Hours</div>
-            <select id="f-flighttime-h" onchange="syncFlightTime()"
-              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.9rem;font-family:var(--font);color:var(--navy);background:#fff">
-              <option value="">—</option>
-              <option>0</option><option>1</option><option>2</option><option>3</option>
-              <option>4</option><option>5</option><option>6</option><option>7</option>
-              <option>8</option><option>9</option><option>10</option><option>11</option>
-              <option>12</option>
-            </select>
-          </div>
-          <span style="font-weight:900;color:var(--muted);font-size:1.1rem">:</span>
-          <div style="flex:1">
-            <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:3px">Minutes</div>
-            <select id="f-flighttime-m" onchange="syncFlightTime()"
-              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.9rem;font-family:var(--font);color:var(--navy);background:#fff">
-              <option value="">—</option>
-              <!-- Populated by buildFlightTimeMinutes() -->
-            </select>
-          </div>
-        </div>
-        <input type="hidden" id="f-flighttime"/>
-      </div>
-
-      <!-- ── FLIGHT LEVEL ────────────────────────────────── -->
-      <div class="field">
-        <label>Flight Level (cruising altitude)</label>
-        <select id="f-flightlevel"
-          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font);color:var(--navy);background:#fff">
-          <option value="">Select…</option>
-          <!-- FL250 – FL410 in increments of 10 (standard RVSM levels) -->
-          <option>FL250</option><option>FL260</option><option>FL270</option>
-          <option>FL280</option><option>FL290</option><option>FL300</option>
-          <option>FL310</option><option>FL320</option><option>FL330</option>
-          <option>FL340</option><option>FL350</option><option>FL360</option>
-          <option>FL370</option><option>FL380</option><option>FL390</option>
-          <option>FL400</option><option>FL410</option>
-        </select>
+      <!-- ── SECTOR DETAILS (Flight Level + Flight Time per sector) ── -->
+      <div class="field full" id="sector-details-wrap">
+        <!-- Built dynamically by buildSectorDetails() when route changes -->
       </div>
 
       <div class="field">
@@ -1798,6 +1769,7 @@ function flightToRow(f){
     user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
+    sectors_data: f.sectorsData ? JSON.stringify(f.sectorsData) : null,
     flight_time:f.flightTime||null, flight_level:f.flightLevel||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
     safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
@@ -4048,7 +4020,6 @@ async function onLoggedIn(){
   document.getElementById('pd-date').valueAsDate = new Date();
   buildRouteFields();
   buildMinuteOptions();
-  buildFlightTimeMinutes();
   renderCrewTags();
   renderDash();
   setInterval(()=>{ if(isOnline) syncToCloud(); }, 30000);
@@ -4097,10 +4068,13 @@ async function loadFlightsFromCloud(overwrite){
   cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
 }
 function rowToFlight(r){
+  let sectorsData = null;
+  try{ sectorsData = r.sectors_data ? (typeof r.sectors_data === 'string' ? JSON.parse(r.sectors_data) : r.sectors_data) : null; }catch{}
   return {
     id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr,
     fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
     reg:r.reg, actype:r.actype,
+    sectorsData,
     flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
     safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
@@ -4340,11 +4314,37 @@ function renderLog(){
 function showDetail(id){
   const e=cache.flights.find(x=>String(x.id)===String(id)); if(!e) return;
   document.getElementById('modal-title').textContent=`${e.flightNum} · ${formatDate(e.date)}`;
+
+  // Build sector details section
+  let sectorHtml = '';
+  if(e.sectorsData && e.sectorsData.length > 0){
+    sectorHtml = '<div class="section-divider">Sector Details</div>';
+    e.sectorsData.forEach(s => {
+      sectorHtml += `
+        <div style="background:var(--ice2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:.7rem;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">
+            ✈ Sector ${s.sector} &nbsp;·&nbsp; ${s.from||'?'} → ${s.to||'?'}
+          </div>
+          <div style="display:flex;gap:16px">
+            <div><span style="font-size:.65rem;color:var(--muted);font-weight:700">FLIGHT LEVEL</span><br>
+              <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${s.flightLevel||'–'}</span></div>
+            <div><span style="font-size:.65rem;color:var(--muted);font-weight:700">FLIGHT TIME</span><br>
+              <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${s.flightTime||'–'}</span></div>
+          </div>
+        </div>`;
+    });
+  } else {
+    // Fallback for old records without sectorsData
+    sectorHtml = `
+      <div class="section-divider">Flight Details</div>
+      <div class="detail-row"><span class="d-lbl">Flight Time</span><span class="d-val">${e.flightTime||'–'}</span></div>
+      <div class="detail-row"><span class="d-lbl">Flight Level</span><span class="d-val">${e.flightLevel||'–'}</span></div>`;
+  }
+
   const pre=[
     ['Date',formatDate(e.date)],['Flight',e.flightNum],
     ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
-    ['Flight Time',e.flightTime||'–'],['Flight Level',e.flightLevel||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
     ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],['First Aid Topic',e.firstAid||'–'],
@@ -4355,6 +4355,7 @@ function showDetail(id){
   ];
   document.getElementById('modal-body').innerHTML=
     pre.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
+    sectorHtml +
     '<div class="section-divider">After Flight</div>'+
     post.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
     `<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-gold btn-sm" onclick="editEntry('${e.id}')">✏ Edit</button><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑 Delete</button><button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button></div>`;
@@ -4371,8 +4372,6 @@ function editEntry(id){
   document.getElementById('f-flightnum').value = e.flightNum||'';
   document.getElementById('f-reg').value = e.reg||'';
   document.getElementById('f-actype').value = e.actype||'';
-  setFlightTime(e.flightTime||'');
-  document.getElementById('f-flightlevel').value = e.flightLevel||'';
   document.getElementById('f-position').value = e.position||'';
   document.getElementById('f-pax').value = e.pax||'';
   document.getElementById('f-captain').value = e.captain||'';
@@ -4399,9 +4398,12 @@ function editEntry(id){
   // Set route fields AFTER showTab renders the tab — use double rAF to guarantee
   // the DOM is fully painted before we try to set input values
   const dep = e.dep||''; const arr = e.arr||''; const fullRoute = e.fullRoute||'';
+  const existingSectors = e.sectorsData || null;
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
       setRouteFields(dep, arr, fullRoute);
+      // Restore sector detail cards with saved data
+      if(existingSectors) buildSectorDetails(existingSectors);
     });
   });
 }
@@ -4440,12 +4442,15 @@ async function saveEntry(){
   if(!g('f-date')||!g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
-  const _route = getRouteFromFields();
+  const _route   = getRouteFromFields();
+  const _sectors = getSectorsData();
   const flightObj = {
     date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
-    flightTime:g('f-flighttime'), flightLevel:g('f-flightlevel'),
+    sectorsData:  _sectors,
+    flightTime:   getPrimaryFlightTime(),
+    flightLevel:  getPrimaryFlightLevel(),
     position:g('f-position'), captain:g('f-captain'), fo:g('f-fo'),
     crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
     std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'), firstAid:g('f-firstaid'),
@@ -4486,9 +4491,7 @@ function clearForm(){
   selectedCrew=[];
   renderCrewTags();
   clearBlockTime();
-  clearFlightTime();
-  const fl = document.getElementById('f-flightlevel');
-  if(fl) fl.value = '';
+  clearSectorDetails();
   clearRouteFields();
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
@@ -4587,49 +4590,153 @@ function selectBT(type, val){
 function buildMinuteOptions(){ buildBTPicker(); } // alias for compat
 
 // ── FLIGHT TIME picker (separate from block time) ─────────
-function buildFlightTimeMinutes(){
-  const sel = document.getElementById('f-flighttime-m');
-  if(!sel) return;
+// ═══════════════════════════════════════════════
+// PER-SECTOR FLIGHT LEVEL + FLIGHT TIME CARDS
+// ═══════════════════════════════════════════════
+
+// FL options (FL250–FL410 in steps of 10)
+const FL_OPTIONS = [
+  'FL250','FL260','FL270','FL280','FL290','FL300',
+  'FL310','FL320','FL330','FL340','FL350','FL360',
+  'FL370','FL380','FL390','FL400','FL410'
+];
+
+// Minutes options 00-59
+function ftMinuteOptions(selectedMin){
   let html = '<option value="">—</option>';
   for(let i = 0; i <= 59; i++){
     const v = String(i).padStart(2,'0');
-    html += `<option value="${v}">${v}</option>`;
+    html += `<option value="${v}"${selectedMin===v?' selected':''}>${v}</option>`;
   }
-  sel.innerHTML = html;
+  return html;
 }
 
-function syncFlightTime(){
-  const h = document.getElementById('f-flighttime-h')?.value;
-  const m = document.getElementById('f-flighttime-m')?.value;
-  const hidden = document.getElementById('f-flighttime');
-  if(hidden && h !== '' && h !== undefined && m !== '' && m !== undefined){
-    hidden.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  } else if(hidden){
-    hidden.value = '';
+function ftHourOptions(selectedH){
+  let html = '<option value="">—</option>';
+  for(let i = 0; i <= 12; i++){
+    html += `<option value="${i}"${String(selectedH)===String(i)?' selected':''}>${i}</option>`;
+  }
+  return html;
+}
+
+function flOptions(selectedFL){
+  let html = '<option value="">Select…</option>';
+  FL_OPTIONS.forEach(fl => {
+    html += `<option${selectedFL===fl?' selected':''}>${fl}</option>`;
+  });
+  return html;
+}
+
+function buildSectorDetails(existingSectors){
+  // existingSectors: optional array from stored data [{from,to,flightLevel,flightTime}]
+  const wrap = document.getElementById('sector-details-wrap');
+  if(!wrap) return;
+
+  const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  let html = '';
+
+  for(let i = 0; i < sectorCount; i++){
+    const existing  = existingSectors?.[i] || {};
+    const ftParts   = (existing.flightTime||'').split(':');
+    const ftH       = ftParts[0] ? parseInt(ftParts[0]) : '';
+    const ftM       = ftParts[1] || '';
+
+    // Get airport codes from the route fields for the label
+    const fromEl = document.getElementById(`f-route-${i}`);
+    const toEl   = document.getElementById(`f-route-${i+1}`);
+    const from   = fromEl?.value?.trim() || `Apt ${i+1}`;
+    const to     = toEl?.value?.trim()   || `Apt ${i+2}`;
+
+    html += `
+    <div class="sector-card" id="sector-card-${i}">
+      <div class="sector-card-hdr">
+        ✈ Sector ${i+1}
+        <span class="sector-card-route" id="sector-route-label-${i}">${from} → ${to}</span>
+      </div>
+      <div class="sector-card-fields">
+        <div class="sector-card-field">
+          <label>Flight Level</label>
+          <select class="sector-fl-sel" id="sector-fl-${i}">
+            ${flOptions(existing.flightLevel||'')}
+          </select>
+        </div>
+        <div class="sector-card-field">
+          <label>Flight Time</label>
+          <div class="sector-ft-wrap">
+            <select class="sector-ft-sel" id="sector-fth-${i}">
+              ${ftHourOptions(ftH)}
+            </select>
+            <span style="font-weight:900;color:var(--muted);font-size:.9rem">:</span>
+            <select class="sector-ft-sel" id="sector-ftm-${i}">
+              ${ftMinuteOptions(ftM)}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  wrap.innerHTML = html || '';
+}
+
+// Read current sector data from the form
+function getSectorsData(){
+  const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  const sectors = [];
+  for(let i = 0; i < sectorCount; i++){
+    const fromEl = document.getElementById(`f-route-${i}`);
+    const toEl   = document.getElementById(`f-route-${i+1}`);
+    const fl     = document.getElementById(`sector-fl-${i}`)?.value  || '';
+    const fth    = document.getElementById(`sector-fth-${i}`)?.value;
+    const ftm    = document.getElementById(`sector-ftm-${i}`)?.value;
+    const ft     = (fth !== '' && fth !== undefined && ftm !== '' && ftm !== undefined)
+      ? `${String(fth).padStart(2,'0')}:${String(ftm).padStart(2,'0')}`
+      : '';
+    sectors.push({
+      sector:      i + 1,
+      from:        fromEl?.value?.trim() || '',
+      to:          toEl?.value?.trim()   || '',
+      flightLevel: fl,
+      flightTime:  ft
+    });
+  }
+  return sectors;
+}
+
+// Update the sector route labels when airport inputs change
+function updateSectorRouteLabels(){
+  const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  for(let i = 0; i < sectorCount; i++){
+    const lbl    = document.getElementById(`sector-route-label-${i}`);
+    const fromEl = document.getElementById(`f-route-${i}`);
+    const toEl   = document.getElementById(`f-route-${i+1}`);
+    if(lbl) lbl.textContent = `${fromEl?.value||`Apt ${i+1}`} → ${toEl?.value||`Apt ${i+2}`}`;
   }
 }
 
-function setFlightTime(val){
-  if(!val) return;
-  const parts = val.split(':');
-  if(parts.length < 2) return;
-  const h = parseInt(parts[0]);
-  const m = parseInt(parts[1]);
-  const hSel = document.getElementById('f-flighttime-h');
-  const mSel = document.getElementById('f-flighttime-m');
-  if(hSel) hSel.value = String(h);
-  if(mSel) mSel.value = String(m).padStart(2,'0');
-  syncFlightTime();
+// Convenience: primary flight time = first sector's flight time (for backward compat)
+function getPrimaryFlightTime(){
+  const sectors = getSectorsData();
+  return sectors[0]?.flightTime || '';
+}
+function getPrimaryFlightLevel(){
+  const sectors = getSectorsData();
+  return sectors[0]?.flightLevel || '';
 }
 
-function clearFlightTime(){
-  const hSel = document.getElementById('f-flighttime-h');
-  const mSel = document.getElementById('f-flighttime-m');
-  if(hSel) hSel.value = '';
-  if(mSel) mSel.value = '';
-  const hidden = document.getElementById('f-flighttime');
-  if(hidden) hidden.value = '';
+// Clear all sector detail fields
+function clearSectorDetails(){
+  buildSectorDetails();
 }
+
+// Keep sector route labels live as user types airport codes
+// Called from airport input oninput — wire up in buildRouteFields
+
+// No-op stubs kept for any lingering references from before
+function buildFlightTimeMinutes(){}
+function syncFlightTime(){}
+function setFlightTime(){}
+function clearFlightTime(){}
 
 function setBlockTime(val){
   if(!val) return;
@@ -4671,7 +4778,7 @@ function buildRouteFields(){
         <div style="position:relative">
           <input class="route-apt-input" id="f-route-${i}" placeholder="Airport"
             autocomplete="off"
-            oninput="filterRouteApt(${i})"
+            oninput="filterRouteApt(${i});updateSectorRouteLabels()"
             onfocus="filterRouteApt(${i})"
             onblur="delayClose('dd-route-${i}')"/>
           <div class="combo-dropdown" id="dd-route-${i}"></div>
@@ -4683,6 +4790,9 @@ function buildRouteFields(){
   }
   html += '</div>';
   wrap.innerHTML = html;
+
+  // Build sector detail cards to match current sector count
+  buildSectorDetails();
 }
 
 function filterRouteApt(idx){
