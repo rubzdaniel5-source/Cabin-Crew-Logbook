@@ -803,6 +803,50 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </div>
       </div>
 
+      <!-- ── FLIGHT TIME ─────────────────────────────────── -->
+      <div class="field">
+        <label>Flight Time (wheels off → touch down)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:3px">Hours</div>
+            <select id="f-flighttime-h" onchange="syncFlightTime()"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.9rem;font-family:var(--font);color:var(--navy);background:#fff">
+              <option value="">—</option>
+              <option>0</option><option>1</option><option>2</option><option>3</option>
+              <option>4</option><option>5</option><option>6</option><option>7</option>
+              <option>8</option><option>9</option><option>10</option><option>11</option>
+              <option>12</option>
+            </select>
+          </div>
+          <span style="font-weight:900;color:var(--muted);font-size:1.1rem">:</span>
+          <div style="flex:1">
+            <div style="font-size:.68rem;color:var(--muted);text-align:center;margin-bottom:3px">Minutes</div>
+            <select id="f-flighttime-m" onchange="syncFlightTime()"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;font-size:.9rem;font-family:var(--font);color:var(--navy);background:#fff">
+              <option value="">—</option>
+              <!-- Populated by buildFlightTimeMinutes() -->
+            </select>
+          </div>
+        </div>
+        <input type="hidden" id="f-flighttime"/>
+      </div>
+
+      <!-- ── FLIGHT LEVEL ────────────────────────────────── -->
+      <div class="field">
+        <label>Flight Level (cruising altitude)</label>
+        <select id="f-flightlevel"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font);color:var(--navy);background:#fff">
+          <option value="">Select…</option>
+          <!-- FL250 – FL410 in increments of 10 (standard RVSM levels) -->
+          <option>FL250</option><option>FL260</option><option>FL270</option>
+          <option>FL280</option><option>FL290</option><option>FL300</option>
+          <option>FL310</option><option>FL320</option><option>FL330</option>
+          <option>FL340</option><option>FL350</option><option>FL360</option>
+          <option>FL370</option><option>FL380</option><option>FL390</option>
+          <option>FL400</option><option>FL410</option>
+        </select>
+      </div>
+
       <div class="field">
         <label>Crew Position</label>
         <select id="f-position">
@@ -956,10 +1000,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📊 Flights Excel</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportFlightsPDF()">📄 Flights PDF</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportPerDiemCSV()">📊 Per Diem Excel</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportPerDiemPDF()">📄 Per Diem PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-excel')">📊 Flights Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-pdf')">📄 Flights PDF</button>
+      <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-excel')">📊 Per Diem Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-pdf')">📄 Per Diem PDF</button>
     </div>
   </div>
   <div id="log-list"></div>
@@ -1526,6 +1570,72 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     EXPORT PERIOD PICKER
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="export-picker-overlay">
+  <div class="fs-modal">
+    <div class="fs-modal-hdr">
+      <h2 id="export-picker-title">Export</h2>
+      <button class="fs-close" onclick="closeExportPicker()">✕</button>
+    </div>
+    <div style="padding:18px">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:14px">Choose the period to export:</div>
+
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border2);cursor:pointer">
+        <input type="radio" name="export-period" value="all" checked style="width:16px;height:16px;cursor:pointer"/>
+        <div>
+          <div style="font-weight:700;font-size:.88rem;color:var(--navy)">All records</div>
+          <div style="font-size:.72rem;color:var(--muted)">Export your complete history</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border2);cursor:pointer">
+        <input type="radio" name="export-period" value="month" style="width:16px;height:16px;cursor:pointer"/>
+        <div>
+          <div style="font-weight:700;font-size:.88rem;color:var(--navy)">This month</div>
+          <div style="font-size:.72rem;color:var(--muted)" id="export-this-month-label">Current month only</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border2);cursor:pointer">
+        <input type="radio" name="export-period" value="year" style="width:16px;height:16px;cursor:pointer"/>
+        <div>
+          <div style="font-weight:700;font-size:.88rem;color:var(--navy)">This year</div>
+          <div style="font-size:.72rem;color:var(--muted)" id="export-this-year-label">Current year only</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer">
+        <input type="radio" name="export-period" value="custom" style="width:16px;height:16px;cursor:pointer" onchange="toggleCustomDates(true)"/>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.88rem;color:var(--navy)">Custom date range</div>
+          <div style="font-size:.72rem;color:var(--muted)">Pick specific start and end dates</div>
+        </div>
+      </label>
+
+      <div id="export-custom-dates" style="display:none;background:var(--ice2);border-radius:var(--radius-sm);padding:12px;margin-top:6px;display:none">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:.7rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">From</label>
+            <input type="date" id="export-date-from"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:.85rem;font-family:var(--font)"/>
+          </div>
+          <div style="flex:1;min-width:120px">
+            <label style="font-size:.7rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">To</label>
+            <input type="date" id="export-date-to"
+              style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:.85rem;font-family:var(--font)"/>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="runExport()" style="margin-top:18px;width:100%">
+        ⬇ Export
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── PRINT AREA (for PDF export) ───────────────────────── -->
 <div id="print-area"></div>
 
@@ -1620,7 +1730,6 @@ function setOnlineBadge(){
   }
 }
 
-window.addEventListener('online', ()=>{ isOnline=true; setOnlineBadge(); syncToCloud(); });
 window.addEventListener('offline', ()=>{ isOnline=false; setOnlineBadge(); });
 
 // Push any unsynced local records to Supabase, then pull the latest shared/cloud state.
@@ -1689,6 +1798,7 @@ function flightToRow(f){
     user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
+    flight_time:f.flightTime||null, flight_level:f.flightLevel||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
     safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
     delay_reason:f.delayReason, status:f.status
@@ -3308,90 +3418,92 @@ function showChatView(view){
 
 // ── Load home: group preview + private convs ──────────────
 async function loadChatHome(){
-  document.getElementById('chat-online-status').textContent = isOnline ? 'Online' : 'Offline';
-
+  document.getElementById('chat-online-status').textContent = isOnline ? 'Online · Live' : 'Offline';
   if(!isOnline) return;
 
-  // Load last group message for preview
-  const { data: gMsgs } = await sb.from('messages')
-    .select('sender_name,content,created_at')
-    .eq('channel','group')
-    .order('created_at',{ascending:false}).limit(1);
-
-  if(gMsgs?.length){
-    const m = gMsgs[0];
-    document.getElementById('group-preview').textContent = `${m.sender_name}: ${m.content}`;
-    document.getElementById('group-time').textContent = formatChatTime(m.created_at);
-    // Unread count
-    const lastRead = _lastReadTimes['group'] || '1970-01-01';
-    const { count } = await sb.from('messages')
-      .select('id', {count:'exact',head:true})
-      .eq('channel','group')
-      .gt('created_at', lastRead)
-      .neq('sender_id', currentUser.id);
-    const el = document.getElementById('group-unread');
-    if(count > 0){ el.textContent = count; el.style.display = 'block'; }
-    else el.style.display = 'none';
-  }
-
-  // Load private conversations for this user
+  // ── Single query: get last 50 messages across all relevant channels ──
+  // Get my private channel IDs first
   const { data: convs } = await sb.from('chat_channels')
     .select('*').eq('user_id', currentUser.id)
     .order('created_at',{ascending:false});
   _privateConvs = convs || [];
-  await renderPrivateConvList();
+
+  const myChannels = ['group', ..._privateConvs.map(c => c.channel_id)];
+
+  // Fetch last message per channel in one query using raw SQL via RPC
+  // Fallback: fetch last 5 messages per channel and deduplicate in JS
+  const { data: recentMsgs } = await sb.from('messages')
+    .select('channel,sender_name,content,created_at,sender_id')
+    .in('channel', myChannels)
+    .order('created_at', {ascending:false})
+    .limit(200); // enough to cover last msg per channel
+
+  // Build last-message map per channel
+  const lastMsgByChannel = {};
+  for(const m of (recentMsgs||[])){
+    if(!lastMsgByChannel[m.channel]) lastMsgByChannel[m.channel] = m;
+  }
+
+  // Build unread count per channel (messages after last read, not from me)
+  const unreadByChannel = {};
+  for(const ch of myChannels){
+    const lastRead = _lastReadTimes[ch] || '1970-01-01T00:00:00Z';
+    const msgs = (recentMsgs||[]).filter(m =>
+      m.channel === ch &&
+      m.sender_id !== currentUser.id &&
+      m.created_at > lastRead
+    );
+    unreadByChannel[ch] = msgs.length;
+  }
+
+  // ── Update group preview ──
+  const gMsg = lastMsgByChannel['group'];
+  if(gMsg){
+    document.getElementById('group-preview').textContent = `${gMsg.sender_name}: ${gMsg.content}`;
+    document.getElementById('group-time').textContent    = formatChatTime(gMsg.created_at);
+  }
+  const gUnread = unreadByChannel['group'] || 0;
+  const gEl = document.getElementById('group-unread');
+  if(gUnread > 0){ gEl.textContent = gUnread; gEl.style.display = 'block'; }
+  else gEl.style.display = 'none';
+
+  // ── Render private conv list ──
+  renderPrivateConvList(lastMsgByChannel, unreadByChannel);
 }
 
-async function renderPrivateConvList(){
+function renderPrivateConvList(lastMsgByChannel, unreadByChannel){
   const el = document.getElementById('private-convs-list');
   if(!_privateConvs.length){
-    el.innerHTML = '<div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap + Private to start one.</div>';
+    el.innerHTML = '<div style="padding:20px 16px;color:var(--muted);font-size:.82rem">No private conversations yet.<br>Tap the button below to start one.</div>';
     return;
   }
 
-  let html = '';
-  for(const conv of _privateConvs){
-    // Get last message
-    const { data: msgs } = await sb.from('messages')
-      .select('sender_name,content,created_at')
-      .eq('channel', conv.channel_id)
-      .order('created_at',{ascending:false}).limit(1);
-    const lastMsg  = msgs?.[0];
-    const initial  = conv.other_user_name.charAt(0).toUpperCase();
-    const lastRead = _lastReadTimes[conv.channel_id] || '1970-01-01';
+  const html = _privateConvs.map(conv => {
+    const lastMsg    = lastMsgByChannel?.[conv.channel_id];
+    const unread     = unreadByChannel?.[conv.channel_id] || 0;
+    const initial    = conv.other_user_name.charAt(0).toUpperCase();
+    const preview    = lastMsg ? `${lastMsg.sender_name}: ${lastMsg.content}` : 'No messages yet';
+    const timeStr    = lastMsg ? formatChatTime(lastMsg.created_at) : '';
 
-    let unreadCount = 0;
-    if(lastMsg){
-      const { count } = await sb.from('messages')
-        .select('id',{count:'exact',head:true})
-        .eq('channel', conv.channel_id)
-        .gt('created_at', lastRead)
-        .neq('sender_id', currentUser.id);
-      unreadCount = count || 0;
-    }
-
-    html += `
+    return `
     <div class="chat-conv-item" onclick="openThread('${conv.channel_id}','private','${escHtml(conv.other_user_name)}','${initial}')">
       <div class="chat-conv-avatar">${initial}</div>
       <div class="chat-conv-info">
         <div class="chat-conv-name">${escHtml(conv.other_user_name)}</div>
-        <div class="chat-conv-preview">${lastMsg ? escHtml(lastMsg.sender_name+': '+lastMsg.content) : 'No messages yet'}</div>
+        <div class="chat-conv-preview">${escHtml(preview)}</div>
       </div>
       <div class="chat-conv-meta">
-        <div class="chat-conv-time">${lastMsg ? formatChatTime(lastMsg.created_at) : ''}</div>
-        ${unreadCount > 0 ? `<div class="chat-unread-badge">${unreadCount}</div>` : ''}
+        <div class="chat-conv-time">${timeStr}</div>
+        ${unread > 0 ? `<div class="chat-unread-badge">${unread}</div>` : ''}
       </div>
     </div>`;
-  }
+  }).join('');
+
   el.innerHTML = html;
 
   // Update menu badge
-  const totalUnread = Object.values(_chatUnreadCounts).reduce((a,b)=>a+b,0);
-  const badge = document.getElementById('chat-unread-menu-badge');
-  if(badge){
-    if(totalUnread > 0){ badge.textContent = totalUnread; badge.style.display = 'block'; }
-    else badge.style.display = 'none';
-  }
+  _chatUnreadCounts = unreadByChannel || {};
+  updateChatMenuBadge();
 }
 
 // ── Open a chat thread ────────────────────────────────────
@@ -3658,11 +3770,52 @@ function formatChatTime(ts){
 let _notesCache   = []; // in-memory list of notes
 let _editingNoteId = null;
 
+// ── Notes IDB helpers ─────────────────────────────────────
+const NOTES_STORE = 'notes';
+
+async function openNotesIDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ccl_notes_db', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(NOTES_STORE, { keyPath:'id' });
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = e => reject(e.target.error);
+  });
+}
+async function idbNotesAll(){
+  const db = await openNotesIDB();
+  return new Promise((res, rej) => {
+    const req = db.transaction(NOTES_STORE,'readonly').objectStore(NOTES_STORE).getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror   = () => rej(req.error);
+  });
+}
+async function idbNotesPut(note){
+  const db = await openNotesIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(NOTES_STORE,'readwrite');
+    tx.objectStore(NOTES_STORE).put(note);
+    tx.oncomplete = () => res();
+    tx.onerror    = () => rej(tx.error);
+  });
+}
+async function idbNotesDelete(id){
+  const db = await openNotesIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(NOTES_STORE,'readwrite');
+    tx.objectStore(NOTES_STORE).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror    = () => rej(tx.error);
+  });
+}
+function notesUUID(){
+  return 'note-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+}
+
 async function openNotes(){
   document.getElementById('notes-overlay').classList.add('open');
   document.getElementById('note-editor').classList.remove('open');
   document.getElementById('notes-list-wrap').style.display = 'block';
-  document.getElementById('notes-list-hdr').style.display = 'flex';
+  document.getElementById('notes-list-hdr').style.display  = 'flex';
   await loadNotes();
 }
 
@@ -3671,14 +3824,62 @@ function closeNotes(){
 }
 
 async function loadNotes(){
-  if(isOnline){
-    try{
-      const { data } = await sb.from('notes')
-        .select('*').order('updated_at', { ascending: false });
-      _notesCache = data || [];
-    }catch{ /* use existing cache */ }
-  }
+  // Always load from IDB first (instant, works offline)
+  const local = await idbNotesAll();
+  _notesCache = local
+    .filter(n => !n._deleted)
+    .sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
   renderNotesList();
+
+  // Sync with Supabase if online
+  if(isOnline){ await syncNotes(); }
+}
+
+async function syncNotes(){
+  try{
+    // Push unsynced local notes to Supabase
+    const all = await idbNotesAll();
+    for(const n of all){
+      if(n._deleted){
+        if(!n.id.startsWith('note-')){
+          await sb.from('notes').delete().eq('id', n.id);
+        }
+        await idbNotesDelete(n.id);
+        continue;
+      }
+      if(!n._synced){
+        if(n.id.startsWith('note-')){
+          // New offline note — insert to Supabase
+          const { data, error } = await sb.from('notes').insert({
+            user_id: currentUser.id,
+            title: n.title, description: n.description,
+            body: n.body, updated_at: n.updated_at
+          }).select().single();
+          if(!error && data){
+            await idbNotesDelete(n.id); // remove temp id
+            await idbNotesPut({ ...data, _synced: true });
+          }
+        } else {
+          // Edited offline — update in Supabase
+          await sb.from('notes').update({
+            title: n.title, description: n.description,
+            body: n.body, updated_at: n.updated_at
+          }).eq('id', n.id);
+          await idbNotesPut({ ...n, _synced: true });
+        }
+      }
+    }
+    // Pull latest from Supabase
+    const { data } = await sb.from('notes')
+      .select('*').order('updated_at', { ascending: false });
+    if(data){
+      for(const n of data){
+        await idbNotesPut({ ...n, _synced: true });
+      }
+      _notesCache = data;
+      renderNotesList();
+    }
+  }catch(e){ console.warn('Notes sync error:', e); }
 }
 
 function renderNotesList(){
@@ -3693,7 +3894,10 @@ function renderNotesList(){
       <div class="note-card-title">${escHtml(n.title)}</div>
       ${n.description ? `<div class="note-card-desc">${escHtml(n.description)}</div>` : ''}
       ${n.body ? `<div class="note-card-preview">${escHtml(n.body)}</div>` : ''}
-      <div class="note-card-date">${n.updated_at ? new Date(n.updated_at).toLocaleDateString() : ''}</div>
+      <div class="note-card-date" style="display:flex;align-items:center;gap:6px">
+        ${n.updated_at ? new Date(n.updated_at).toLocaleDateString() : ''}
+        ${!n._synced ? '<span style="font-size:.6rem;background:var(--gold);color:var(--navy);padding:1px 6px;border-radius:8px;font-weight:700">Pending sync</span>' : ''}
+      </div>
     </div>`).join('');
 }
 
@@ -3707,7 +3911,6 @@ function openNoteEditor(id){
   document.getElementById('note-body-inp').value   = note?.body || '';
   document.getElementById('note-delete-btn').style.display = note ? 'block' : 'none';
 
-  // Hide list, show editor
   document.getElementById('notes-list-wrap').style.display = 'none';
   document.getElementById('notes-list-hdr').style.display  = 'none';
   document.getElementById('note-editor').classList.add('open');
@@ -3729,24 +3932,28 @@ async function saveNote(){
   if(!title){ toast('⚠ Title is required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
-  const payload = {
-    user_id: currentUser.id,
-    title, description: desc, body,
-    updated_at: new Date().toISOString()
-  };
+  const now = new Date().toISOString();
 
   if(_editingNoteId){
-    const { error } = await sb.from('notes').update(payload).eq('id', _editingNoteId);
-    if(error){ toast('⚠ ' + error.message); return; }
+    const existing = _notesCache.find(n => n.id === _editingNoteId) || {};
+    const updated  = { ...existing, title, description:desc, body, updated_at:now, _synced:false };
+    await idbNotesPut(updated);
     const idx = _notesCache.findIndex(n => n.id === _editingNoteId);
-    if(idx >= 0) _notesCache[idx] = { ..._notesCache[idx], ...payload };
+    if(idx >= 0) _notesCache[idx] = updated;
   } else {
-    const { data, error } = await sb.from('notes').insert(payload).select().single();
-    if(error){ toast('⚠ ' + error.message); return; }
-    _notesCache.unshift(data);
+    const tmpId  = notesUUID();
+    const newNote = { id:tmpId, user_id:currentUser.id, title, description:desc, body, updated_at:now, _synced:false };
+    await idbNotesPut(newNote);
+    _notesCache.unshift(newNote);
   }
 
-  toast('✅ Note saved!');
+  if(isOnline){
+    await syncNotes();
+    toast('✅ Note saved!');
+  } else {
+    toast('📴 Saved offline — will sync when back online.');
+  }
+
   closeNoteEditor();
   renderNotesList();
 }
@@ -3754,13 +3961,29 @@ async function saveNote(){
 async function deleteNote(){
   if(!_editingNoteId) return;
   if(!confirm('Delete this note? This cannot be undone.')) return;
-  const { error } = await sb.from('notes').delete().eq('id', _editingNoteId);
-  if(error){ toast('⚠ ' + error.message); return; }
+
+  const note = _notesCache.find(n => n.id === _editingNoteId);
+  if(note){
+    // Mark as deleted in IDB — sync will handle Supabase deletion
+    await idbNotesPut({ ...note, _deleted: true, _synced: false });
+  }
   _notesCache = _notesCache.filter(n => n.id !== _editingNoteId);
-  toast('🗑 Note deleted.');
+
+  if(isOnline){
+    await syncNotes();
+    toast('🗑 Note deleted.');
+  } else {
+    toast('📴 Deleted offline — will sync when back online.');
+  }
+
   closeNoteEditor();
   renderNotesList();
 }
+
+// Also sync notes when coming back online
+window.addEventListener('online', ()=>{
+  isOnline = true; setOnlineBadge(); syncToCloud(); syncNotes();
+});
 
 function escHtml(str){
   if(!str) return '';
@@ -3825,6 +4048,7 @@ async function onLoggedIn(){
   document.getElementById('pd-date').valueAsDate = new Date();
   buildRouteFields();
   buildMinuteOptions();
+  buildFlightTimeMinutes();
   renderCrewTags();
   renderDash();
   setInterval(()=>{ if(isOnline) syncToCloud(); }, 30000);
@@ -3877,6 +4101,7 @@ function rowToFlight(r){
     id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr,
     fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
     reg:r.reg, actype:r.actype,
+    flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
     safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
   };
@@ -4119,6 +4344,7 @@ function showDetail(id){
     ['Date',formatDate(e.date)],['Flight',e.flightNum],
     ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
+    ['Flight Time',e.flightTime||'–'],['Flight Level',e.flightLevel||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
     ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],['First Aid Topic',e.firstAid||'–'],
@@ -4143,9 +4369,10 @@ function editEntry(id){
 
   document.getElementById('f-date').value = e.date||'';
   document.getElementById('f-flightnum').value = e.flightNum||'';
-  setRouteFields(e.dep||'', e.arr||'', e.fullRoute||'');
   document.getElementById('f-reg').value = e.reg||'';
   document.getElementById('f-actype').value = e.actype||'';
+  setFlightTime(e.flightTime||'');
+  document.getElementById('f-flightlevel').value = e.flightLevel||'';
   document.getElementById('f-position').value = e.position||'';
   document.getElementById('f-pax').value = e.pax||'';
   document.getElementById('f-captain').value = e.captain||'';
@@ -4168,6 +4395,15 @@ function editEntry(id){
   if(banner) banner.style.display = 'flex';
 
   showTab('add');
+
+  // Set route fields AFTER showTab renders the tab — use double rAF to guarantee
+  // the DOM is fully painted before we try to set input values
+  const dep = e.dep||''; const arr = e.arr||''; const fullRoute = e.fullRoute||'';
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      setRouteFields(dep, arr, fullRoute);
+    });
+  });
 }
 
 function cancelEdit(){
@@ -4209,6 +4445,7 @@ async function saveEntry(){
     date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
+    flightTime:g('f-flighttime'), flightLevel:g('f-flightlevel'),
     position:g('f-position'), captain:g('f-captain'), fo:g('f-fo'),
     crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
     std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'), firstAid:g('f-firstaid'),
@@ -4249,6 +4486,9 @@ function clearForm(){
   selectedCrew=[];
   renderCrewTags();
   clearBlockTime();
+  clearFlightTime();
+  const fl = document.getElementById('f-flightlevel');
+  if(fl) fl.value = '';
   clearRouteFields();
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
@@ -4345,6 +4585,51 @@ function selectBT(type, val){
 }
 
 function buildMinuteOptions(){ buildBTPicker(); } // alias for compat
+
+// ── FLIGHT TIME picker (separate from block time) ─────────
+function buildFlightTimeMinutes(){
+  const sel = document.getElementById('f-flighttime-m');
+  if(!sel) return;
+  let html = '<option value="">—</option>';
+  for(let i = 0; i <= 59; i++){
+    const v = String(i).padStart(2,'0');
+    html += `<option value="${v}">${v}</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+function syncFlightTime(){
+  const h = document.getElementById('f-flighttime-h')?.value;
+  const m = document.getElementById('f-flighttime-m')?.value;
+  const hidden = document.getElementById('f-flighttime');
+  if(hidden && h !== '' && h !== undefined && m !== '' && m !== undefined){
+    hidden.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  } else if(hidden){
+    hidden.value = '';
+  }
+}
+
+function setFlightTime(val){
+  if(!val) return;
+  const parts = val.split(':');
+  if(parts.length < 2) return;
+  const h = parseInt(parts[0]);
+  const m = parseInt(parts[1]);
+  const hSel = document.getElementById('f-flighttime-h');
+  const mSel = document.getElementById('f-flighttime-m');
+  if(hSel) hSel.value = String(h);
+  if(mSel) mSel.value = String(m).padStart(2,'0');
+  syncFlightTime();
+}
+
+function clearFlightTime(){
+  const hSel = document.getElementById('f-flighttime-h');
+  const mSel = document.getElementById('f-flighttime-m');
+  if(hSel) hSel.value = '';
+  if(mSel) mSel.value = '';
+  const hidden = document.getElementById('f-flighttime');
+  if(hidden) hidden.value = '';
+}
 
 function setBlockTime(val){
   if(!val) return;
@@ -4449,22 +4734,17 @@ function setRouteFields(dep, arr, fullRoute){
     const sectorCount = Math.min(Math.max(parts.length - 1, 1), 4);
     sel.value = String(sectorCount);
     buildRouteFields();
-    // Wait for DOM to settle before setting values
-    requestAnimationFrame(()=>{
-      for(let i = 0; i < parts.length; i++){
-        const el = document.getElementById(`f-route-${i}`);
-        if(el) el.value = parts[i];
-      }
-    });
+    for(let i = 0; i < parts.length; i++){
+      const el = document.getElementById(`f-route-${i}`);
+      if(el) el.value = parts[i];
+    }
   } else {
     sel.value = '1';
     buildRouteFields();
-    requestAnimationFrame(()=>{
-      const i0 = document.getElementById('f-route-0');
-      const i1 = document.getElementById('f-route-1');
-      if(i0) i0.value = dep || '';
-      if(i1) i1.value = arr || '';
-    });
+    const i0 = document.getElementById('f-route-0');
+    const i1 = document.getElementById('f-route-1');
+    if(i0) i0.value = dep || '';
+    if(i1) i1.value = arr || '';
   }
 }
 
@@ -4741,8 +5021,97 @@ async function removeDBItem(key,id){
 // ═══════════════════════════════════════════════
 // EXPORT (CSV only — shared DB lives in the cloud now)
 // ═══════════════════════════════════════════════
+// ── Export period picker ──────────────────────────────────
+let _exportType = '';
+
+function openExportPicker(type){
+  _exportType = type;
+  const titles = {
+    'flights-excel':'Export Flights (Excel)',
+    'flights-pdf':  'Export Flights (PDF)',
+    'perdiem-excel':'Export Per Diem (Excel)',
+    'perdiem-pdf':  'Export Per Diem (PDF)',
+  };
+  document.getElementById('export-picker-title').textContent = titles[type] || 'Export';
+
+  // Update period labels with actual dates
+  const now    = new Date();
+  const month  = now.toLocaleString('default',{month:'long',year:'numeric'});
+  const year   = now.getFullYear();
+  document.getElementById('export-this-month-label').textContent = month;
+  document.getElementById('export-this-year-label').textContent  = `January – December ${year}`;
+
+  // Set default custom dates to this month
+  const monthStr = now.toISOString().slice(0,7);
+  document.getElementById('export-date-from').value = `${monthStr}-01`;
+  document.getElementById('export-date-to').value   = now.toISOString().slice(0,10);
+
+  // Reset to "all"
+  document.querySelector('input[name="export-period"][value="all"]').checked = true;
+  toggleCustomDates(false);
+
+  document.getElementById('export-picker-overlay').classList.add('open');
+}
+
+function closeExportPicker(){
+  document.getElementById('export-picker-overlay').classList.remove('open');
+}
+
+function toggleCustomDates(show){
+  document.getElementById('export-custom-dates').style.display = show ? 'block' : 'none';
+}
+
+// Listen for radio changes to show/hide custom date inputs
+document.addEventListener('change', e => {
+  if(e.target.name === 'export-period'){
+    toggleCustomDates(e.target.value === 'custom');
+  }
+});
+
+function getExportDateRange(){
+  const period = document.querySelector('input[name="export-period"]:checked')?.value || 'all';
+  const now    = new Date();
+
+  if(period === 'all')   return { from: null, to: null };
+  if(period === 'month') return {
+    from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10),
+    to:   now.toISOString().slice(0,10)
+  };
+  if(period === 'year')  return {
+    from: `${now.getFullYear()}-01-01`,
+    to:   `${now.getFullYear()}-12-31`
+  };
+  // custom
+  return {
+    from: document.getElementById('export-date-from').value || null,
+    to:   document.getElementById('export-date-to').value   || null
+  };
+}
+
+function filterByDateRange(records, dateField='date'){
+  const { from, to } = getExportDateRange();
+  if(!from && !to) return records;
+  return records.filter(r => {
+    const d = r[dateField];
+    if(!d) return false;
+    if(from && d < from) return false;
+    if(to   && d > to)   return false;
+    return true;
+  });
+}
+
+function runExport(){
+  closeExportPicker();
+  switch(_exportType){
+    case 'flights-excel': exportCSV();         break;
+    case 'flights-pdf':   exportFlightsPDF();  break;
+    case 'perdiem-excel': exportPerDiemCSV();  break;
+    case 'perdiem-pdf':   exportPerDiemPDF();  break;
+  }
+}
+
 function exportCSV(){
-  const data = cache.flights;
+  const data = filterByDateRange(cache.flights);
   if(!data.length){ toast('Nothing to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
   const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
@@ -4752,11 +5121,11 @@ function exportCSV(){
     ['Exported by:', crewName],
     ['Export date:', today()],
     [],
-    ['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status']
+    ['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Flight Time','Flight Level','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status']
   ];
   const rows = data.map(e=>[
     e.date, e.flightNum, e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),
-    e.dep, e.arr, e.reg, e.actype, e.position, e.captain, e.fo,
+    e.dep, e.arr, e.reg, e.actype, e.flightTime||'', e.flightLevel||'', e.position, e.captain, e.fo,
     e.crew, e.pax, e.std, e.sta, e.safety, e.firstAid,
     e.blockTime, e.delay, e.delayReason, e.status
   ].map(v => v??''));
@@ -4771,7 +5140,7 @@ function exportCSV(){
 }
 
 function exportPerDiemCSV(){
-  const data = cache.perDiem;
+  const data = filterByDateRange(cache.perDiem);
   if(!data.length){ toast('No per diem data to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
   const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
@@ -4793,12 +5162,12 @@ function exportPerDiemCSV(){
 }
 
 function exportFlightsPDF(){
-  const data = cache.flights;
+  const data = filterByDateRange(cache.flights);
   if(!data.length){ toast('Nothing to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
   const cols = [
     ['Date','date'],['Flight','flightNum'],['Route','_route'],
-    ['A/C Reg','reg'],['Type','actype'],['Position','position'],
+    ['A/C Reg','reg'],['Type','actype'],['Flt Time','flightTime'],['Flt Level','flightLevel'],['Position','position'],
     ['Captain','captain'],['Block Time','blockTime'],
     ['Delay (min)','delay'],['Status','status']
   ];
@@ -4816,7 +5185,7 @@ function exportFlightsPDF(){
 }
 
 function exportPerDiemPDF(){
-  const data = cache.perDiem;
+  const data = filterByDateRange(cache.perDiem);
   if(!data.length){ toast('No per diem data to export.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
   const totalNights = data.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
