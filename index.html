@@ -765,26 +765,22 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <label>Date *</label>
         <input type="date" id="f-date" required/>
       </div>
-      <div class="field">
-        <label>Flight Number *</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
-            oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onblur="delayClose('dd-flightnum')"/>
-          <div class="combo-dropdown" id="dd-flightnum"></div>
-        </div>
-      </div>
 
-      <div class="field full">
+      <div class="field">
         <label>Number of Sectors</label>
-        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails()">
+        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails();updateFlightNumFields()">
           <option value="1">1 Sector — e.g. EBB → NBO</option>
           <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
           <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
           <option value="4">4 Sectors — e.g. EBB → NBO → EBB → BJM → EBB</option>
         </select>
       </div>
+
+      <!-- Flight number(s) — dynamic based on sector count -->
+      <div class="field full" id="flight-num-wrap">
+        <!-- Built by updateFlightNumFields() -->
+      </div>
+
       <div class="field full" id="route-fields-wrap">
         <!-- Built dynamically by buildRouteFields() -->
       </div>
@@ -941,6 +937,11 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
             onblur="delayClose('dd-delayreason')"/>
           <div class="combo-dropdown" id="dd-delayreason"></div>
         </div>
+      </div>
+      <div class="field full">
+        <label>Flight Remarks <span style="font-size:.7rem;color:var(--muted);font-weight:400">(optional — notes, observations, incidents)</span></label>
+        <textarea id="f-remarks" rows="3" placeholder="e.g. Turbulence over NBO, pax medical at seat 14C, smooth sector overall…"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:.85rem;font-family:var(--font);resize:vertical;line-height:1.55;color:var(--navy)"></textarea>
       </div>
       <div class="field full">
         <label>Flight Status</label>
@@ -1274,6 +1275,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="detail-row">
         <span class="d-lbl">App Version</span>
         <span class="d-val" id="settings-version">—</span>
+      </div>
+      <div class="detail-row">
+        <span class="d-lbl">Sync Data</span>
+        <button class="btn btn-ghost btn-sm" onclick="manualSync();closeSettings()">🔄 Sync Now</button>
       </div>
 
       <!-- Admin-only: Nexa API key -->
@@ -1709,6 +1714,7 @@ async function syncToCloud(){
   isSyncing = true;
   setSyncBadge(true);
   try{
+    // ── PUSH: local unsynced flights → Supabase ─────────────
     const localFlights = await idbAll('flights');
     for(const f of localFlights.filter(f=>!f.synced && !f._deleted)){
       const row = flightToRow(f);
@@ -1729,6 +1735,7 @@ async function syncToCloud(){
       }
     }
 
+    // ── PUSH: local unsynced per diem → Supabase ────────────
     const localPD = await idbAll('per_diem');
     for(const p of localPD.filter(p=>!p.synced && !p._deleted)){
       const row = { user_id: currentUser.id, flight_num:p.flightNum, date:p.date, nights:p.nights, notes:p.notes };
@@ -1749,13 +1756,22 @@ async function syncToCloud(){
       }
     }
 
-    // Pull latest from cloud (flights/per_diem are private per-user, safe to overwrite local synced copies)
+    // ── PULL: latest from Supabase → local IDB ──────────────
+    // This ensures entries made on other devices appear here
     await loadFlightsFromCloud(true);
     await loadPerDiemFromCloud(true);
     await loadAllSharedFromCloud();
-    renderDash(); 
+
+    // ── PULL: notes sync ────────────────────────────────────
+    await syncNotes();
+
+    // Refresh UI
+    cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+    cache.perDiem = (await idbAll('per_diem')).filter(p=>!p._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+    renderDash();
     if(document.getElementById('tab-log').classList.contains('active')) renderLog();
     if(document.getElementById('tab-perdiem').classList.contains('active')) renderPerDiemTab();
+
   } catch(e){
     console.error('Sync error', e);
   }
@@ -1764,16 +1780,28 @@ async function syncToCloud(){
   updatePendingBadge();
 }
 
+// Manual sync — called from Settings "Sync Now" button
+async function manualSync(){
+  if(!isOnline){ toast('📴 No internet connection.'); return; }
+  if(isSyncing){ toast('⏳ Sync already in progress…'); return; }
+  toast('🔄 Syncing all data…');
+  await syncToCloud();
+  toast('✅ Sync complete!');
+}
+
+
 function flightToRow(f){
   return {
-    user_id: currentUser.id, date:f.date, flight_num:f.flightNum, dep:f.dep, arr:f.arr,
+    user_id: currentUser.id, date:f.date, flight_num:f.flightNum,
+    flight_num_2:f.flightNum2||null,
+    dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
     sectors_data: f.sectorsData ? JSON.stringify(f.sectorsData) : null,
     flight_time:f.flightTime||null, flight_level:f.flightLevel||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
     safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
-    delay_reason:f.delayReason, status:f.status
+    delay_reason:f.delayReason, remarks:f.remarks||null, status:f.status
   };
 }
 
@@ -4008,6 +4036,9 @@ async function onLoggedIn(){
   // Pre-load Nexa chunk cache for instant search
   preloadNexaChunks();
 
+  // Sync notes on login so they're current on all devices
+  if(isOnline) syncNotes();
+
   // Restore dark mode preference
   if(localStorage.getItem('ccl_dark_mode') === '1'){
     document.body.classList.add('dark-mode');
@@ -4020,9 +4051,11 @@ async function onLoggedIn(){
   document.getElementById('pd-date').valueAsDate = new Date();
   buildRouteFields();
   buildMinuteOptions();
+  updateFlightNumFields();
   renderCrewTags();
   renderDash();
-  setInterval(()=>{ if(isOnline) syncToCloud(); }, 30000);
+  // Full sync every 60s (covers background tab + cross-device refresh)
+  setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
 }
 
 // ═══════════════════════════════════════════════
@@ -4071,13 +4104,14 @@ function rowToFlight(r){
   let sectorsData = null;
   try{ sectorsData = r.sectors_data ? (typeof r.sectors_data === 'string' ? JSON.parse(r.sectors_data) : r.sectors_data) : null; }catch{}
   return {
-    id:r.id, date:r.date, flightNum:r.flight_num, dep:r.dep, arr:r.arr,
+    id:r.id, date:r.date, flightNum:r.flight_num, flightNum2:r.flight_num_2||'',
+    dep:r.dep, arr:r.arr,
     fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
     reg:r.reg, actype:r.actype,
     sectorsData,
     flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
-    safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, status:r.status
+    safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, remarks:r.remarks||'', status:r.status
   };
 }
 
@@ -4276,10 +4310,13 @@ function renderPerDiemDashboard(){
 // LOG
 // ═══════════════════════════════════════════════
 function logItemHTML(e){
+  const flightLabel = e.flightNum2
+    ? `${e.flightNum} <span style="color:var(--muted);font-size:.78rem">·</span> ${e.flightNum2}`
+    : e.flightNum;
   return `<div class="log-item" onclick="showDetail('${e.id}')">
     <div class="li-header">
       <div>
-        <div class="li-fn">${e.flightNum}</div>
+        <div class="li-fn">${flightLabel}</div>
         <div class="li-meta">${formatDate(e.date)} · ${e.reg||'–'} · ${e.position||'–'}</div>
       </div>
       <span class="badge ${badgeClass(e.status)}">${e.status||'N/A'}</span>
@@ -4342,7 +4379,8 @@ function showDetail(id){
   }
 
   const pre=[
-    ['Date',formatDate(e.date)],['Flight',e.flightNum],
+    ['Date',formatDate(e.date)],
+    ['Flight', e.flightNum2 ? `${e.flightNum} · ${e.flightNum2}` : e.flightNum],
     ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
@@ -4351,7 +4389,9 @@ function showDetail(id){
   ];
   const post=[
     ['Block Time',e.blockTime||'–'],['Delay',e.delay?`${e.delay} min`:'None'],
-    ['Delay Reason',e.delayReason||'–'],['Status',e.status||'–'],
+    ['Delay Reason',e.delayReason||'–'],
+    ['Flight Remarks',e.remarks||'–'],
+    ['Status',e.status||'–'],
   ];
   document.getElementById('modal-body').innerHTML=
     pre.map(r=>`<div class="detail-row"><span class="d-lbl">${r[0]}</span><span class="d-val">${r[1]}</span></div>`).join('')+
@@ -4369,6 +4409,9 @@ function editEntry(id){
   closeDetail();
 
   document.getElementById('f-date').value = e.date||'';
+  // Set sector count first so updateFlightNumFields renders the right fields
+  const scEl = document.getElementById('f-sector-count');
+  if(scEl) scEl.value = String(e.sectorsData?.length || 1);
   document.getElementById('f-flightnum').value = e.flightNum||'';
   document.getElementById('f-reg').value = e.reg||'';
   document.getElementById('f-actype').value = e.actype||'';
@@ -4383,6 +4426,8 @@ function editEntry(id){
   setBlockTime(e.blockTime||'');
   document.getElementById('f-delay').value = e.delay||'';
   document.getElementById('f-delayreason').value = e.delayReason||'';
+  const remEl = document.getElementById('f-remarks');
+  if(remEl) remEl.value = e.remarks||'';
   document.getElementById('f-status').value = e.status||'';
 
   selectedCrew = e.crew ? e.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
@@ -4399,10 +4444,16 @@ function editEntry(id){
   // the DOM is fully painted before we try to set input values
   const dep = e.dep||''; const arr = e.arr||''; const fullRoute = e.fullRoute||'';
   const existingSectors = e.sectorsData || null;
+  const flightNum2 = e.flightNum2||'';
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
+      updateFlightNumFields();
+      // Set flight number(s) after fields are rendered
+      const fn1 = document.getElementById('f-flightnum');
+      const fn2 = document.getElementById('f-flightnum2');
+      if(fn1) fn1.value = e.flightNum||'';
+      if(fn2) fn2.value = flightNum2;
       setRouteFields(dep, arr, fullRoute);
-      // Restore sector detail cards with saved data
       if(existingSectors) buildSectorDetails(existingSectors);
     });
   });
@@ -4446,6 +4497,7 @@ async function saveEntry(){
   const _sectors = getSectorsData();
   const flightObj = {
     date:g('f-date'), flightNum:g('f-flightnum').toUpperCase(),
+    flightNum2:(g('f-flightnum2')||'').toUpperCase()||null,
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
     sectorsData:  _sectors,
@@ -4455,7 +4507,7 @@ async function saveEntry(){
     crew:selectedCrew.join(', '), pax: g('f-pax')?parseInt(g('f-pax')):null,
     std:g('f-std'), sta:g('f-sta'), safety:g('f-safety'), firstAid:g('f-firstaid'),
     blockTime:g('f-blocktime'), delay: g('f-delay')?parseInt(g('f-delay')):0,
-    delayReason:g('f-delayreason'), status:g('f-status'),
+    delayReason:g('f-delayreason'), remarks:g('f-remarks')||'', status:g('f-status'),
     synced:false,
   };
 
@@ -4486,13 +4538,17 @@ async function saveEntry(){
 
 function clearForm(){
   ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo',
-   'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status']
+   'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status','f-remarks']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  // Reset sector count to 1
+  const scEl = document.getElementById('f-sector-count');
+  if(scEl) scEl.value = '1';
   selectedCrew=[];
   renderCrewTags();
   clearBlockTime();
   clearSectorDetails();
   clearRouteFields();
+  updateFlightNumFields(); // reset to single flight number field
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
   const btn = document.querySelector('#tab-add .btn-primary');
@@ -4762,6 +4818,53 @@ function clearBlockTime(){
 }
 
 function syncBlockTime(){} // no-op, kept for any lingering references
+
+function updateFlightNumFields(){
+  const sectors = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  const wrap    = document.getElementById('flight-num-wrap');
+  if(!wrap) return;
+
+  if(sectors <= 2){
+    // Single flight number
+    wrap.innerHTML = `
+      <div class="field full">
+        <label>Flight Number *</label>
+        <div class="combo-wrap">
+          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
+            style="text-transform:uppercase"
+            oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+            onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+            onblur="delayClose('dd-flightnum')"/>
+          <div class="combo-dropdown" id="dd-flightnum"></div>
+        </div>
+      </div>`;
+  } else {
+    // Two flight numbers for 3–4 sector flights
+    wrap.innerHTML = `
+      <div class="field">
+        <label>Flight No. 1 * <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 1–2)</span></label>
+        <div class="combo-wrap">
+          <input type="text" id="f-flightnum" placeholder="e.g. UR120/1" autocomplete="off"
+            style="text-transform:uppercase"
+            oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+            onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+            onblur="delayClose('dd-flightnum')"/>
+          <div class="combo-dropdown" id="dd-flightnum"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Flight No. 2 <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 3–4)</span></label>
+        <div class="combo-wrap">
+          <input type="text" id="f-flightnum2" placeholder="e.g. UR320/1" autocomplete="off"
+            style="text-transform:uppercase"
+            oninput="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
+            onfocus="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
+            onblur="delayClose('dd-flightnum2')"/>
+          <div class="combo-dropdown" id="dd-flightnum2"></div>
+        </div>
+      </div>`;
+  }
+}
 
 function buildRouteFields(){
   const sectors = parseInt(document.getElementById('f-sector-count').value) || 1;
@@ -5231,13 +5334,13 @@ function exportCSV(){
     ['Exported by:', crewName],
     ['Export date:', today()],
     [],
-    ['Date','Flight','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Flight Time','Flight Level','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Status']
+    ['Date','Flight','Flight No.2','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Flight Time','Flight Level','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Flight Remarks','Status']
   ];
   const rows = data.map(e=>[
-    e.date, e.flightNum, e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),
+    e.date, e.flightNum, e.flightNum2||'', e.fullRoute||[e.dep,e.arr].filter(Boolean).join(' → '),
     e.dep, e.arr, e.reg, e.actype, e.flightTime||'', e.flightLevel||'', e.position, e.captain, e.fo,
     e.crew, e.pax, e.std, e.sta, e.safety, e.firstAid,
-    e.blockTime, e.delay, e.delayReason, e.status
+    e.blockTime, e.delay, e.delayReason, e.remarks||'', e.status
   ].map(v => v??''));
 
   const ws = XLSX.utils.aoa_to_sheet([...meta, ...rows]);
