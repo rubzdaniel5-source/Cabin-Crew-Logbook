@@ -1717,13 +1717,14 @@ async function syncToCloud(){
     // ── PUSH: local unsynced flights → Supabase ─────────────
     const localFlights = await idbAll('flights');
     for(const f of localFlights.filter(f=>!f.synced && !f._deleted)){
-      const row = flightToRow(f);
       if(f.id.startsWith('tmp-')){
-        const { data, error } = await sb.from('flights').insert(row).select().single();
-        if(!error && data){ await idbDelete('flights', f.id); await idbPut('flights', {...rowToFlight(data), synced:true}); }
+        const { data, error } = await sb.from('flights').insert(flightToRow(f, true)).select().single();
+        if(error){ console.error('Insert flight error:', error.message); }
+        else if(data){ await idbDelete('flights', f.id); await idbPut('flights', {...rowToFlight(data), synced:true}); }
       } else {
-        const { error } = await sb.from('flights').update(row).eq('id', f.id);
-        if(!error){ f.synced=true; await idbPut('flights', f); }
+        const { error } = await sb.from('flights').update(flightToRow(f, false)).eq('id', f.id);
+        if(error){ console.error('Update flight error:', error.message); }
+        else { f.synced=true; await idbPut('flights', f); }
       }
     }
     for(const f of localFlights.filter(f=>f._deleted)){
@@ -1790,19 +1791,28 @@ async function manualSync(){
 }
 
 
-function flightToRow(f){
-  return {
-    user_id: currentUser.id, date:f.date, flight_num:f.flightNum,
+function flightToRow(f, forInsert = true){
+  const row = {
+    date:f.date, flight_num:f.flightNum,
     flight_num_2:f.flightNum2||null,
     dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
     sectors_data: f.sectorsData ? JSON.stringify(f.sectorsData) : null,
     flight_time:f.flightTime||null, flight_level:f.flightLevel||null,
-    position:f.position, captain:f.captain, fo:f.fo, crew:f.crew, pax:f.pax?parseInt(f.pax):null, std:f.std, sta:f.sta,
-    safety:f.safety, first_aid:f.firstAid, block_time:f.blockTime, delay:f.delay?parseInt(f.delay):0,
-    delay_reason:f.delayReason, remarks:f.remarks||null, status:f.status
+    position:f.position, captain:f.captain, fo:f.fo, crew:f.crew,
+    pax:f.pax ? parseInt(f.pax) : null,
+    std:f.std, sta:f.sta,
+    safety:f.safety, first_aid:f.firstAid,
+    block_time:f.blockTime,
+    delay:f.delay ? parseInt(f.delay) : 0,
+    delay_reason:f.delayReason,
+    remarks:f.remarks||null,
+    status:f.status
   };
+  // user_id only included on INSERT — updating it causes RLS issues
+  if(forInsert) row.user_id = currentUser.id;
+  return row;
 }
 
 async function updatePendingBadge(){
@@ -4489,8 +4499,8 @@ async function deleteEntry(id){
 // SAVE FLIGHT ENTRY
 // ═══════════════════════════════════════════════
 async function saveEntry(){
-  const g=id=>document.getElementById(id).value.trim();
-  if(!g('f-date')||!g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
+  const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  if(!g('f-date') || !g('f-flightnum')){ toast('⚠ Date and Flight Number required.'); return; }
   if(!currentUser){ toast('⚠ Not signed in.'); return; }
 
   const _route   = getRouteFromFields();
@@ -4824,8 +4834,8 @@ function updateFlightNumFields(){
   const wrap    = document.getElementById('flight-num-wrap');
   if(!wrap) return;
 
-  if(sectors <= 2){
-    // Single flight number
+  if(sectors < 4){
+    // 1, 2, or 3 sector flights: one flight number
     wrap.innerHTML = `
       <div class="field full">
         <label>Flight Number *</label>
@@ -4839,10 +4849,10 @@ function updateFlightNumFields(){
         </div>
       </div>`;
   } else {
-    // Two flight numbers for 3–4 sector flights
+    // 4 sector flights only: two flight numbers
     wrap.innerHTML = `
       <div class="field">
-        <label>Flight No. 1 * <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 1–2)</span></label>
+        <label>Flight No. 1 * <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 1 &amp; 2)</span></label>
         <div class="combo-wrap">
           <input type="text" id="f-flightnum" placeholder="e.g. UR120/1" autocomplete="off"
             style="text-transform:uppercase"
@@ -4853,7 +4863,7 @@ function updateFlightNumFields(){
         </div>
       </div>
       <div class="field">
-        <label>Flight No. 2 <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 3–4)</span></label>
+        <label>Flight No. 2 <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 3 &amp; 4)</span></label>
         <div class="combo-wrap">
           <input type="text" id="f-flightnum2" placeholder="e.g. UR320/1" autocomplete="off"
             style="text-transform:uppercase"
