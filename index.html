@@ -34,7 +34,27 @@
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // When a new service worker is waiting, tell it to activate immediately
+      if(reg.waiting) reg.waiting.postMessage('skipWaiting');
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+            // New version ready — reload automatically to get latest app
+            newWorker.postMessage('skipWaiting');
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              window.location.reload();
+            });
+          }
+        });
+      });
+    }).catch(()=>{});
+
+    // Also detect controller change from another tab updating the SW
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
   });
 }
 </script>
@@ -1719,12 +1739,21 @@ async function syncToCloud(){
     for(const f of localFlights.filter(f=>!f.synced && !f._deleted)){
       if(f.id.startsWith('tmp-')){
         const { data, error } = await sb.from('flights').insert(flightToRow(f, true)).select().single();
-        if(error){ console.error('Insert flight error:', error.message); }
-        else if(data){ await idbDelete('flights', f.id); await idbPut('flights', {...rowToFlight(data), synced:true}); }
+        if(error){
+          console.error('Insert flight error:', error.message);
+          toast('⚠ Sync error: ' + error.message);
+        } else if(data){
+          await idbDelete('flights', f.id);
+          await idbPut('flights', {...rowToFlight(data), synced:true});
+        }
       } else {
         const { error } = await sb.from('flights').update(flightToRow(f, false)).eq('id', f.id);
-        if(error){ console.error('Update flight error:', error.message); }
-        else { f.synced=true; await idbPut('flights', f); }
+        if(error){
+          console.error('Update flight error:', error.message);
+          toast('⚠ Sync error: ' + error.message);
+        } else {
+          f.synced=true; await idbPut('flights', f);
+        }
       }
     }
     for(const f of localFlights.filter(f=>f._deleted)){
@@ -1793,13 +1822,11 @@ async function manualSync(){
 
 function flightToRow(f, forInsert = true){
   const row = {
-    date:f.date, flight_num:f.flightNum,
-    flight_num_2:f.flightNum2||null,
+    date:f.date,
+    flight_num:f.flightNum,
     dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
-    sectors_data: f.sectorsData ? JSON.stringify(f.sectorsData) : null,
-    flight_time:f.flightTime||null, flight_level:f.flightLevel||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew,
     pax:f.pax ? parseInt(f.pax) : null,
     std:f.std, sta:f.sta,
@@ -1807,10 +1834,16 @@ function flightToRow(f, forInsert = true){
     block_time:f.blockTime,
     delay:f.delay ? parseInt(f.delay) : 0,
     delay_reason:f.delayReason,
-    remarks:f.remarks||null,
     status:f.status
   };
-  // user_id only included on INSERT — updating it causes RLS issues
+  // Only include nullable new columns if they have a value
+  // This prevents errors if the Supabase SQL migration hasn't been run yet
+  if(f.flightNum2)  row.flight_num_2  = f.flightNum2;
+  if(f.remarks)     row.remarks       = f.remarks;
+  if(f.flightTime)  row.flight_time   = f.flightTime;
+  if(f.flightLevel) row.flight_level  = f.flightLevel;
+  if(f.sectorsData) row.sectors_data  = JSON.stringify(f.sectorsData);
+  // user_id only on INSERT
   if(forInsert) row.user_id = currentUser.id;
   return row;
 }
@@ -5446,6 +5479,22 @@ document.addEventListener('click', function(e){
   const trigger = document.getElementById('bt-trigger');
   if(picker && picker.style.display!=='none' && !picker.contains(e.target) && e.target!==trigger && !trigger?.contains(e.target)){
     picker.style.display='none';
+  }
+});
+
+// ── Sync when app comes back to foreground (covers iOS PWA home screen) ──
+let _lastVisibilitySync = 0;
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && currentUser && isOnline){
+    const now = Date.now();
+    // Throttle: only sync if more than 30s since last visibility sync
+    if(now - _lastVisibilitySync > 30000){
+      _lastVisibilitySync = now;
+      syncToCloud().then(()=>{
+        renderDash();
+        if(document.getElementById('tab-log').classList.contains('active')) renderLog();
+      });
+    }
   }
 });
 
