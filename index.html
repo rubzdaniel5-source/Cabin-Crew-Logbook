@@ -347,6 +347,41 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
 @keyframes pulse{50%{opacity:.3}}
 
+/* ── BLOCKED USER SCREEN ─────────────────────────────────── */
+#blocked-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+.blocked-icon{font-size:3.5rem;margin-bottom:16px}
+.blocked-title{font-size:1.1rem;font-weight:800;color:var(--navy);margin-bottom:10px}
+.blocked-msg{font-size:.85rem;color:var(--muted);line-height:1.6;max-width:320px}
+
+/* ── ADMIN USERS PANEL ───────────────────────────────────── */
+.users-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.users-stat{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:12px;text-align:center}
+.users-stat-val{font-size:1.4rem;font-weight:900;color:var(--navy)}
+.users-stat-lbl{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:2px}
+.user-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border2)}
+.user-row:last-child{border-bottom:none}
+.user-avatar-sm{width:34px;height:34px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.88rem;font-weight:800;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-size:.85rem;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta{font-size:.68rem;color:var(--muted);margin-top:1px}
+.user-new-badge{font-size:.6rem;background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:800;margin-left:4px}
+.activity-bar-wrap{display:flex;align-items:flex-end;gap:2px;height:50px;margin:10px 0}
+.activity-bar{flex:1;background:var(--sky);border-radius:2px 2px 0 0;min-height:2px;transition:height .3s;position:relative}
+.activity-bar:hover::after{content:attr(data-tip);position:absolute;bottom:105%;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:.6rem;padding:2px 6px;border-radius:4px;white-space:nowrap;z-index:10}
+
+/* ── APP REVIEW PROMPT ───────────────────────────────────── */
+.review-card{background:var(--card);border:2px solid var(--gold);border-radius:var(--radius);padding:18px;margin:14px 0;box-shadow:0 4px 20px rgba(201,168,76,.2)}
+.review-title{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+.review-sub{font-size:.78rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.star-row{display:flex;gap:8px;margin-bottom:14px}
+.star-btn{font-size:1.8rem;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s,transform .15s;padding:0;line-height:1}
+.star-btn.active,.star-btn:hover{opacity:1;transform:scale(1.15)}
+.review-inp{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:.85rem;font-family:var(--font);resize:none;margin-bottom:12px;color:var(--navy)}
+.review-inp:focus{outline:none;border-color:var(--gold)}
+
+/* ── ADMIN NEW SIGNUP BADGE ──────────────────────────────── */
+.db-new-badge{background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:.62rem;font-weight:800;margin-left:6px;display:none}
+
 /* ── PRINT / PDF EXPORT ──────────────────────────────────── */
 @media print{
   body > *:not(#print-area){ display:none!important }
@@ -682,7 +717,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button onclick="showTab('add')"><span class="tab-icon">✚</span>New Flight</button>
     <button onclick="showTab('log')"><span class="tab-icon">📋</span>Logbook</button>
     <button onclick="showTab('perdiem')"><span class="tab-icon">💰</span>Per Diem</button>
-    <button id="tab-btn-db" onclick="showTab('db')"><span class="tab-icon">🗄</span>Database</button>
+    <button id="tab-btn-db" onclick="showTab('db')"><span class="tab-icon">🗄</span>Database<span class="db-new-badge" id="db-new-badge">New</span></button>
   </div>
 </header>
 
@@ -1113,6 +1148,11 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <div style="font-size:.72rem;color:var(--muted)" id="db-notice">🌐 Shared with your whole crew — changes sync for everyone.</div>
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
+  </div>
+
+  <!-- Users management panel (admin only) -->
+  <div class="card" id="admin-users-panel" style="display:none;margin-bottom:14px">
+    <!-- Populated by renderUsersPanel() -->
   </div>
 
   <!-- Announcements admin panel (admin only) -->
@@ -1693,6 +1733,16 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </button>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BLOCKED USER SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="blocked-screen">
+  <div class="blocked-icon">🔒</div>
+  <div class="blocked-title">Account Suspended</div>
+  <div class="blocked-msg">Your access to Crew Logbook has been suspended.<br><br>Please contact your administrator for assistance.</div>
+  <button onclick="sb.auth.signOut()" class="btn btn-ghost" style="margin-top:24px">Sign Out</button>
 </div>
 
 <!-- ── PRINT AREA (for PDF export) ───────────────────────── -->
@@ -4128,6 +4178,276 @@ window.addEventListener('online', ()=>{
   isOnline = true; setOnlineBadge(); syncToCloud(); syncNotes();
 });
 
+// ═══════════════════════════════════════════════
+// SECURITY: BLOCKED USER CHECK
+// ═══════════════════════════════════════════════
+function showBlockedScreen(){
+  document.getElementById('blocked-screen').style.display = 'flex';
+  document.querySelector('header').style.display          = 'none';
+  document.getElementById('main-content')?.style && (document.getElementById('main-content').style.display = 'none');
+  // Hide all sections
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY TRACKING
+// ═══════════════════════════════════════════════
+function detectPlatform(){
+  const ua = navigator.userAgent;
+  if(/iphone|ipad|ipod/i.test(ua)) return navigator.standalone ? 'iOS PWA' : 'iOS Browser';
+  if(/android/i.test(ua))          return /wv/.test(ua) ? 'Android WebView' : 'Android Browser';
+  return 'Desktop';
+}
+
+async function logActivity(){
+  if(!currentUser || !isOnline) return;
+  try{
+    // UPSERT with conflict on (user_id, activity_date) — only one record per day
+    await sb.from('user_activity').upsert({
+      user_id:       currentUser.id,
+      activity_date: new Date().toISOString().slice(0,10),
+      platform:      detectPlatform()
+    }, { onConflict: 'user_id,activity_date', ignoreDuplicates: true });
+
+    // Also update last_seen on profile
+    await sb.from('profiles').update({ last_seen: new Date().toISOString() })
+      .eq('id', currentUser.id);
+  }catch(e){ console.warn('logActivity error:', e); }
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN: USERS PANEL
+// ═══════════════════════════════════════════════
+let _allUsers    = [];
+let _activityData = [];
+
+async function loadAdminUsers(){
+  if(!isAdmin || !isOnline) return;
+  try{
+    // Load all profiles
+    const { data: profiles } = await sb.from('profiles')
+      .select('id,full_name,crew_name,position,is_admin,blocked,last_seen,reviewed_by_admin,created_at,has_reviewed')
+      .order('created_at', {ascending:false});
+    _allUsers = profiles || [];
+
+    // Load activity data (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const { data: activity } = await sb.from('user_activity')
+      .select('user_id,activity_date,platform')
+      .gte('activity_date', thirtyDaysAgo)
+      .order('activity_date');
+    _activityData = activity || [];
+
+    // Check for new unreviewed signups (last 7 days)
+    const sevenDaysAgo = new Date(Date.now()-7*86400000).toISOString();
+    const newCount = _allUsers.filter(u => !u.reviewed_by_admin && u.created_at > sevenDaysAgo && !u.is_admin).length;
+    const badge = document.getElementById('db-new-badge');
+    if(badge){ badge.style.display = newCount > 0 ? 'inline' : 'none'; badge.textContent = `${newCount} New`; }
+  }catch(e){ console.warn('loadAdminUsers error:', e); }
+}
+
+function renderUsersPanel(){
+  const el = document.getElementById('admin-users-panel');
+  if(!el || !isAdmin) return;
+
+  const now = new Date();
+  const weekAgo  = new Date(now-7*86400000).toISOString();
+  const monthAgo = new Date(now-30*86400000).toISOString();
+  const sevenDaysAgoStr = new Date(now-7*86400000).toISOString();
+
+  const totalUsers   = _allUsers.filter(u=>!u.is_admin).length;
+  const activeWeek   = _allUsers.filter(u=>u.last_seen && u.last_seen > weekAgo).length;
+  const activeMonth  = _allUsers.filter(u=>u.last_seen && u.last_seen > monthAgo).length;
+
+  // 30-day activity chart data
+  const chartDays = [];
+  for(let i=29; i>=0; i--){
+    const d = new Date(now-i*86400000).toISOString().slice(0,10);
+    const count = new Set(_activityData.filter(a=>a.activity_date===d).map(a=>a.user_id)).size;
+    chartDays.push({ date:d, count });
+  }
+  const maxCount = Math.max(...chartDays.map(d=>d.count), 1);
+
+  const barsHtml = chartDays.map(d => {
+    const h = Math.max(4, Math.round((d.count/maxCount)*46));
+    const label = new Date(d.date+'T12:00:00').toLocaleDateString('default',{month:'short',day:'numeric'});
+    return `<div class="activity-bar" style="height:${h}px" data-tip="${d.count} active · ${label}"></div>`;
+  }).join('');
+
+  // Users list
+  const usersHtml = _allUsers.filter(u=>!u.is_admin).map(u => {
+    const isNew      = u.created_at > sevenDaysAgoStr && !u.reviewed_by_admin;
+    const initial    = (u.full_name||u.crew_name||'?').charAt(0).toUpperCase();
+    const lastSeen   = u.last_seen ? `Last seen ${timeAgo(u.last_seen)}` : 'Never opened';
+    const joinDate   = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+    const blocked    = u.blocked;
+
+    return `
+    <div class="user-row" id="user-row-${u.id}">
+      <div class="user-avatar-sm" style="${blocked?'background:#e74c3c':''}">${initial}</div>
+      <div class="user-info">
+        <div class="user-name">
+          ${escHtml(u.full_name||u.crew_name||'Unnamed')}
+          ${isNew ? '<span class="user-new-badge">NEW</span>' : ''}
+          ${blocked ? '<span style="font-size:.62rem;background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:800;margin-left:4px">BLOCKED</span>' : ''}
+        </div>
+        <div class="user-meta">${escHtml(u.position||'—')} · Joined ${joinDate} · ${lastSeen}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${isNew ? `<button class="btn btn-ghost btn-sm" onclick="markUserReviewed('${u.id}')">✓ Reviewed</button>` : ''}
+        <button class="btn btn-sm ${blocked?'btn-primary':'btn-danger'}" onclick="toggleBlockUser('${u.id}',${!blocked})">
+          ${blocked ? '✓ Unblock' : '🚫 Block'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card-title">👥 User Management</div>
+
+    <div class="users-stat-grid">
+      <div class="users-stat">
+        <div class="users-stat-val">${totalUsers}</div>
+        <div class="users-stat-lbl">Total Users</div>
+      </div>
+      <div class="users-stat">
+        <div class="users-stat-val" style="color:var(--sky)">${activeWeek}</div>
+        <div class="users-stat-lbl">Active This Week</div>
+      </div>
+      <div class="users-stat">
+        <div class="users-stat-val" style="color:var(--green)">${activeMonth}</div>
+        <div class="users-stat-lbl">Active This Month</div>
+      </div>
+    </div>
+
+    <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Daily Active Users — Last 30 Days</div>
+    <div class="activity-bar-wrap">${barsHtml}</div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:16px">
+      <span>30 days ago</span><span>Today</span>
+    </div>
+
+    <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">All Users</div>
+    ${usersHtml || '<div class="db-empty">No users yet.</div>'}`;
+}
+
+async function toggleBlockUser(userId, block){
+  const action = block ? 'block' : 'unblock';
+  if(!confirm(`${block?'Block':'Unblock'} this user? ${block?'They will be signed out immediately and cannot access the app.':''}`)) return;
+  const { error } = await sb.from('profiles').update({ blocked: block }).eq('id', userId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const u = _allUsers.find(u=>u.id===userId);
+  if(u) u.blocked = block;
+  toast(block ? '🚫 User blocked.' : '✓ User unblocked.');
+  renderUsersPanel();
+}
+
+async function markUserReviewed(userId){
+  const { error } = await sb.from('profiles').update({ reviewed_by_admin: true }).eq('id', userId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const u = _allUsers.find(u=>u.id===userId);
+  if(u) u.reviewed_by_admin = true;
+  // Recount badge
+  const newCount = _allUsers.filter(u=>!u.reviewed_by_admin && !u.is_admin &&
+    u.created_at > new Date(Date.now()-7*86400000).toISOString()).length;
+  const badge = document.getElementById('db-new-badge');
+  if(badge){ badge.style.display = newCount>0?'inline':'none'; badge.textContent=`${newCount} New`; }
+  renderUsersPanel();
+}
+
+function timeAgo(isoStr){
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins  = Math.floor(diff/60000);
+  const hours = Math.floor(diff/3600000);
+  const days  = Math.floor(diff/86400000);
+  if(mins  < 2)   return 'just now';
+  if(mins  < 60)  return `${mins}m ago`;
+  if(hours < 24)  return `${hours}h ago`;
+  if(days  < 7)   return `${days}d ago`;
+  return new Date(isoStr).toLocaleDateString();
+}
+
+// ═══════════════════════════════════════════════
+// APP REVIEW PROMPT
+// ═══════════════════════════════════════════════
+let _reviewRating = 0;
+
+async function checkShowReview(profile){
+  // Don't show if already reviewed
+  if(profile?.has_reviewed) return;
+
+  // Check "remind later" delay
+  const remindAfter = localStorage.getItem('ccl_review_remind');
+  if(remindAfter && new Date() < new Date(remindAfter)) return;
+
+  // Check account age (7+ days)
+  if(profile?.created_at){
+    const ageDays = (Date.now() - new Date(profile.created_at).getTime()) / 86400000;
+    if(ageDays < 7) return;
+  }
+
+  // Check flight count (3+)
+  const flightCount = cache.flights.length;
+  if(flightCount < 3) return;
+
+  // All conditions met — show the review card
+  showReviewCard();
+}
+
+function showReviewCard(){
+  // Don't show twice
+  if(document.getElementById('review-card')) return;
+
+  const card = document.createElement('div');
+  card.id        = 'review-card';
+  card.className = 'review-card';
+  card.innerHTML = `
+    <div class="review-title">⭐ How are you finding Crew Logbook?</div>
+    <div class="review-sub">You've been using the app for a while — we'd love your feedback! Takes less than a minute.</div>
+    <div class="star-row" id="review-stars">
+      ${[1,2,3,4,5].map(n=>`<button class="star-btn" onclick="setReviewRating(${n})" title="${n} star${n>1?'s':''}">★</button>`).join('')}
+    </div>
+    <textarea class="review-inp" id="review-comment" rows="2" placeholder="What do you like? What could be better? (optional)"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-gold" onclick="submitReview()" style="flex:1">Submit Review</button>
+      <button class="btn btn-ghost" onclick="remindReviewLater()" style="flex:1">Remind Me Later</button>
+    </div>`;
+
+  // Insert at top of dashboard
+  const dash = document.getElementById('tab-dash');
+  if(dash) dash.insertAdjacentElement('afterbegin', card);
+  _reviewRating = 0;
+}
+
+function setReviewRating(n){
+  _reviewRating = n;
+  document.querySelectorAll('.star-btn').forEach((btn,i) => {
+    btn.classList.toggle('active', i < n);
+  });
+}
+
+async function submitReview(){
+  if(_reviewRating === 0){ toast('⚠ Please select a star rating.'); return; }
+  const comment = document.getElementById('review-comment')?.value.trim() || '';
+  const { error } = await sb.from('app_reviews').insert({
+    user_id:  currentUser.id,
+    rating:   _reviewRating,
+    comment:  comment || null,
+    position: localStorage.getItem('ccl_position') || null
+  });
+  if(error){ toast('⚠ ' + error.message); return; }
+  // Mark profile as reviewed
+  await sb.from('profiles').update({ has_reviewed: true }).eq('id', currentUser.id);
+  document.getElementById('review-card')?.remove();
+  toast('🙏 Thank you for your feedback!');
+}
+
+function remindReviewLater(){
+  // Suppress for 7 days
+  const remind = new Date(Date.now() + 7*86400000).toISOString();
+  localStorage.setItem('ccl_review_remind', remind);
+  document.getElementById('review-card')?.remove();
+}
+
 function escHtml(str){
   if(!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -4139,9 +4459,16 @@ async function onLoggedIn(){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('auth-screen').style.display='none';
 
-  // Fetch profile — name + admin + crew name + position
+  // Fetch profile — include blocked and has_reviewed flags
   const { data: profile } = await sb.from('profiles')
-    .select('full_name, is_admin, crew_name, position').eq('id', currentUser.id).single();
+    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at')
+    .eq('id', currentUser.id).single();
+
+  // ── BLOCKED CHECK — must happen before anything else ──
+  if(profile?.blocked === true){
+    showBlockedScreen();
+    return; // stop all further login processing
+  }
 
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
   isAdmin = profile?.is_admin === true;
@@ -4169,6 +4496,12 @@ async function onLoggedIn(){
 
   // Load app version
   loadAppVersion();
+
+  // Log activity (one record per day — non-blocking)
+  logActivity();
+
+  // If admin, load user list for management panel
+  if(isAdmin) loadAdminUsers();
 
   // Load Nexa API key from Supabase (shared, admin-configured)
   await loadNexaKey();
@@ -4200,6 +4533,10 @@ async function onLoggedIn(){
   updateFlightNumFields();
   renderCrewTags();
   renderDash();
+
+  // Check if review prompt should be shown (after data is loaded)
+  setTimeout(()=> checkShowReview(profile), 2000);
+
   // Full sync every 60s (covers background tab + cross-device refresh)
   setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
 }
@@ -4338,7 +4675,7 @@ function showTab(name){
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
   if(name==='log')     renderLog();
-  if(name==='db'){ loadAnnouncements().then(()=>{ loadManualsMetadata().then(()=>renderDB()); }); }
+  if(name==='db'){ loadAdminUsers().then(()=>{ loadAnnouncements().then(()=>{ loadManualsMetadata().then(()=>renderDB()); }); }); }
   if(name==='perdiem'){ if(isOnline) loadPDPayments().then(()=>renderPerDiemTab()); else renderPerDiemTab(); }
 }
 
@@ -5472,6 +5809,11 @@ async function deletePDPayment(id, month){
 // DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
+  // Show users management panel for admins
+  const usersPanel = document.getElementById('admin-users-panel');
+  if(usersPanel) usersPanel.style.display = isAdmin ? 'block' : 'none';
+  if(isAdmin) renderUsersPanel();
+
   // Show announcements panel for admins only
   const annPanel = document.getElementById('db-ann-panel');
   if(annPanel) annPanel.style.display = isAdmin ? 'block' : 'none';
