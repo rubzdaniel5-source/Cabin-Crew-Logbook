@@ -1150,9 +1150,19 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
   </div>
 
-  <!-- Users management panel (admin only) -->
-  <div class="card" id="admin-users-panel" style="display:none;margin-bottom:14px">
-    <!-- Populated by renderUsersPanel() -->
+  <!-- Users management KPI card (admin only — opens full overlay) -->
+  <div id="admin-users-kpi" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openUsersOverlay()" style="cursor:pointer;transition:box-shadow .15s;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--navy),var(--sky));display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">👥</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--navy)">User Management</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="users-kpi-sub">Loading…</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="db-new-badge" id="db-new-badge" style="display:none">New</span>
+        <span style="color:var(--muted);font-size:1.1rem">›</span>
+      </div>
+    </div>
   </div>
 
   <!-- Announcements admin panel (admin only) -->
@@ -1733,6 +1743,103 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       </button>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     USER MANAGEMENT OVERLAY (admin only)
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="users-overlay" style="background:var(--white)">
+
+  <!-- ── SCREEN 1: Home (two sub-cards) ─────────────────── -->
+  <div id="um-home" style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">👥 User Management</h2>
+      <button class="fs-close" onclick="closeUsersOverlay()">✕</button>
+    </div>
+    <div style="padding:16px;overflow-y:auto;flex:1">
+      <!-- Statistics sub-card -->
+      <div class="card" onclick="openUM('stats')" style="cursor:pointer;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1C6EAF,#0B1D3A);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">📊</div>
+          <div style="flex:1">
+            <div style="font-weight:800;color:var(--navy);font-size:.9rem">User Statistics</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="um-stats-sub">Total · Weekly · Monthly active</div>
+          </div>
+          <span style="color:var(--muted)">›</span>
+        </div>
+      </div>
+      <!-- All Users sub-card -->
+      <div class="card" onclick="openUM('all')" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--gold),#8a6800);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>
+          <div style="flex:1">
+            <div style="font-weight:800;color:var(--navy);font-size:.9rem">All Users</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="um-allusers-sub">View and manage crew accounts</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="db-new-badge" id="um-new-badge" style="display:none;position:static">New</span>
+            <span style="color:var(--muted)">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 2: Statistics ────────────────────────────── -->
+  <div id="um-stats" style="display:none;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <button class="fs-close" onclick="openUM('home')" style="color:#7A9BB8;font-size:1rem">← Back</button>
+      <h2 style="color:#fff;flex:1;margin-left:8px">📊 User Statistics</h2>
+    </div>
+    <div style="padding:16px;overflow-y:auto;flex:1">
+      <!-- 30-day chart -->
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">Daily Active Users — Last 30 Days</div>
+      <div class="activity-bar-wrap" id="um-chart"></div>
+      <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:16px"><span>30 days ago</span><span>Today</span></div>
+      <!-- Stat tiles — tappable -->
+      <div class="users-stat-grid">
+        <div class="users-stat" onclick="openUMUserList('all')" style="cursor:pointer">
+          <div class="users-stat-val" id="um-total">—</div>
+          <div class="users-stat-lbl">Total Users</div>
+          <div style="font-size:.6rem;color:var(--sky);margin-top:4px">Tap to view →</div>
+        </div>
+        <div class="users-stat" onclick="openUMUserList('week')" style="cursor:pointer">
+          <div class="users-stat-val" style="color:var(--sky)" id="um-week">—</div>
+          <div class="users-stat-lbl">Active This Week</div>
+          <div style="font-size:.6rem;color:var(--sky);margin-top:4px">Tap to view →</div>
+        </div>
+        <div class="users-stat" onclick="openUMUserList('month')" style="cursor:pointer">
+          <div class="users-stat-val" style="color:var(--green)" id="um-month">—</div>
+          <div class="users-stat-lbl">Active This Month</div>
+          <div style="font-size:.6rem;color:var(--sky);margin-top:4px">Tap to view →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 3: User List (all / week / month) ────────── -->
+  <div id="um-list-screen" style="display:none;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <button class="fs-close" onclick="openUM('stats')" id="um-list-back" style="color:#7A9BB8;font-size:1rem">← Back</button>
+      <h2 style="color:#fff;flex:1;margin-left:8px" id="um-list-title">Users</h2>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border2)">
+      <input type="text" id="um-search" placeholder="🔍  Search by name, position…"
+        style="width:100%;border:1.5px solid var(--border);border-radius:20px;padding:8px 14px;font-size:.85rem;font-family:var(--font);color:var(--navy)"
+        oninput="filterUMList(this.value)"/>
+    </div>
+    <div style="flex:1;overflow-y:auto" id="um-user-list"></div>
+  </div>
+
+  <!-- ── SCREEN 4: Single User Profile ──────────────────── -->
+  <div id="um-profile-screen" style="display:none;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <button class="fs-close" id="um-profile-back" onclick="openUMUserList(_umCurrentFilter)" style="color:#7A9BB8;font-size:1rem">← Back</button>
+      <h2 style="color:#fff;flex:1;margin-left:8px">User Profile</h2>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px" id="um-profile-body"></div>
+  </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -4216,21 +4323,42 @@ async function logActivity(){
 }
 
 // ═══════════════════════════════════════════════
-// ADMIN: USERS PANEL
+// ADMIN: USER MANAGEMENT OVERLAY
 // ═══════════════════════════════════════════════
-let _allUsers    = [];
-let _activityData = [];
+let _allUsers      = [];
+let _activityData  = [];
+let _umCurrentFilter = 'all'; // tracks which list screen we came from
+let _umFilteredUsers = []; // current filtered list for search
 
+// ── Open / close overlay ─────────────────────────────────
+function openUsersOverlay(){
+  document.getElementById('users-overlay').classList.add('open');
+  openUM('home');
+  if(isOnline) loadAdminUsers().then(()=> refreshUMStats());
+}
+function closeUsersOverlay(){
+  document.getElementById('users-overlay').classList.remove('open');
+}
+
+// ── Navigate between screens ─────────────────────────────
+function openUM(screen){
+  ['um-home','um-stats','um-list-screen','um-profile-screen'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  const target = document.getElementById(`um-${screen==='all'?'list-screen':screen==='stats'?'stats':screen==='home'?'home':'profile-screen'}`);
+  if(target) target.style.display = 'flex';
+}
+
+// ── Load data ─────────────────────────────────────────────
 async function loadAdminUsers(){
   if(!isAdmin || !isOnline) return;
   try{
-    // Load all profiles
     const { data: profiles } = await sb.from('profiles')
-      .select('id,full_name,crew_name,position,is_admin,blocked,last_seen,reviewed_by_admin,created_at,has_reviewed')
+      .select('id,full_name,crew_name,position,is_admin,blocked,last_seen,reviewed_by_admin,created_at,has_reviewed,email')
       .order('created_at', {ascending:false});
     _allUsers = profiles || [];
 
-    // Load activity data (last 30 days)
     const thirtyDaysAgo = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
     const { data: activity } = await sb.from('user_activity')
       .select('user_id,activity_date,platform')
@@ -4238,28 +4366,37 @@ async function loadAdminUsers(){
       .order('activity_date');
     _activityData = activity || [];
 
-    // Check for new unreviewed signups (last 7 days)
+    // New signup badge
     const sevenDaysAgo = new Date(Date.now()-7*86400000).toISOString();
-    const newCount = _allUsers.filter(u => !u.reviewed_by_admin && u.created_at > sevenDaysAgo && !u.is_admin).length;
-    const badge = document.getElementById('db-new-badge');
-    if(badge){ badge.style.display = newCount > 0 ? 'inline' : 'none'; badge.textContent = `${newCount} New`; }
+    const newCount = _allUsers.filter(u=>!u.reviewed_by_admin && u.created_at > sevenDaysAgo && !u.is_admin).length;
+    ['db-new-badge','um-new-badge'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){ el.style.display = newCount>0?'inline':'none'; el.textContent=`${newCount} New`; }
+    });
+
+    // KPI card sub-label
+    const subEl = document.getElementById('users-kpi-sub');
+    if(subEl) subEl.textContent = `${_allUsers.filter(u=>!u.is_admin).length} users · tap to manage`;
+
   }catch(e){ console.warn('loadAdminUsers error:', e); }
 }
 
-function renderUsersPanel(){
-  const el = document.getElementById('admin-users-panel');
-  if(!el || !isAdmin) return;
-
-  const now = new Date();
+// ── Stats screen ──────────────────────────────────────────
+function refreshUMStats(){
+  openUM('stats');
+  const now      = new Date();
   const weekAgo  = new Date(now-7*86400000).toISOString();
   const monthAgo = new Date(now-30*86400000).toISOString();
-  const sevenDaysAgoStr = new Date(now-7*86400000).toISOString();
+  const crew     = _allUsers.filter(u=>!u.is_admin);
 
-  const totalUsers   = _allUsers.filter(u=>!u.is_admin).length;
-  const activeWeek   = _allUsers.filter(u=>u.last_seen && u.last_seen > weekAgo).length;
-  const activeMonth  = _allUsers.filter(u=>u.last_seen && u.last_seen > monthAgo).length;
+  document.getElementById('um-total').textContent = crew.length;
+  document.getElementById('um-week').textContent  = crew.filter(u=>u.last_seen && u.last_seen > weekAgo).length;
+  document.getElementById('um-month').textContent = crew.filter(u=>u.last_seen && u.last_seen > monthAgo).length;
+  document.getElementById('um-stats-sub').textContent = `${crew.length} total users`;
 
-  // 30-day activity chart data
+  // 30-day bar chart
+  const chartEl = document.getElementById('um-chart');
+  if(!chartEl) return;
   const chartDays = [];
   for(let i=29; i>=0; i--){
     const d = new Date(now-i*86400000).toISOString().slice(0,10);
@@ -4267,92 +4404,196 @@ function renderUsersPanel(){
     chartDays.push({ date:d, count });
   }
   const maxCount = Math.max(...chartDays.map(d=>d.count), 1);
-
-  const barsHtml = chartDays.map(d => {
-    const h = Math.max(4, Math.round((d.count/maxCount)*46));
+  chartEl.innerHTML = chartDays.map(d=>{
+    const h = Math.max(3, Math.round((d.count/maxCount)*46));
     const label = new Date(d.date+'T12:00:00').toLocaleDateString('default',{month:'short',day:'numeric'});
-    return `<div class="activity-bar" style="height:${h}px" data-tip="${d.count} active · ${label}"></div>`;
+    return `<div class="activity-bar" style="height:${h}px" data-tip="${d.count} · ${label}"></div>`;
   }).join('');
+}
 
-  // Users list
-  const usersHtml = _allUsers.filter(u=>!u.is_admin).map(u => {
-    const isNew      = u.created_at > sevenDaysAgoStr && !u.reviewed_by_admin;
-    const initial    = (u.full_name||u.crew_name||'?').charAt(0).toUpperCase();
-    const lastSeen   = u.last_seen ? `Last seen ${timeAgo(u.last_seen)}` : 'Never opened';
-    const joinDate   = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
-    const blocked    = u.blocked;
+// ── User list screen ──────────────────────────────────────
+function openUMUserList(filter){
+  _umCurrentFilter = filter;
+  const now      = new Date();
+  const weekAgo  = new Date(now-7*86400000).toISOString();
+  const monthAgo = new Date(now-30*86400000).toISOString();
 
+  let users = _allUsers.filter(u=>!u.is_admin);
+  let title = 'All Users';
+  let backTarget = 'stats';
+
+  if(filter==='week'){
+    users = users.filter(u=>u.last_seen && u.last_seen > weekAgo);
+    title = 'Active This Week';
+  } else if(filter==='month'){
+    users = users.filter(u=>u.last_seen && u.last_seen > monthAgo);
+    title = 'Active This Month';
+  } else {
+    backTarget = 'all';
+  }
+
+  document.getElementById('um-list-title').textContent = title;
+  document.getElementById('um-list-back').onclick = ()=> openUM(filter==='all' ? 'home' : 'stats');
+  document.getElementById('um-search').value = '';
+  _umFilteredUsers = users;
+  renderUMList(users);
+
+  ['um-home','um-stats','um-list-screen','um-profile-screen'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  document.getElementById('um-list-screen').style.display = 'flex';
+}
+
+function filterUMList(query){
+  const q = query.toLowerCase().trim();
+  const filtered = q
+    ? _umFilteredUsers.filter(u=>
+        (u.full_name||'').toLowerCase().includes(q) ||
+        (u.crew_name||'').toLowerCase().includes(q) ||
+        (u.position||'').toLowerCase().includes(q))
+    : _umFilteredUsers;
+  renderUMList(filtered);
+}
+
+function renderUMList(users){
+  const el = document.getElementById('um-user-list');
+  if(!el) return;
+  if(!users.length){
+    el.innerHTML = '<div class="empty" style="padding:30px 0"><div class="empty-icon">👤</div><p>No users found.</p></div>';
+    return;
+  }
+  const sevenDaysAgo = new Date(Date.now()-7*86400000).toISOString();
+  el.innerHTML = users.map(u=>{
+    const isNew   = u.created_at > sevenDaysAgo && !u.reviewed_by_admin;
+    const initial = (u.full_name||u.crew_name||'?').charAt(0).toUpperCase();
     return `
-    <div class="user-row" id="user-row-${u.id}">
-      <div class="user-avatar-sm" style="${blocked?'background:#e74c3c':''}">${initial}</div>
+    <div class="user-row" onclick="openUserProfile('${u.id}')" style="padding:12px 16px;cursor:pointer">
+      <div class="user-avatar-sm" style="${u.blocked?'background:#e74c3c;':''}${u.is_admin?'background:var(--gold);color:var(--navy)':''}">${initial}</div>
       <div class="user-info">
         <div class="user-name">
           ${escHtml(u.full_name||u.crew_name||'Unnamed')}
-          ${isNew ? '<span class="user-new-badge">NEW</span>' : ''}
-          ${blocked ? '<span style="font-size:.62rem;background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:800;margin-left:4px">BLOCKED</span>' : ''}
+          ${isNew   ? '<span class="user-new-badge">NEW</span>' : ''}
+          ${u.blocked ? '<span class="user-new-badge" style="background:#e74c3c">BLOCKED</span>' : ''}
         </div>
-        <div class="user-meta">${escHtml(u.position||'—')} · Joined ${joinDate} · ${lastSeen}</div>
+        <div class="user-meta">${escHtml(u.position||'—')} · ${u.last_seen ? timeAgo(u.last_seen) : 'Never opened'}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        ${isNew ? `<button class="btn btn-ghost btn-sm" onclick="markUserReviewed('${u.id}')">✓ Reviewed</button>` : ''}
-        <button class="btn btn-sm ${blocked?'btn-primary':'btn-danger'}" onclick="toggleBlockUser('${u.id}',${!blocked})">
-          ${blocked ? '✓ Unblock' : '🚫 Block'}
-        </button>
-      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
     </div>`;
   }).join('');
-
-  el.innerHTML = `
-    <div class="card-title">👥 User Management</div>
-
-    <div class="users-stat-grid">
-      <div class="users-stat">
-        <div class="users-stat-val">${totalUsers}</div>
-        <div class="users-stat-lbl">Total Users</div>
-      </div>
-      <div class="users-stat">
-        <div class="users-stat-val" style="color:var(--sky)">${activeWeek}</div>
-        <div class="users-stat-lbl">Active This Week</div>
-      </div>
-      <div class="users-stat">
-        <div class="users-stat-val" style="color:var(--green)">${activeMonth}</div>
-        <div class="users-stat-lbl">Active This Month</div>
-      </div>
-    </div>
-
-    <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Daily Active Users — Last 30 Days</div>
-    <div class="activity-bar-wrap">${barsHtml}</div>
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-bottom:16px">
-      <span>30 days ago</span><span>Today</span>
-    </div>
-
-    <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">All Users</div>
-    ${usersHtml || '<div class="db-empty">No users yet.</div>'}`;
 }
 
-async function toggleBlockUser(userId, block){
-  const action = block ? 'block' : 'unblock';
-  if(!confirm(`${block?'Block':'Unblock'} this user? ${block?'They will be signed out immediately and cannot access the app.':''}`)) return;
+// ── Single user profile screen ────────────────────────────
+async function openUserProfile(userId){
+  const u = _allUsers.find(x=>x.id===userId);
+  if(!u) return;
+
+  ['um-home','um-stats','um-list-screen','um-profile-screen'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  document.getElementById('um-profile-screen').style.display = 'flex';
+
+  const body    = document.getElementById('um-profile-body');
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
+
+  // Fetch user email from auth (admin can see via profiles join)
+  const initial  = (u.full_name||u.crew_name||'?').charAt(0).toUpperCase();
+  const joinDate = u.created_at ? new Date(u.created_at).toLocaleDateString('default',{day:'numeric',month:'long',year:'numeric'}) : '—';
+  const lastSeen = u.last_seen ? timeAgo(u.last_seen) : 'Never';
+
+  // Activity stats for this user
+  const userActivity = _activityData.filter(a=>a.user_id===userId);
+  const activeDays   = new Set(userActivity.map(a=>a.activity_date)).size;
+  const platforms    = [...new Set(userActivity.map(a=>a.platform).filter(Boolean))].join(', ') || '—';
+
+  // Flight and per diem counts from Supabase
+  let flightCount = '—', pdCount = '—';
+  try{
+    const { count: fc } = await sb.from('flights').select('id',{count:'exact',head:true}).eq('user_id',userId);
+    const { count: pc } = await sb.from('per_diem').select('id',{count:'exact',head:true}).eq('user_id',userId);
+    flightCount = fc ?? '—';
+    pdCount     = pc ?? '—';
+  }catch{}
+
+  const sevenDaysAgo = new Date(Date.now()-7*86400000).toISOString();
+  const isNew = u.created_at > sevenDaysAgo && !u.reviewed_by_admin;
+
+  body.innerHTML = `
+    <!-- Avatar + name -->
+    <div style="text-align:center;margin-bottom:20px;padding:20px;background:var(--navy);margin:-16px -16px 20px;border-radius:0">
+      <div style="width:60px;height:60px;border-radius:50%;background:${u.blocked?'#e74c3c':u.is_admin?'var(--gold)':'var(--sky)'};color:${u.is_admin?'var(--navy)':'#fff'};display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;margin:0 auto 10px">${initial}</div>
+      <div style="color:#fff;font-size:.98rem;font-weight:800">${escHtml(u.full_name||u.crew_name||'Unnamed')}</div>
+      <div style="color:#7A9BB8;font-size:.72rem;margin-top:3px">${escHtml(u.position||'No position set')}</div>
+      ${u.blocked ? '<div style="margin-top:8px;background:#e74c3c;color:#fff;border-radius:8px;padding:3px 12px;font-size:.72rem;font-weight:800;display:inline-block">BLOCKED</div>' : ''}
+    </div>
+
+    <!-- Identity -->
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin-bottom:8px">Identity</div>
+    <div class="detail-row"><span class="d-lbl">Crew Name</span><span class="d-val">${escHtml(u.crew_name||'—')}</span></div>
+    <div class="detail-row"><span class="d-lbl">Position</span><span class="d-val">${escHtml(u.position||'—')}</span></div>
+    <div class="detail-row"><span class="d-lbl">Joined</span><span class="d-val">${joinDate}</span></div>
+    <div class="detail-row"><span class="d-lbl">Last Seen</span><span class="d-val">${lastSeen}</span></div>
+    <div class="detail-row"><span class="d-lbl">Platform</span><span class="d-val">${platforms}</span></div>
+
+    <!-- Usage -->
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 8px">Usage</div>
+    <div class="detail-row"><span class="d-lbl">Flights Logged</span><span class="d-val">${flightCount}</span></div>
+    <div class="detail-row"><span class="d-lbl">Per Diem Entries</span><span class="d-val">${pdCount}</span></div>
+    <div class="detail-row"><span class="d-lbl">Active Days (30d)</span><span class="d-val">${activeDays}</span></div>
+    <div class="detail-row"><span class="d-lbl">Has Reviewed App</span><span class="d-val">${u.has_reviewed?'Yes':'No'}</span></div>
+
+    <!-- Actions -->
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 10px">Actions</div>
+    ${isNew ? `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="adminMarkReviewed('${u.id}')">✓ Mark as Reviewed</button>` : ''}
+    <button class="btn ${u.blocked?'btn-primary':'btn-danger'}" style="width:100%;margin-bottom:8px"
+      onclick="adminToggleBlock('${u.id}',${!u.blocked})">
+      ${u.blocked ? '✓ Unblock User' : '🚫 Block User'}
+    </button>
+    <button class="btn btn-danger" style="width:100%;background:#c0392b"
+      onclick="adminDeleteUser('${u.id}','${escHtml(u.full_name||u.crew_name||'this user')}')">
+      🗑 Delete User & All Data
+    </button>`;
+}
+
+// ── User actions ──────────────────────────────────────────
+async function adminToggleBlock(userId, block){
+  if(!confirm(`${block?'Block':'Unblock'} this user? ${block?'They will be immediately locked out of the app.':''}`)) return;
   const { error } = await sb.from('profiles').update({ blocked: block }).eq('id', userId);
   if(error){ toast('⚠ ' + error.message); return; }
-  const u = _allUsers.find(u=>u.id===userId);
-  if(u) u.blocked = block;
+  const u = _allUsers.find(u=>u.id===userId); if(u) u.blocked = block;
   toast(block ? '🚫 User blocked.' : '✓ User unblocked.');
-  renderUsersPanel();
+  openUserProfile(userId); // refresh profile view
 }
 
-async function markUserReviewed(userId){
+async function adminMarkReviewed(userId){
   const { error } = await sb.from('profiles').update({ reviewed_by_admin: true }).eq('id', userId);
   if(error){ toast('⚠ ' + error.message); return; }
-  const u = _allUsers.find(u=>u.id===userId);
-  if(u) u.reviewed_by_admin = true;
-  // Recount badge
+  const u = _allUsers.find(u=>u.id===userId); if(u) u.reviewed_by_admin = true;
   const newCount = _allUsers.filter(u=>!u.reviewed_by_admin && !u.is_admin &&
     u.created_at > new Date(Date.now()-7*86400000).toISOString()).length;
-  const badge = document.getElementById('db-new-badge');
-  if(badge){ badge.style.display = newCount>0?'inline':'none'; badge.textContent=`${newCount} New`; }
-  renderUsersPanel();
+  ['db-new-badge','um-new-badge'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.style.display=newCount>0?'inline':'none'; el.textContent=`${newCount} New`; }
+  });
+  toast('✓ Marked as reviewed.');
+  openUserProfile(userId);
 }
+
+async function adminDeleteUser(userId, name){
+  if(!confirm(`Permanently delete ${name} and ALL their data (flights, per diem, notes)? This CANNOT be undone.`)) return;
+  if(!confirm('Are you absolutely sure? All flight records and data will be lost forever.')) return;
+  // Delete cascades via FK constraints in Supabase
+  const { error } = await sb.from('profiles').delete().eq('id', userId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  _allUsers = _allUsers.filter(u=>u.id!==userId);
+  toast('🗑 User deleted.');
+  openUMUserList(_umCurrentFilter);
+}
+
+// Keep old names for backward compat
+async function toggleBlockUser(userId, block){ return adminToggleBlock(userId, block); }
+async function markUserReviewed(userId){ return adminMarkReviewed(userId); }
 
 function timeAgo(isoStr){
   const diff = Date.now() - new Date(isoStr).getTime();
@@ -4365,6 +4606,9 @@ function timeAgo(isoStr){
   if(days  < 7)   return `${days}d ago`;
   return new Date(isoStr).toLocaleDateString();
 }
+
+
+
 
 // ═══════════════════════════════════════════════
 // APP REVIEW PROMPT
@@ -5809,10 +6053,9 @@ async function deletePDPayment(id, month){
 // DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
-  // Show users management panel for admins
-  const usersPanel = document.getElementById('admin-users-panel');
-  if(usersPanel) usersPanel.style.display = isAdmin ? 'block' : 'none';
-  if(isAdmin) renderUsersPanel();
+  // Show users management KPI card for admins
+  const usersKPI = document.getElementById('admin-users-kpi');
+  if(usersKPI) usersKPI.style.display = isAdmin ? 'block' : 'none';
 
   // Show announcements panel for admins only
   const annPanel = document.getElementById('db-ann-panel');
