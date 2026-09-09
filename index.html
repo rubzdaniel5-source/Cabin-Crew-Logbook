@@ -1150,6 +1150,18 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
   </div>
 
+  <!-- App Reviews card (admin only) -->
+  <div id="admin-reviews-kpi" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openReviewsOverlay()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--gold),#8a6800);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">⭐</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--navy)">App Reviews</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="reviews-kpi-sub">Loading…</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
   <!-- Users management KPI card (admin only — opens full overlay) -->
   <div id="admin-users-kpi" style="display:none;margin-bottom:14px">
     <div class="card" onclick="openUsersOverlay()" style="cursor:pointer;transition:box-shadow .15s;display:flex;align-items:center;gap:14px;padding:16px">
@@ -1840,6 +1852,24 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div style="flex:1;overflow-y:auto;padding:16px" id="um-profile-body"></div>
   </div>
 
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP REVIEWS OVERLAY (admin only)
+════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="reviews-overlay" style="background:var(--white)">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">⭐ App Reviews</h2>
+      <button class="fs-close" onclick="closeReviewsOverlay()">✕</button>
+    </div>
+    <!-- Summary strip -->
+    <div id="reviews-summary" style="padding:16px;border-bottom:1px solid var(--border2);background:var(--ice2)"></div>
+    <!-- Reviews list -->
+    <div style="flex:1;overflow-y:auto;padding:14px" id="reviews-list">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -4494,69 +4524,208 @@ async function openUserProfile(userId){
   });
   document.getElementById('um-profile-screen').style.display = 'flex';
 
-  const body    = document.getElementById('um-profile-body');
+  const body = document.getElementById('um-profile-body');
   body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div>';
 
-  // Fetch user email from auth (admin can see via profiles join)
   const initial  = (u.full_name||u.crew_name||'?').charAt(0).toUpperCase();
   const joinDate = u.created_at ? new Date(u.created_at).toLocaleDateString('default',{day:'numeric',month:'long',year:'numeric'}) : '—';
-  const lastSeen = u.last_seen ? timeAgo(u.last_seen) : 'Never';
 
-  // Activity stats for this user
+  // Fetch flights (for count, first/last date) and per diem count
+  let flightCount = 0, pdCount = 0, firstFlightDate = null, lastFlightDate = null;
+  try{
+    const { data: flights } = await sb.from('flights')
+      .select('date').eq('user_id', userId).order('date', {ascending:true});
+    flightCount     = flights?.length || 0;
+    firstFlightDate = flights?.[0]?.date || null;
+    lastFlightDate  = flights?.[flights.length-1]?.date || null;
+    const { count: pc } = await sb.from('per_diem')
+      .select('id',{count:'exact',head:true}).eq('user_id',userId);
+    pdCount = pc ?? 0;
+  }catch{}
+
+  // Last seen: use profile value (backfilled by SQL) or infer from last flight
+  const lastSeenRaw = u.last_seen || (lastFlightDate ? lastFlightDate+'T00:00:00Z' : null);
+  const lastSeen    = lastSeenRaw ? timeAgo(lastSeenRaw) : 'No activity recorded';
+
+  // Activity tracking (from deployment forward)
   const userActivity = _activityData.filter(a=>a.user_id===userId);
   const activeDays   = new Set(userActivity.map(a=>a.activity_date)).size;
-  const platforms    = [...new Set(userActivity.map(a=>a.platform).filter(Boolean))].join(', ') || '—';
+  const platforms    = [...new Set(userActivity.map(a=>a.platform).filter(Boolean))].join(', ') || 'Not yet recorded';
 
-  // Flight and per diem counts from Supabase
-  let flightCount = '—', pdCount = '—';
-  try{
-    const { count: fc } = await sb.from('flights').select('id',{count:'exact',head:true}).eq('user_id',userId);
-    const { count: pc } = await sb.from('per_diem').select('id',{count:'exact',head:true}).eq('user_id',userId);
-    flightCount = fc ?? '—';
-    pdCount     = pc ?? '—';
-  }catch{}
+  // Active since = first flight date (best historical proxy)
+  const activeSince  = firstFlightDate
+    ? new Date(firstFlightDate+'T12:00:00').toLocaleDateString('default',{day:'numeric',month:'long',year:'numeric'})
+    : 'No flights logged yet';
 
   const sevenDaysAgo = new Date(Date.now()-7*86400000).toISOString();
   const isNew = u.created_at > sevenDaysAgo && !u.reviewed_by_admin;
 
   body.innerHTML = `
-    <!-- Avatar + name -->
-    <div style="text-align:center;margin-bottom:20px;padding:20px;background:var(--navy);margin:-16px -16px 20px;border-radius:0">
+    <div style="text-align:center;padding:20px;background:var(--navy);margin:-16px -16px 20px">
       <div style="width:60px;height:60px;border-radius:50%;background:${u.blocked?'#e74c3c':u.is_admin?'var(--gold)':'var(--sky)'};color:${u.is_admin?'var(--navy)':'#fff'};display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;margin:0 auto 10px">${initial}</div>
       <div style="color:#fff;font-size:.98rem;font-weight:800">${escHtml(u.full_name||u.crew_name||'Unnamed')}</div>
       <div style="color:#7A9BB8;font-size:.72rem;margin-top:3px">${escHtml(u.position||'No position set')}</div>
       ${u.blocked ? '<div style="margin-top:8px;background:#e74c3c;color:#fff;border-radius:8px;padding:3px 12px;font-size:.72rem;font-weight:800;display:inline-block">BLOCKED</div>' : ''}
     </div>
 
-    <!-- Identity -->
     <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin-bottom:8px">Identity</div>
-    <div class="detail-row"><span class="d-lbl">Crew Name</span><span class="d-val">${escHtml(u.crew_name||'—')}</span></div>
+    <div class="detail-row"><span class="d-lbl">Email</span><span class="d-val" style="font-size:.78rem;word-break:break-all">${escHtml(u.email||'Not recorded yet — logs in next visit')}</span></div>
+    <div class="detail-row"><span class="d-lbl">Crew Name</span><span class="d-val">${escHtml(u.crew_name||'Not linked')}</span></div>
     <div class="detail-row"><span class="d-lbl">Position</span><span class="d-val">${escHtml(u.position||'—')}</span></div>
     <div class="detail-row"><span class="d-lbl">Joined</span><span class="d-val">${joinDate}</span></div>
     <div class="detail-row"><span class="d-lbl">Last Seen</span><span class="d-val">${lastSeen}</span></div>
+    <div class="detail-row"><span class="d-lbl">Active Since</span><span class="d-val">${activeSince}</span></div>
     <div class="detail-row"><span class="d-lbl">Platform</span><span class="d-val">${platforms}</span></div>
 
-    <!-- Usage -->
-    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 8px">Usage</div>
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 8px">Usage Statistics</div>
     <div class="detail-row"><span class="d-lbl">Flights Logged</span><span class="d-val">${flightCount}</span></div>
     <div class="detail-row"><span class="d-lbl">Per Diem Entries</span><span class="d-val">${pdCount}</span></div>
-    <div class="detail-row"><span class="d-lbl">Active Days (30d)</span><span class="d-val">${activeDays}</span></div>
-    <div class="detail-row"><span class="d-lbl">Has Reviewed App</span><span class="d-val">${u.has_reviewed?'Yes':'No'}</span></div>
+    <div class="detail-row"><span class="d-lbl">App Sessions (30d)</span><span class="d-val">${activeDays > 0 ? activeDays+' days' : 'Tracking from now'}</span></div>
+    <div class="detail-row" style="align-items:flex-start">
+      <span class="d-lbl">App Review</span>
+      <span class="d-val">${u.has_reviewed
+        ? `<span style="color:var(--green)">&#x2713; Submitted</span> <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="viewUserReview('${userId}')">View &#x2192;</button>`
+        : '<span style="color:var(--muted)">Not yet submitted</span>'}</span>
+    </div>
 
-    <!-- Actions -->
-    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 10px">Actions</div>
-    ${isNew ? `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="adminMarkReviewed('${u.id}')">✓ Mark as Reviewed</button>` : ''}
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:20px 0 10px">Actions</div>
+    ${isNew ? `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="adminMarkReviewed('${u.id}')">&#x2713; Mark as Reviewed</button>` : ''}
     <button class="btn ${u.blocked?'btn-primary':'btn-danger'}" style="width:100%;margin-bottom:8px"
       onclick="adminToggleBlock('${u.id}',${!u.blocked})">
-      ${u.blocked ? '✓ Unblock User' : '🚫 Block User'}
+      ${u.blocked ? '&#x2713; Unblock User' : '&#x1F6AB; Block User'}
     </button>
     <button class="btn btn-danger" style="width:100%;background:#c0392b"
       onclick="adminDeleteUser('${u.id}','${escHtml(u.full_name||u.crew_name||'this user')}')">
-      🗑 Delete User & All Data
-    </button>`;
+      &#x1F5D1; Delete User &amp; All Data
+    </button>
+
+    <div id="user-review-display" style="display:none;margin-top:16px;background:var(--ice2);border-radius:var(--radius);padding:14px">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:8px">Their Review</div>
+      <div id="user-review-content">Loading…</div>
+    </div>`;
+}
+// ── User actions ──────────────────────────────────────────
+async function viewUserReview(userId){
+  const displayEl  = document.getElementById('user-review-display');
+  const contentEl  = document.getElementById('user-review-content');
+  if(!displayEl || !contentEl) return;
+
+  displayEl.style.display = 'block';
+  contentEl.innerHTML = 'Loading…';
+
+  try{
+    const { data, error } = await sb.from('app_reviews')
+      .select('rating,comment,created_at,position')
+      .eq('user_id', userId).single();
+
+    if(error || !data){
+      contentEl.innerHTML = '<span style="color:var(--muted)">Review not found.</span>';
+      return;
+    }
+    const stars   = '★'.repeat(data.rating) + '☆'.repeat(5-data.rating);
+    const date    = new Date(data.created_at).toLocaleDateString('default',{day:'numeric',month:'long',year:'numeric'});
+    contentEl.innerHTML = `
+      <div style="font-size:1.3rem;color:var(--gold);letter-spacing:2px;margin-bottom:6px">${stars}</div>
+      <div style="font-size:.8rem;font-weight:700;color:var(--navy)">${data.rating}/5 stars · ${escHtml(data.position||'—')} · ${date}</div>
+      ${data.comment ? `<div style="font-size:.82rem;color:var(--navy);margin-top:8px;line-height:1.5;font-style:italic">"${escHtml(data.comment)}"</div>` : '<div style="font-size:.75rem;color:var(--muted);margin-top:6px">No comment provided.</div>'}`;
+  }catch(e){
+    contentEl.innerHTML = '<span style="color:var(--muted)">Could not load review.</span>';
+  }
 }
 
-// ── User actions ──────────────────────────────────────────
+// ═══════════════════════════════════════════════
+// ADMIN: APP REVIEWS OVERLAY
+// ═══════════════════════════════════════════════
+let _allReviews = [];
+
+async function openReviewsOverlay(){
+  document.getElementById('reviews-overlay').classList.add('open');
+  document.getElementById('reviews-list').innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>';
+
+  try{
+    // Join with profiles to get crew name and position
+    const { data, error } = await sb.from('app_reviews')
+      .select('id, rating, comment, created_at, position, user_id, profiles(crew_name, full_name, email)')
+      .order('created_at', {ascending: false});
+
+    if(error) throw error;
+    _allReviews = data || [];
+    renderReviewsOverlay();
+  }catch(e){
+    document.getElementById('reviews-list').innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Could not load reviews: ${e.message}</div>`;
+  }
+}
+
+function closeReviewsOverlay(){
+  document.getElementById('reviews-overlay').classList.remove('open');
+}
+
+function renderReviewsOverlay(){
+  const summaryEl = document.getElementById('reviews-summary');
+  const listEl    = document.getElementById('reviews-list');
+
+  if(!_allReviews.length){
+    summaryEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:.85rem">No reviews submitted yet.</div>';
+    listEl.innerHTML = '';
+    // Update KPI sub
+    const subEl = document.getElementById('reviews-kpi-sub');
+    if(subEl) subEl.textContent = 'No reviews yet';
+    return;
+  }
+
+  // Aggregate stats
+  const totalReviews = _allReviews.length;
+  const avgRating    = (_allReviews.reduce((a,r)=>a+r.rating,0) / totalReviews).toFixed(1);
+  const starCounts   = [1,2,3,4,5].map(n => _allReviews.filter(r=>r.rating===n).length);
+
+  // Summary strip
+  summaryEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:18px">
+      <div style="text-align:center;flex-shrink:0">
+        <div style="font-size:2.4rem;font-weight:900;color:var(--navy);line-height:1">${avgRating}</div>
+        <div style="font-size:1rem;color:var(--gold);letter-spacing:2px">${'★'.repeat(Math.round(avgRating))}${'☆'.repeat(5-Math.round(avgRating))}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${totalReviews} review${totalReviews!==1?'s':''}</div>
+      </div>
+      <div style="flex:1">
+        ${[5,4,3,2,1].map(n=>{
+          const pct = totalReviews ? Math.round((starCounts[n-1]/totalReviews)*100) : 0;
+          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <span style="font-size:.65rem;color:var(--muted);width:12px">${n}</span>
+            <div style="flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden">
+              <div style="width:${pct}%;height:100%;background:var(--gold);border-radius:3px"></div>
+            </div>
+            <span style="font-size:.65rem;color:var(--muted);width:24px">${starCounts[n-1]}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  // Update KPI subtitle
+  const subEl = document.getElementById('reviews-kpi-sub');
+  if(subEl) subEl.textContent = `${totalReviews} review${totalReviews!==1?'s':''} · avg ${avgRating}/5 ★`;
+
+  // Individual reviews
+  listEl.innerHTML = _allReviews.map(r => {
+    const name    = r.profiles?.crew_name || r.profiles?.full_name || r.profiles?.email || 'Anonymous';
+    const stars   = '★'.repeat(r.rating) + '☆'.repeat(5-r.rating);
+    const date    = new Date(r.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
+    const pos     = r.position || r.profiles?.position || '—';
+    return `
+    <div class="card" style="margin-bottom:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-weight:800;font-size:.87rem;color:var(--navy)">${escHtml(name)}</div>
+          <div style="font-size:.7rem;color:var(--muted)">${escHtml(pos)} · ${date}</div>
+        </div>
+        <div style="font-size:1rem;color:var(--gold);letter-spacing:1px;flex-shrink:0">${stars}</div>
+      </div>
+      ${r.comment
+        ? `<div style="font-size:.82rem;color:var(--navy);line-height:1.55;font-style:italic;border-left:3px solid var(--gold);padding-left:10px;margin-top:8px">"${escHtml(r.comment)}"</div>`
+        : '<div style="font-size:.73rem;color:var(--muted);margin-top:4px">No comment provided.</div>'}
+    </div>`;
+  }).join('');
+}
+
 async function adminToggleBlock(userId, block){
   if(!confirm(`${block?'Block':'Unblock'} this user? ${block?'They will be immediately locked out of the app.':''}`)) return;
   const { error } = await sb.from('profiles').update({ blocked: block }).eq('id', userId);
@@ -4703,15 +4872,20 @@ async function onLoggedIn(){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('auth-screen').style.display='none';
 
-  // Fetch profile — include blocked and has_reviewed flags
+  // Fetch profile — include blocked, has_reviewed, and email flags
   const { data: profile } = await sb.from('profiles')
-    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at')
+    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email')
     .eq('id', currentUser.id).single();
 
   // ── BLOCKED CHECK — must happen before anything else ──
   if(profile?.blocked === true){
     showBlockedScreen();
     return; // stop all further login processing
+  }
+
+  // Write email to profiles (backfills for existing users, updates if changed)
+  if(currentUser.email && (!profile?.email || profile.email !== currentUser.email)){
+    sb.from('profiles').update({ email: currentUser.email }).eq('id', currentUser.id).then(()=>{});
   }
 
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
@@ -4919,7 +5093,25 @@ function showTab(name){
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
   if(name==='log')     renderLog();
-  if(name==='db'){ loadAdminUsers().then(()=>{ loadAnnouncements().then(()=>{ loadManualsMetadata().then(()=>renderDB()); }); }); }
+  if(name==='db'){
+    loadAdminUsers().then(()=>{
+      loadAnnouncements().then(()=>{
+        loadManualsMetadata().then(()=>renderDB());
+      });
+    });
+    // Load reviews summary for KPI card subtitle
+    if(isAdmin && isOnline){
+      sb.from('app_reviews').select('rating', {count:'exact'}).then(({data, count})=>{
+        const subEl = document.getElementById('reviews-kpi-sub');
+        if(subEl && data){
+          const avg = data.length ? (data.reduce((a,r)=>a+r.rating,0)/data.length).toFixed(1) : null;
+          subEl.textContent = data.length
+            ? `${data.length} review${data.length!==1?'s':''} · avg ${avg}/5 ★`
+            : 'No reviews yet';
+        }
+      });
+    }
+  }
   if(name==='perdiem'){ if(isOnline) loadPDPayments().then(()=>renderPerDiemTab()); else renderPerDiemTab(); }
 }
 
@@ -6053,6 +6245,10 @@ async function deletePDPayment(id, month){
 // DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
+  // Show app reviews card for admins
+  const reviewsKPI = document.getElementById('admin-reviews-kpi');
+  if(reviewsKPI) reviewsKPI.style.display = isAdmin ? 'block' : 'none';
+
   // Show users management KPI card for admins
   const usersKPI = document.getElementById('admin-users-kpi');
   if(usersKPI) usersKPI.style.display = isAdmin ? 'block' : 'none';
