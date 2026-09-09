@@ -1770,7 +1770,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     </div>
     <div style="padding:16px;overflow-y:auto;flex:1">
       <!-- Statistics sub-card -->
-      <div class="card" onclick="openUM('stats')" style="cursor:pointer;margin-bottom:12px">
+      <div class="card" onclick="refreshUMStats()" style="cursor:pointer;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:12px">
           <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1C6EAF,#0B1D3A);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">📊</div>
           <div style="flex:1">
@@ -4364,7 +4364,15 @@ let _umFilteredUsers = []; // current filtered list for search
 function openUsersOverlay(){
   document.getElementById('users-overlay').classList.add('open');
   openUM('home');
-  if(isOnline) loadAdminUsers().then(()=> refreshUMStats());
+  // Load data silently in background — do NOT navigate away from home screen
+  if(isOnline) loadAdminUsers().then(()=>{
+    // Just update the sub-labels on home screen cards, don't switch screens
+    const crew = _allUsers.filter(u=>!u.is_admin);
+    const subEl = document.getElementById('um-allusers-sub');
+    if(subEl) subEl.textContent = `${crew.length} crew member${crew.length!==1?'s':''} · tap to view`;
+    const statsSubEl = document.getElementById('um-stats-sub');
+    if(statsSubEl) statsSubEl.textContent = `${crew.length} total · activity charts inside`;
+  });
 }
 function closeUsersOverlay(){
   document.getElementById('users-overlay').classList.remove('open');
@@ -4642,17 +4650,31 @@ async function openReviewsOverlay(){
   document.getElementById('reviews-overlay').classList.add('open');
   document.getElementById('reviews-list').innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>';
 
+  // Ensure user list is loaded for name resolution
+  if(!_allUsers.length && isOnline) await loadAdminUsers();
+
   try{
-    // Join with profiles to get crew name and position
+    // Fetch reviews without join — resolve names from _allUsers cache
     const { data, error } = await sb.from('app_reviews')
-      .select('id, rating, comment, created_at, position, user_id, profiles(crew_name, full_name, email)')
+      .select('id, rating, comment, created_at, position, user_id')
       .order('created_at', {ascending: false});
 
     if(error) throw error;
-    _allReviews = data || [];
+
+    // Enrich with name/email from _allUsers (already loaded)
+    _allReviews = (data || []).map(r => {
+      const profile = _allUsers.find(u => u.id === r.user_id);
+      return {
+        ...r,
+        resolvedName:  profile?.crew_name || profile?.full_name || profile?.email || 'Anonymous',
+        resolvedPos:   r.position || profile?.position || '—',
+      };
+    });
+
     renderReviewsOverlay();
   }catch(e){
-    document.getElementById('reviews-list').innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px">Could not load reviews: ${e.message}</div>`;
+    document.getElementById('reviews-list').innerHTML =
+      `<div style="text-align:center;color:var(--muted);padding:30px">Could not load reviews: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -4706,10 +4728,10 @@ function renderReviewsOverlay(){
 
   // Individual reviews
   listEl.innerHTML = _allReviews.map(r => {
-    const name    = r.profiles?.crew_name || r.profiles?.full_name || r.profiles?.email || 'Anonymous';
-    const stars   = '★'.repeat(r.rating) + '☆'.repeat(5-r.rating);
-    const date    = new Date(r.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
-    const pos     = r.position || r.profiles?.position || '—';
+    const name  = escHtml(r.resolvedName || 'Anonymous');
+    const stars = '★'.repeat(r.rating) + '☆'.repeat(5-r.rating);
+    const date  = new Date(r.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
+    const pos   = escHtml(r.resolvedPos || '—');
     return `
     <div class="card" style="margin-bottom:10px;padding:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
