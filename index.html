@@ -5192,7 +5192,9 @@ function setSyncBadge(syncing){
 }
 
 async function loadFlightsFromCloud(overwrite){
-  const { data, error } = await sb.from('flights').select('*').order('date',{ascending:false});
+  const { data, error } = await sb.from('flights').select('*')
+    .eq('user_id', currentUser.id)
+    .order('date',{ascending:false});
   if(error){ toast('⚠ Could not load flights: '+error.message); return; }
   const localUnsynced = (await idbAll('flights')).filter(f=>!f.synced||f._deleted);
   const localUnsyncedIds = new Set(localUnsynced.map(f=>f.id));
@@ -5217,7 +5219,9 @@ function rowToFlight(r){
 }
 
 async function loadPerDiemFromCloud(overwrite){
-  const { data, error } = await sb.from('per_diem').select('*').order('date',{ascending:false});
+  const { data, error } = await sb.from('per_diem').select('*')
+    .eq('user_id', currentUser.id)
+    .order('date',{ascending:false});
   if(error){ toast('⚠ Could not load per diem: '+error.message); return; }
   const localUnsynced = (await idbAll('per_diem')).filter(p=>!p.synced||p._deleted);
   const localUnsyncedIds = new Set(localUnsynced.map(p=>p.id));
