@@ -674,11 +674,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
     <!-- Sign Up form -->
     <div id="auth-signup-form" style="display:none">
-      <input type="text" id="signup-name" placeholder="Full name" autocomplete="name"/>
-      <input type="email" id="signup-email" placeholder="Email address" autocomplete="email"/>
-      <input type="password" id="signup-password" placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
-      <input type="password" id="signup-password2" placeholder="Confirm password" autocomplete="new-password"/>
-      <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+      <!-- Closed signups notice (shown when admin disables signups) -->
+      <div id="signups-closed-msg" style="display:none;background:rgba(231,76,60,.08);border:1.5px solid #e74c3c;border-radius:10px;padding:12px 14px;margin-bottom:12px;text-align:center">
+        <div style="font-size:1.2rem;margin-bottom:6px">🔒</div>
+        <div style="font-weight:800;color:#c0392b;font-size:.88rem">Account Registration Closed</div>
+        <div style="font-size:.76rem;color:var(--muted);margin-top:4px;line-height:1.5" id="signups-closed-detail">New account registration is currently closed. Please contact your administrator.</div>
+      </div>
+      <div id="signup-fields">
+        <input type="text"     id="signup-name"      placeholder="Full name *"                   autocomplete="name"/>
+        <input type="email"    id="signup-email"     placeholder="Email address *"              autocomplete="email"/>
+        <input type="tel"      id="signup-phone"     placeholder="Phone number * (e.g. +256 700 000000)" autocomplete="tel"/>
+        <input type="password" id="signup-password"  placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
+        <input type="password" id="signup-password2" placeholder="Confirm password"             autocomplete="new-password"/>
+        <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+      </div>
     </div>
 
     <div class="auth-loading" id="auth-loading"><div class="spinner"></div><span id="auth-loading-text">Please wait…</span></div>
@@ -1148,6 +1157,26 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <div style="font-size:.72rem;color:var(--muted)" id="db-notice">🌐 Shared with your whole crew — changes sync for everyone.</div>
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
+  </div>
+
+  <!-- Signup Control card (admin only) -->
+  <div id="admin-signup-control" style="display:none;margin-bottom:14px">
+    <div class="card" style="padding:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#2ecc71,#27ae60);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🔐</div>
+        <div>
+          <div style="font-weight:800;color:var(--navy);font-size:.9rem">Account Registration</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:1px">Control who can create new accounts</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--ice2)">
+        <div>
+          <div style="font-size:.85rem;font-weight:700;color:var(--navy)" id="signup-status-text">Loading…</div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="signup-status-sub">Checking…</div>
+        </div>
+        <button id="signup-toggle-btn" onclick="toggleSignups()" class="btn btn-sm" style="min-width:80px">…</button>
+      </div>
+    </div>
   </div>
 
   <!-- App Reviews card (admin only) -->
@@ -1882,6 +1911,23 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <button onclick="sb.auth.signOut()" class="btn btn-ghost" style="margin-top:24px">Sign Out</button>
 </div>
 
+<!-- ── PHONE NUMBER PROMPT (existing users without phone) ── -->
+<div id="phone-prompt-banner" style="display:none;background:linear-gradient(135deg,var(--sky),var(--navy));padding:12px 16px;margin-bottom:0">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:1.1rem">📱</span>
+    <div style="flex:1;min-width:200px">
+      <div style="color:#fff;font-size:.82rem;font-weight:700">Add your phone number</div>
+      <div style="color:#7A9BB8;font-size:.7rem">Helps your admin verify your identity</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="tel" id="phone-prompt-input" placeholder="+256 700 000000"
+        style="border:1.5px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 10px;font-size:.8rem;background:rgba(255,255,255,.15);color:#fff;font-family:var(--font);width:160px"/>
+      <button onclick="savePhonePrompt()" class="btn btn-gold btn-sm">Save</button>
+      <button onclick="dismissPhonePrompt()" style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:1rem;padding:0 4px">✕</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── PRINT AREA (for PDF export) ───────────────────────── -->
 <div id="print-area"></div>
 
@@ -2246,6 +2292,19 @@ function switchAuthTab(tab){
   document.getElementById('tab-signup').style.color = isSignIn?'var(--muted)':'#fff';
   document.getElementById('auth-status').textContent='';
   document.getElementById('auth-status').className='auth-status';
+  // Check signup status when switching to signup tab
+  if(!isSignIn) checkSignupsEnabled();
+}
+
+async function checkSignupsEnabled(){
+  try{
+    const { data } = await sb.from('app_config').select('value').eq('key','signups_enabled').single();
+    const enabled  = data?.value !== 'false';
+    const closedEl = document.getElementById('signups-closed-msg');
+    const fieldsEl = document.getElementById('signup-fields');
+    if(closedEl) closedEl.style.display = enabled ? 'none' : 'block';
+    if(fieldsEl) fieldsEl.style.display  = enabled ? 'block' : 'none';
+  }catch{ /* allow signup if check fails */ }
 }
 
 // ── Sign In (returning user) ──────────────────────────────
@@ -2282,6 +2341,7 @@ async function doSignIn(){
 async function doSignUp(){
   const name     = document.getElementById('signup-name').value.trim();
   const email    = document.getElementById('signup-email').value.trim().toLowerCase();
+  const phone    = document.getElementById('signup-phone')?.value.trim() || '';
   const password = document.getElementById('signup-password').value;
   const password2= document.getElementById('signup-password2').value;
   const statusEl = document.getElementById('auth-status');
@@ -2289,14 +2349,25 @@ async function doSignUp(){
   const loadingEl= document.getElementById('auth-loading');
 
   statusEl.textContent=''; statusEl.className='auth-status';
-  if(!name){ statusEl.textContent='Enter your full name.'; statusEl.className='auth-status error'; return; }
+  if(!name){  statusEl.textContent='Enter your full name.';      statusEl.className='auth-status error'; return; }
   if(!email||!email.includes('@')){ statusEl.textContent='Enter a valid email.'; statusEl.className='auth-status error'; return; }
+  if(!phone){ statusEl.textContent='Enter your phone number.';  statusEl.className='auth-status error'; return; }
   if(password.length<8){ statusEl.textContent='Password must be at least 8 characters.'; statusEl.className='auth-status error'; return; }
   if(password!==password2){ statusEl.textContent='Passwords do not match.'; statusEl.className='auth-status error'; return; }
 
   btn.style.display='none';
   document.getElementById('auth-loading-text').textContent='Creating account…';
   loadingEl.style.display='flex';
+
+  // Check signups_enabled before proceeding
+  try{
+    const { data: cfg } = await sb.from('app_config').select('value').eq('key','signups_enabled').single();
+    if(cfg?.value === 'false'){
+      btn.style.display=''; loadingEl.style.display='none';
+      statusEl.textContent='⚠ Account registration is currently closed. Contact your administrator.';
+      statusEl.className='auth-status error'; return;
+    }
+  }catch{ /* if check fails, allow signup */ }
 
   const { data, error } = await sb.auth.signUp({
     email, password,
@@ -2311,14 +2382,16 @@ async function doSignUp(){
   }
 
   if(!data.session){
-    // Email confirmation still ON in Supabase — tell admin what to do
     statusEl.innerHTML='⚠ Email confirmation is enabled in Supabase.<br><small>Go to Supabase → Authentication → Providers → Email → turn off <strong>Confirm email</strong> → Save, then try again.</small>';
     statusEl.className='auth-status error'; return;
   }
 
-  // Save name to profiles table and localStorage
+  // Save name, email and phone to profiles
   localStorage.setItem('ccl_user_name', name);
-  await sb.from('profiles').upsert({ id: data.user.id, email, full_name: name }, { onConflict:'id' });
+  await sb.from('profiles').upsert({
+    id: data.user.id,
+    email, full_name: name, phone: phone || null
+  }, { onConflict:'id' });
   currentUser = data.user;
   // onAuthStateChange SIGNED_IN fires → onLoggedIn()
 }
@@ -4318,6 +4391,78 @@ window.addEventListener('online', ()=>{
 // ═══════════════════════════════════════════════
 // SECURITY: BLOCKED USER CHECK
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// ADMIN: SIGNUP CONTROL
+// ═══════════════════════════════════════════════
+let _signupsEnabled = true;
+
+async function loadSignupStatus(){
+  try{
+    const { data } = await sb.from('app_config')
+      .select('value').eq('key','signups_enabled').single();
+    _signupsEnabled = data?.value !== 'false';
+  }catch{ _signupsEnabled = true; }
+  renderSignupControl();
+}
+
+function renderSignupControl(){
+  const textEl = document.getElementById('signup-status-text');
+  const subEl  = document.getElementById('signup-status-sub');
+  const btnEl  = document.getElementById('signup-toggle-btn');
+  if(!textEl) return;
+  if(_signupsEnabled){
+    textEl.textContent        = '🟢 Registrations Open';
+    textEl.style.color        = 'var(--green)';
+    subEl.textContent         = 'New crew can create accounts';
+    btnEl.textContent         = 'Close Signups';
+    btnEl.className           = 'btn btn-danger btn-sm';
+  } else {
+    textEl.textContent        = '🔴 Registrations Closed';
+    textEl.style.color        = '#c0392b';
+    subEl.textContent         = 'No new accounts can be created';
+    btnEl.textContent         = 'Open Signups';
+    btnEl.className           = 'btn btn-primary btn-sm';
+  }
+}
+
+async function toggleSignups(){
+  const newValue = _signupsEnabled ? 'false' : 'true';
+  const action   = _signupsEnabled ? 'close' : 'open';
+  if(!confirm(`Are you sure you want to ${action} account registration?`)) return;
+  const { error } = await sb.from('app_config')
+    .upsert({ key:'signups_enabled', value: newValue }, { onConflict:'key' });
+  if(error){ toast('⚠ ' + error.message); return; }
+  _signupsEnabled = !_signupsEnabled;
+  renderSignupControl();
+  toast(_signupsEnabled ? '✅ Signups are now open.' : '🔒 Signups are now closed.');
+}
+
+// ═══════════════════════════════════════════════
+// PHONE NUMBER PROMPT (existing users)
+// ═══════════════════════════════════════════════
+function checkShowPhonePrompt(profile){
+  // Show if user has no phone and hasn't dismissed the prompt
+  if(profile?.phone) return;
+  if(localStorage.getItem('ccl_phone_prompt_dismissed')) return;
+  const banner = document.getElementById('phone-prompt-banner');
+  if(banner) banner.style.display = 'block';
+}
+
+async function savePhonePrompt(){
+  const phone = document.getElementById('phone-prompt-input')?.value.trim();
+  if(!phone){ toast('⚠ Enter a phone number.'); return; }
+  const { error } = await sb.from('profiles')
+    .update({ phone }).eq('id', currentUser.id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  document.getElementById('phone-prompt-banner').style.display = 'none';
+  toast('✅ Phone number saved!');
+}
+
+function dismissPhonePrompt(){
+  document.getElementById('phone-prompt-banner').style.display = 'none';
+  localStorage.setItem('ccl_phone_prompt_dismissed', '1');
+}
+
 function showBlockedScreen(){
   document.getElementById('blocked-screen').style.display = 'flex';
   document.querySelector('header').style.display          = 'none';
@@ -4578,6 +4723,21 @@ async function openUserProfile(userId){
 
     <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin-bottom:8px">Identity</div>
     <div class="detail-row"><span class="d-lbl">Email</span><span class="d-val" style="font-size:.78rem;word-break:break-all">${escHtml(u.email||'Not recorded yet — logs in next visit')}</span></div>
+    <div class="detail-row">
+      <span class="d-lbl">Phone</span>
+      <span class="d-val" style="display:flex;align-items:center;gap:6px">
+        <span id="um-phone-display">${escHtml(u.phone||'Not provided')}</span>
+        <button onclick="editUserPhone('${u.id}')" style="background:none;border:none;color:var(--sky);cursor:pointer;font-size:.75rem;font-weight:700;padding:0">Edit</button>
+      </span>
+    </div>
+    <div id="um-phone-edit" style="display:none;margin-bottom:8px">
+      <div style="display:flex;gap:6px">
+        <input type="tel" id="um-phone-inp" value="${escHtml(u.phone||'')}" placeholder="+256 700 000000"
+          style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/>
+        <button onclick="saveUserPhone('${u.id}')" class="btn btn-primary btn-sm">Save</button>
+        <button onclick="document.getElementById('um-phone-edit').style.display='none'" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+    </div>
     <div class="detail-row"><span class="d-lbl">Crew Name</span><span class="d-val">${escHtml(u.crew_name||'Not linked')}</span></div>
     <div class="detail-row"><span class="d-lbl">Position</span><span class="d-val">${escHtml(u.position||'—')}</span></div>
     <div class="detail-row"><span class="d-lbl">Joined</span><span class="d-val">${joinDate}</span></div>
@@ -4782,6 +4942,21 @@ async function adminDeleteUser(userId, name){
   openUMUserList(_umCurrentFilter);
 }
 
+function editUserPhone(userId){
+  document.getElementById('um-phone-edit').style.display = 'block';
+  document.getElementById('um-phone-inp').focus();
+}
+
+async function saveUserPhone(userId){
+  const phone = document.getElementById('um-phone-inp')?.value.trim();
+  const { error } = await sb.from('profiles').update({ phone: phone||null }).eq('id', userId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const u = _allUsers.find(u=>u.id===userId); if(u) u.phone = phone;
+  document.getElementById('um-phone-display').textContent = phone || 'Not provided';
+  document.getElementById('um-phone-edit').style.display = 'none';
+  toast('✅ Phone number updated.');
+}
+
 // Keep old names for backward compat
 async function toggleBlockUser(userId, block){ return adminToggleBlock(userId, block); }
 async function markUserReviewed(userId){ return adminMarkReviewed(userId); }
@@ -4976,6 +5151,9 @@ async function onLoggedIn(){
 
   // Check if review prompt should be shown (after data is loaded)
   setTimeout(()=> checkShowReview(profile), 2000);
+
+  // Show phone number prompt for existing users without phone
+  checkShowPhonePrompt(profile);
 
   // Full sync every 60s (covers background tab + cross-device refresh)
   setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
@@ -6270,6 +6448,10 @@ function renderDB(){
   // Show app reviews card for admins
   const reviewsKPI = document.getElementById('admin-reviews-kpi');
   if(reviewsKPI) reviewsKPI.style.display = isAdmin ? 'block' : 'none';
+
+  // Show signup control card for admins
+  const signupCtrl = document.getElementById('admin-signup-control');
+  if(signupCtrl){ signupCtrl.style.display = isAdmin ? 'block' : 'none'; if(isAdmin) loadSignupStatus(); }
 
   // Show users management KPI card for admins
   const usersKPI = document.getElementById('admin-users-kpi');
