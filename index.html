@@ -909,7 +909,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <label>Aircraft Type</label>
         <div class="combo-wrap">
           <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
-            oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
+            oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'));updateSFPField(this.value);buildSectorDetails(null,this.value)"
             onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
             onblur="delayClose('dd-actype')"/>
           <div class="combo-dropdown" id="dd-actype"></div>
@@ -932,8 +932,12 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </select>
       </div>
       <div class="field">
-        <label>Pax Count</label>
-        <input type="number" id="f-pax" placeholder="e.g. 180" min="0"/>
+        <label>Total Passengers</label>
+        <div id="f-pax-display" style="padding:10px 12px;background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem;font-weight:700;color:var(--navy)">
+          0 — enter pax per sector below
+        </div>
+        <!-- Hidden input keeps the value for saveEntry -->
+        <input type="hidden" id="f-pax" value="0"/>
       </div>
 
       <div class="field">
@@ -954,6 +958,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
             onfocus="filterCombo('f-fo','dd-fo',getDB('firstOfficers'))"
             onblur="delayClose('dd-fo')"/>
           <div class="combo-dropdown" id="dd-fo"></div>
+        </div>
+      </div>
+
+      <!-- SFP field — shown only for A330-800 flights -->
+      <div class="field full" id="sfp-field-wrap" style="display:none">
+        <label>Senior Flight Purser (SFP)
+          <span style="font-size:.7rem;color:var(--muted);font-weight:400"> — A330-800 only</span>
+        </label>
+        <div class="combo-wrap">
+          <input type="text" id="f-sfp" placeholder="Name of the SFP for this flight" autocomplete="off"
+            oninput="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
+            onfocus="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
+            onblur="delayClose('dd-sfp')"/>
+          <div class="combo-dropdown" id="dd-sfp"></div>
         </div>
       </div>
 
@@ -2123,6 +2141,7 @@ function flightToRow(f, forInsert = true){
     dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
+    sfp:f.sfp||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew,
     pax:f.pax ? parseInt(f.pax) : null,
     std:f.std, sta:f.sta,
@@ -5211,6 +5230,7 @@ function rowToFlight(r){
     dep:r.dep, arr:r.arr,
     fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
     reg:r.reg, actype:r.actype,
+    sfp:r.sfp||'',
     sectorsData,
     flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
@@ -5498,11 +5518,14 @@ function showDetail(id){
           <div style="font-size:.7rem;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">
             ✈ Sector ${s.sector} &nbsp;·&nbsp; ${s.from||'?'} → ${s.to||'?'}
           </div>
-          <div style="display:flex;gap:16px">
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
             <div><span style="font-size:.65rem;color:var(--muted);font-weight:700">FLIGHT LEVEL</span><br>
               <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${s.flightLevel||'–'}</span></div>
             <div><span style="font-size:.65rem;color:var(--muted);font-weight:700">FLIGHT TIME</span><br>
               <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${s.flightTime||'–'}</span></div>
+            ${s.pax ? Object.entries(s.pax).map(([cls,n])=>`
+            <div><span style="font-size:.65rem;color:var(--muted);font-weight:700">${cls}</span><br>
+              <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${n||0}</span></div>`).join('') : ''}
           </div>
         </div>`;
     });
@@ -5520,6 +5543,7 @@ function showDetail(id){
     ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
+    ...(e.sfp ? [['Senior Flight Purser',e.sfp]] : []),
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
     ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],['First Aid Topic',e.firstAid||'–'],
   ];
@@ -5540,34 +5564,14 @@ function showDetail(id){
 function closeDetail(){document.getElementById('detailOverlay').classList.remove('open');}
 
 function editEntry(id){
-  const e=cache.flights.find(x=>String(x.id)===String(id)); if(!e) return;
+  const e = cache.flights.find(x=>String(x.id)===String(id));
+  if(!e) return;
   editingFlightId = e.id;
   closeDetail();
 
-  document.getElementById('f-date').value = e.date||'';
-  // Set sector count first so updateFlightNumFields renders the right fields
+  // Set sector count before showTab so the correct number of sectors is in place
   const scEl = document.getElementById('f-sector-count');
   if(scEl) scEl.value = String(e.sectorsData?.length || 1);
-  document.getElementById('f-flightnum').value = e.flightNum||'';
-  document.getElementById('f-reg').value = e.reg||'';
-  document.getElementById('f-actype').value = e.actype||'';
-  document.getElementById('f-position').value = e.position||'';
-  document.getElementById('f-pax').value = e.pax||'';
-  document.getElementById('f-captain').value = e.captain||'';
-  document.getElementById('f-fo').value = e.fo||'';
-  document.getElementById('f-std').value = e.std||'';
-  document.getElementById('f-sta').value = e.sta||'';
-  document.getElementById('f-safety').value = e.safety||'';
-  document.getElementById('f-firstaid').value = e.firstAid||'';
-  setBlockTime(e.blockTime||'');
-  document.getElementById('f-delay').value = e.delay||'';
-  document.getElementById('f-delayreason').value = e.delayReason||'';
-  const remEl = document.getElementById('f-remarks');
-  if(remEl) remEl.value = e.remarks||'';
-  document.getElementById('f-status').value = e.status||'';
-
-  selectedCrew = e.crew ? e.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  renderCrewTags();
 
   const btn = document.querySelector('#tab-add .btn-primary');
   if(btn) btn.textContent = '💾 Update Flight Entry';
@@ -5576,21 +5580,49 @@ function editEntry(id){
 
   showTab('add');
 
-  // Set route fields AFTER showTab renders the tab — use double rAF to guarantee
-  // the DOM is fully painted before we try to set input values
-  const dep = e.dep||''; const arr = e.arr||''; const fullRoute = e.fullRoute||'';
-  const existingSectors = e.sectorsData || null;
-  const flightNum2 = e.flightNum2||'';
+  // Double RAF: wait for DOM to fully settle after showTab and all dynamic rebuilds
+  // before setting ANY field values — this prevents them being wiped by rebuilds
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
+      // ── Static fields ───────────────────────────────────────
+      document.getElementById('f-date').value           = e.date||'';
+      document.getElementById('f-reg').value            = e.reg||'';
+      document.getElementById('f-actype').value         = e.actype||'';
+      document.getElementById('f-position').value       = e.position||'';
+      document.getElementById('f-captain').value        = e.captain||'';
+      document.getElementById('f-fo').value             = e.fo||'';
+      const sfpEl = document.getElementById('f-sfp');
+      if(sfpEl) sfpEl.value = e.sfp||'';
+      document.getElementById('f-std').value            = e.std||'';
+      document.getElementById('f-sta').value            = e.sta||'';
+      document.getElementById('f-safety').value         = e.safety||'';
+      document.getElementById('f-firstaid').value       = e.firstAid||'';
+      setBlockTime(e.blockTime||'');
+      document.getElementById('f-delay').value          = e.delay||'';
+      document.getElementById('f-delayreason').value    = e.delayReason||'';
+      const remEl = document.getElementById('f-remarks');
+      if(remEl) remEl.value = e.remarks||'';
+      document.getElementById('f-status').value         = e.status||'';
+
+      // ── Dynamic fields (rebuilt by updateFlightNumFields) ───
       updateFlightNumFields();
-      // Set flight number(s) after fields are rendered
       const fn1 = document.getElementById('f-flightnum');
       const fn2 = document.getElementById('f-flightnum2');
       if(fn1) fn1.value = e.flightNum||'';
-      if(fn2) fn2.value = flightNum2;
-      setRouteFields(dep, arr, fullRoute);
-      if(existingSectors) buildSectorDetails(existingSectors);
+      if(fn2) fn2.value = e.flightNum2||'';
+
+      // ── Route (rebuilt by buildRouteFields) ─────────────────
+      setRouteFields(e.dep||'', e.arr||'', e.fullRoute||'');
+
+      // ── Sector detail cards (rebuilt by buildSectorDetails) ──
+      buildSectorDetails(e.sectorsData||null, e.actype||'');
+
+      // ── Crew tags ────────────────────────────────────────────
+      selectedCrew = e.crew ? e.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      renderCrewTags();
+
+      // ── SFP field visibility ─────────────────────────────────
+      updateSFPField(e.actype||'');
     });
   });
 }
@@ -5636,6 +5668,7 @@ async function saveEntry(){
     flightNum2:(g('f-flightnum2')||'').toUpperCase()||null,
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
+    sfp:g('f-sfp')||'',
     sectorsData:  _sectors,
     flightTime:   getPrimaryFlightTime(),
     flightLevel:  getPrimaryFlightLevel(),
@@ -5673,7 +5706,7 @@ async function saveEntry(){
 }
 
 function clearForm(){
-  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo',
+  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo','f-sfp',
    'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status','f-remarks']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   // Reset sector count to 1
@@ -5685,6 +5718,7 @@ function clearForm(){
   clearSectorDetails();
   clearRouteFields();
   updateFlightNumFields(); // reset to single flight number field
+  updateSFPField('');      // hide SFP field
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
   const btn = document.querySelector('#tab-add .btn-primary');
@@ -5819,25 +5853,61 @@ function flOptions(selectedFL){
   return html;
 }
 
-function buildSectorDetails(existingSectors){
-  // existingSectors: optional array from stored data [{from,to,flightLevel,flightTime}]
+// ─── Aircraft type → cabin class config ──────────────────
+function getAcClasses(actype){
+  const t = (actype||'').trim();
+  if(t === 'A330-800') return ['JC','PYC','YC'];
+  if(t === 'B737' || t === 'CRJ-900') return ['JC','YC'];
+  return ['JC','YC']; // safe default for unknown types
+}
+
+// ─── SFP field visibility ─────────────────────────────────
+function updateSFPField(actype){
+  const wrap = document.getElementById('sfp-field-wrap');
+  if(wrap) wrap.style.display = actype === 'A330-800' ? 'block' : 'none';
+}
+
+// ─── Sector detail cards (FL + FT picker + per-class pax) ─
+let _sectorFTH = {}; // {sectorIndex: hours}
+let _sectorFTM = {}; // {sectorIndex: minutes}
+
+function buildSectorDetails(existingSectors, actype){
   const wrap = document.getElementById('sector-details-wrap');
   if(!wrap) return;
-
   const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  const resolvedActype = actype || document.getElementById('f-actype')?.value || '';
+  const classes = getAcClasses(resolvedActype);
+
   let html = '';
-
   for(let i = 0; i < sectorCount; i++){
-    const existing  = existingSectors?.[i] || {};
-    const ftParts   = (existing.flightTime||'').split(':');
-    const ftH       = ftParts[0] ? parseInt(ftParts[0]) : '';
-    const ftM       = ftParts[1] || '';
+    const existing = existingSectors?.[i] || {};
+    const ftParts  = (existing.flightTime||'').split(':');
+    const ftH      = ftParts[0] ? parseInt(ftParts[0]) : null;
+    const ftM      = ftParts[1] ? parseInt(ftParts[1]) : null;
+    // Store initial values for picker
+    if(ftH !== null) _sectorFTH[i] = ftH;
+    if(ftM !== null) _sectorFTM[i] = ftM;
 
-    // Get airport codes from the route fields for the label
+    const ftDisplay = (ftH !== null && ftM !== null)
+      ? `${String(ftH).padStart(2,'0')}h ${String(ftM).padStart(2,'0')}min`
+      : '— hrs — min';
+
     const fromEl = document.getElementById(`f-route-${i}`);
     const toEl   = document.getElementById(`f-route-${i+1}`);
     const from   = fromEl?.value?.trim() || `Apt ${i+1}`;
     const to     = toEl?.value?.trim()   || `Apt ${i+2}`;
+
+    // Per-class pax inputs
+    const paxData = existing.pax || {};
+    const paxInputs = classes.map(cls => `
+      <div style="text-align:center;flex:1">
+        <div style="font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">${cls}</div>
+        <input type="number" id="sector-pax-${i}-${cls}"
+          value="${paxData[cls]||''}"
+          placeholder="0" min="0"
+          oninput="updateTotalPax()"
+          style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:7px 4px;font-size:.85rem;font-family:var(--font);text-align:center;color:var(--navy)"/>
+      </div>`).join('');
 
     html += `
     <div class="sector-card" id="sector-card-${i}">
@@ -5854,51 +5924,136 @@ function buildSectorDetails(existingSectors){
         </div>
         <div class="sector-card-field">
           <label>Flight Time</label>
-          <div class="sector-ft-wrap">
-            <select class="sector-ft-sel" id="sector-fth-${i}">
-              ${ftHourOptions(ftH)}
-            </select>
-            <span style="font-weight:900;color:var(--muted);font-size:.9rem">:</span>
-            <select class="sector-ft-sel" id="sector-ftm-${i}">
-              ${ftMinuteOptions(ftM)}
-            </select>
+          <div id="sft-trigger-${i}" onclick="toggleSFTPicker(${i})"
+            style="display:flex;align-items:center;justify-content:space-between;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;background:#fff;cursor:pointer;user-select:none">
+            <span id="sft-display-${i}" style="font-size:.88rem;font-weight:700;color:var(--navy)">${ftDisplay}</span>
+            <span style="color:var(--muted);font-size:.8rem">▾</span>
           </div>
+          <div id="sft-picker-${i}" style="display:none;border:1.5px solid var(--sky);border-radius:var(--radius-sm);background:#fff;box-shadow:0 8px 24px rgba(11,29,58,.18);margin-top:4px;overflow:hidden;position:relative;z-index:50">
+            <div style="display:flex;border-bottom:1px solid var(--border2)">
+              <div style="flex:1;text-align:center;padding:5px 0;font-size:.62rem;font-weight:700;color:var(--sky);text-transform:uppercase;letter-spacing:.07em">Hours</div>
+              <div style="width:1px;background:var(--border2)"></div>
+              <div style="flex:1;text-align:center;padding:5px 0;font-size:.62rem;font-weight:700;color:var(--sky);text-transform:uppercase;letter-spacing:.07em">Minutes</div>
+            </div>
+            <div style="display:flex">
+              <div id="sft-h-list-${i}" style="flex:1;max-height:160px;overflow-y:auto;overscroll-behavior:contain"></div>
+              <div style="width:1px;background:var(--border2)"></div>
+              <div id="sft-m-list-${i}" style="flex:1;max-height:160px;overflow-y:auto;overscroll-behavior:contain"></div>
+            </div>
+          </div>
+          <input type="hidden" id="sector-ft-${i}" value="${existing.flightTime||''}"/>
         </div>
+      </div>
+      <!-- Per-class pax -->
+      <div style="margin-top:10px;border-top:1px solid var(--border2);padding-top:10px">
+        <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">Passengers by Class</div>
+        <div style="display:flex;gap:8px">${paxInputs}</div>
       </div>
     </div>`;
   }
 
-  wrap.innerHTML = html || '';
+  wrap.innerHTML = html;
+
+  // Build hour/minute lists for each sector FT picker
+  for(let i = 0; i < sectorCount; i++){
+    buildSFTPickerLists(i);
+  }
+  updateTotalPax();
 }
 
-// Read current sector data from the form
+const SFT_ITEM_H = 36;
+
+function buildSFTPickerLists(i){
+  const hList = document.getElementById(`sft-h-list-${i}`);
+  const mList = document.getElementById(`sft-m-list-${i}`);
+  if(!hList || !mList) return;
+  let hHtml='', mHtml='';
+  for(let h=0;h<=12;h++) hHtml+=`<div class="bt-item" id="sft-h-${i}-${h}" onclick="selectSFT(${i},'h',${h})">${h} hr${h===1?'':'s'}</div>`;
+  for(let m=0;m<=59;m++){ const v=String(m).padStart(2,'0'); mHtml+=`<div class="bt-item" id="sft-m-${i}-${m}" onclick="selectSFT(${i},'m',${m})">${v} min</div>`; }
+  hList.innerHTML=hHtml; mList.innerHTML=mHtml;
+  // Restore saved values
+  const h=_sectorFTH[i], m=_sectorFTM[i];
+  if(h!=null){ document.getElementById(`sft-h-${i}-${h}`)?.classList.add('selected'); setTimeout(()=>{ const l=document.getElementById(`sft-h-list-${i}`); if(l) l.scrollTop=h*SFT_ITEM_H; },50); }
+  if(m!=null){ document.getElementById(`sft-m-${i}-${m}`)?.classList.add('selected'); setTimeout(()=>{ const l=document.getElementById(`sft-m-list-${i}`); if(l) l.scrollTop=m*SFT_ITEM_H; },50); }
+}
+
+function toggleSFTPicker(i){
+  const picker = document.getElementById(`sft-picker-${i}`);
+  if(!picker) return;
+  const isOpen = picker.style.display !== 'none';
+  // Close all other sector pickers first
+  document.querySelectorAll('[id^="sft-picker-"]').forEach(p => p.style.display='none');
+  // Also close block time picker
+  const btp = document.getElementById('bt-picker'); if(btp) btp.style.display='none';
+  picker.style.display = isOpen ? 'none' : 'block';
+}
+
+function selectSFT(i, part, val){
+  if(part==='h'){
+    if(_sectorFTH[i]!=null) document.getElementById(`sft-h-${i}-${_sectorFTH[i]}`)?.classList.remove('selected');
+    _sectorFTH[i]=val; document.getElementById(`sft-h-${i}-${val}`)?.classList.add('selected');
+  } else {
+    if(_sectorFTM[i]!=null) document.getElementById(`sft-m-${i}-${_sectorFTM[i]}`)?.classList.remove('selected');
+    _sectorFTM[i]=val; document.getElementById(`sft-m-${i}-${val}`)?.classList.add('selected');
+  }
+  const h=_sectorFTH[i], m=_sectorFTM[i];
+  if(h!=null && m!=null){
+    const display=`${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}min`;
+    const hidden=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const dispEl=document.getElementById(`sft-display-${i}`); if(dispEl) dispEl.textContent=display;
+    const hidEl=document.getElementById(`sector-ft-${i}`); if(hidEl) hidEl.value=hidden;
+  }
+}
+
+// ─── Read sector data from form ────────────────────────────
 function getSectorsData(){
   const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  const actype = document.getElementById('f-actype')?.value || '';
+  const classes = getAcClasses(actype);
   const sectors = [];
   for(let i = 0; i < sectorCount; i++){
     const fromEl = document.getElementById(`f-route-${i}`);
     const toEl   = document.getElementById(`f-route-${i+1}`);
-    const fl     = document.getElementById(`sector-fl-${i}`)?.value  || '';
-    const fth    = document.getElementById(`sector-fth-${i}`)?.value;
-    const ftm    = document.getElementById(`sector-ftm-${i}`)?.value;
-    const ft     = (fth !== '' && fth !== undefined && ftm !== '' && ftm !== undefined)
-      ? `${String(fth).padStart(2,'0')}:${String(ftm).padStart(2,'0')}`
-      : '';
+    const fl     = document.getElementById(`sector-fl-${i}`)?.value || '';
+    const ft     = document.getElementById(`sector-ft-${i}`)?.value || '';
+    // Per-class pax
+    const pax = {};
+    classes.forEach(cls => {
+      const val = parseInt(document.getElementById(`sector-pax-${i}-${cls}`)?.value || '0') || 0;
+      pax[cls] = val;
+    });
     sectors.push({
-      sector:      i + 1,
-      from:        fromEl?.value?.trim() || '',
-      to:          toEl?.value?.trim()   || '',
+      sector: i+1,
+      from:   fromEl?.value?.trim() || '',
+      to:     toEl?.value?.trim()   || '',
       flightLevel: fl,
-      flightTime:  ft
+      flightTime:  ft,
+      pax
     });
   }
   return sectors;
 }
 
-// Update the sector route labels when airport inputs change
+// ─── Auto-sum total pax from all sectors ──────────────────
+function updateTotalPax(){
+  const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
+  const actype = document.getElementById('f-actype')?.value || '';
+  const classes = getAcClasses(actype);
+  let total = 0;
+  for(let i = 0; i < sectorCount; i++){
+    classes.forEach(cls => {
+      total += parseInt(document.getElementById(`sector-pax-${i}-${cls}`)?.value || '0') || 0;
+    });
+  }
+  const dispEl = document.getElementById('f-pax-display');
+  if(dispEl) dispEl.textContent = total > 0 ? `${total} passengers (auto-summed from sectors)` : '0 — enter pax per sector below';
+  const hidEl = document.getElementById('f-pax');
+  if(hidEl) hidEl.value = total;
+}
+
 function updateSectorRouteLabels(){
   const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
-  for(let i = 0; i < sectorCount; i++){
+  for(let i=0; i<sectorCount; i++){
     const lbl    = document.getElementById(`sector-route-label-${i}`);
     const fromEl = document.getElementById(`f-route-${i}`);
     const toEl   = document.getElementById(`f-route-${i+1}`);
@@ -5906,23 +6061,16 @@ function updateSectorRouteLabels(){
   }
 }
 
-// Convenience: primary flight time = first sector's flight time (for backward compat)
 function getPrimaryFlightTime(){
-  const sectors = getSectorsData();
-  return sectors[0]?.flightTime || '';
+  return document.getElementById('sector-ft-0')?.value || '';
 }
 function getPrimaryFlightLevel(){
-  const sectors = getSectorsData();
-  return sectors[0]?.flightLevel || '';
+  return document.getElementById(`sector-fl-0`)?.value || '';
 }
-
-// Clear all sector detail fields
 function clearSectorDetails(){
-  buildSectorDetails();
+  _sectorFTH={}; _sectorFTM={};
+  buildSectorDetails(null, document.getElementById('f-actype')?.value||'');
 }
-
-// Keep sector route labels live as user types airport codes
-// Called from airport input oninput — wire up in buildRouteFields
 
 // No-op stubs kept for any lingering references from before
 function buildFlightTimeMinutes(){}
@@ -6826,13 +6974,23 @@ function toast(msg){ const el=document.getElementById('toast'); el.textContent=m
 // ═══════════════════════════════════════════════
 initAuth();
 document.getElementById('detailOverlay').addEventListener('click',function(e){ if(e.target===this) closeDetail(); });
-// Close block time picker when tapping outside it
+// Close block time and sector flight time pickers when tapping outside
 document.addEventListener('click', function(e){
   const picker = document.getElementById('bt-picker');
   const trigger = document.getElementById('bt-trigger');
   if(picker && picker.style.display!=='none' && !picker.contains(e.target) && e.target!==trigger && !trigger?.contains(e.target)){
     picker.style.display='none';
   }
+  // Close any open sector FT pickers
+  document.querySelectorAll('[id^="sft-picker-"]').forEach(p=>{
+    if(p.style.display!=='none'){
+      const idx = p.id.replace('sft-picker-','');
+      const trig = document.getElementById(`sft-trigger-${idx}`);
+      if(!p.contains(e.target) && e.target!==trig && !trig?.contains(e.target)){
+        p.style.display='none';
+      }
+    }
+  });
 });
 
 // ── Sync when app comes back to foreground (covers iOS PWA home screen) ──
