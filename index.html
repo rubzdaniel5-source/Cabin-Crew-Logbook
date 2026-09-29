@@ -868,14 +868,14 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="card-title">✈ Pre-Flight Details</div>
     <div class="form-grid">
 
-      <!-- 1. Date -->
+      <!-- 1. Date + Flight Number side by side -->
       <div class="field">
         <label>Date *</label>
         <input type="date" id="f-date" required/>
       </div>
 
       <!-- 2. Flight Number(s) — dynamic based on sector count -->
-      <div class="field full" id="flight-num-wrap">
+      <div class="field" id="flight-num-wrap">
         <!-- Built by updateFlightNumFields() -->
       </div>
 
@@ -927,15 +927,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         <!-- Built dynamically by buildSectorDetails() -->
       </div>
 
-      <!-- Total Pax (auto-summed) -->
-      <div class="field full">
-        <label>Total Passengers</label>
-        <div id="f-pax-display" style="padding:10px 12px;background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem;font-weight:700;color:var(--navy)">
-          enter pax per sector above
-        </div>
-        <input type="hidden" id="f-pax" value="0"/>
-      </div>
-
       <div class="field">
         <label>Crew Position</label>
         <select id="f-position">
@@ -945,6 +936,15 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <option>Cabin Crew</option>
           <option>Trainee</option>
         </select>
+      </div>
+
+      <!-- Total Pax (auto-summed) — sits beside Crew Position -->
+      <div class="field">
+        <label>Total Passengers</label>
+        <div id="f-pax-display" style="padding:10px 12px;background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem;font-weight:700;color:var(--navy)">
+          enter pax per sector above
+        </div>
+        <input type="hidden" id="f-pax" value="0"/>
       </div>
 
       <div class="field">
@@ -967,8 +967,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <div class="combo-dropdown" id="dd-fo"></div>
         </div>
       </div>
-
-      <div class="field full" id="crew-section-top"><!-- crew fields follow --></div>
 
       <div class="field full">
         <label>Crew Members <span style="font-weight:400;text-transform:none;letter-spacing:0">(max 10)</span></label>
@@ -5849,10 +5847,11 @@ let _lastActype = '';
 
 function onActypeChange(val){
   const v = val.trim();
-  // Only rebuild sector cards if value changed AND is a known type or was previously a known type
   if(v === _lastActype) return;
   _lastActype = v;
-  buildSectorDetails(null, v);
+  // Preserve existing sector data (FL, FT) — only the pax classes will change
+  const currentSectors = getSectorsData();
+  buildSectorDetails(currentSectors.length ? currentSectors : null, v);
 }
 
 // ─── Aircraft type → cabin class config ──────────────────
@@ -6115,42 +6114,44 @@ function updateFlightNumFields(){
   if(!wrap) return;
 
   if(sectors < 4){
-    // 1, 2, or 3 sector flights: one flight number
+    // 1-3 sectors: single flight number — sits beside Date in the grid
+    wrap.className = 'field';
     wrap.innerHTML = `
-      <div class="field full">
-        <label>Flight Number *</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
-            style="text-transform:uppercase"
-            oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onblur="delayClose('dd-flightnum')"/>
-          <div class="combo-dropdown" id="dd-flightnum"></div>
-        </div>
+      <label>Flight Number *</label>
+      <div class="combo-wrap">
+        <input type="text" id="f-flightnum" placeholder="e.g. UR110" autocomplete="off"
+          style="text-transform:uppercase"
+          oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+          onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+          onblur="delayClose('dd-flightnum')"/>
+        <div class="combo-dropdown" id="dd-flightnum"></div>
       </div>`;
   } else {
-    // 4 sector flights only: two flight numbers
+    // 4 sectors: two flight numbers — span full width as their own row
+    wrap.className = 'field full';
     wrap.innerHTML = `
-      <div class="field">
-        <label>Flight No. 1 * <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 1 &amp; 2)</span></label>
-        <div class="combo-wrap">
-          <input type="text" id="f-flightnum" placeholder="e.g. UR120/1" autocomplete="off"
-            style="text-transform:uppercase"
-            oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-            onblur="delayClose('dd-flightnum')"/>
-          <div class="combo-dropdown" id="dd-flightnum"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label>Flight No. 1 * <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 1 &amp; 2)</span></label>
+          <div class="combo-wrap">
+            <input type="text" id="f-flightnum" placeholder="e.g. UR120/1" autocomplete="off"
+              style="text-transform:uppercase"
+              oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+              onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
+              onblur="delayClose('dd-flightnum')"/>
+            <div class="combo-dropdown" id="dd-flightnum"></div>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label>Flight No. 2 <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 3 &amp; 4)</span></label>
-        <div class="combo-wrap">
-          <input type="text" id="f-flightnum2" placeholder="e.g. UR320/1" autocomplete="off"
-            style="text-transform:uppercase"
-            oninput="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
-            onfocus="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
-            onblur="delayClose('dd-flightnum2')"/>
-          <div class="combo-dropdown" id="dd-flightnum2"></div>
+        <div>
+          <label>Flight No. 2 <span style="font-size:.68rem;color:var(--muted);font-weight:400">(Sectors 3 &amp; 4)</span></label>
+          <div class="combo-wrap">
+            <input type="text" id="f-flightnum2" placeholder="e.g. UR320/1" autocomplete="off"
+              style="text-transform:uppercase"
+              oninput="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
+              onfocus="filterCombo('f-flightnum2','dd-flightnum2',getDB('flightNumbers'))"
+              onblur="delayClose('dd-flightnum2')"/>
+            <div class="combo-dropdown" id="dd-flightnum2"></div>
+          </div>
         </div>
       </div>`;
   }
