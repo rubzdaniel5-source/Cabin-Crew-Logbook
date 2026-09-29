@@ -868,14 +868,21 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="card-title">✈ Pre-Flight Details</div>
     <div class="form-grid">
 
+      <!-- 1. Date -->
       <div class="field">
         <label>Date *</label>
         <input type="date" id="f-date" required/>
       </div>
 
-      <div class="field">
+      <!-- 2. Flight Number(s) — dynamic based on sector count -->
+      <div class="field full" id="flight-num-wrap">
+        <!-- Built by updateFlightNumFields() -->
+      </div>
+
+      <!-- 3. Number of Sectors -->
+      <div class="field full">
         <label>Number of Sectors</label>
-        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails();updateFlightNumFields()">
+        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails(null,document.getElementById('f-actype').value);updateFlightNumFields()">
           <option value="1">1 Sector — e.g. EBB → NBO</option>
           <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
           <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
@@ -883,18 +890,27 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </select>
       </div>
 
-      <!-- Flight number(s) — dynamic based on sector count -->
-      <div class="field full" id="flight-num-wrap">
-        <!-- Built by updateFlightNumFields() -->
-      </div>
-
+      <!-- 4. Route -->
       <div class="field full" id="route-fields-wrap">
         <!-- Built dynamically by buildRouteFields() -->
       </div>
-      <!-- Hidden fields preserve dep/arr for data layer compatibility -->
       <input type="hidden" id="f-dep"/>
       <input type="hidden" id="f-arr"/>
 
+      <!-- 5. Aircraft Type -->
+      <div class="field">
+        <label>Aircraft Type</label>
+        <div class="combo-wrap">
+          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
+            oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
+            onchange="onActypeChange(this.value)"
+            onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
+            onblur="delayClose('dd-actype');onActypeChange(this.value)"/>
+          <div class="combo-dropdown" id="dd-actype"></div>
+        </div>
+      </div>
+
+      <!-- 6. Aircraft Reg -->
       <div class="field">
         <label>Aircraft Reg</label>
         <div class="combo-wrap">
@@ -905,20 +921,19 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <div class="combo-dropdown" id="dd-reg"></div>
         </div>
       </div>
-      <div class="field">
-        <label>Aircraft Type</label>
-        <div class="combo-wrap">
-          <input type="text" id="f-actype" placeholder="e.g. A330-800" autocomplete="off"
-            oninput="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'));updateSFPField(this.value);buildSectorDetails(null,this.value)"
-            onfocus="filterCombo('f-actype','dd-actype',getDB('aircraftTypes'))"
-            onblur="delayClose('dd-actype')"/>
-          <div class="combo-dropdown" id="dd-actype"></div>
-        </div>
+
+      <!-- Sector Details (FL + FT + pax per sector) -->
+      <div class="field full" id="sector-details-wrap">
+        <!-- Built dynamically by buildSectorDetails() -->
       </div>
 
-      <!-- ── SECTOR DETAILS (Flight Level + Flight Time per sector) ── -->
-      <div class="field full" id="sector-details-wrap">
-        <!-- Built dynamically by buildSectorDetails() when route changes -->
+      <!-- Total Pax (auto-summed) -->
+      <div class="field full">
+        <label>Total Passengers</label>
+        <div id="f-pax-display" style="padding:10px 12px;background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem;font-weight:700;color:var(--navy)">
+          enter pax per sector above
+        </div>
+        <input type="hidden" id="f-pax" value="0"/>
       </div>
 
       <div class="field">
@@ -930,14 +945,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <option>Cabin Crew</option>
           <option>Trainee</option>
         </select>
-      </div>
-      <div class="field">
-        <label>Total Passengers</label>
-        <div id="f-pax-display" style="padding:10px 12px;background:var(--ice2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88rem;font-weight:700;color:var(--navy)">
-          0 — enter pax per sector below
-        </div>
-        <!-- Hidden input keeps the value for saveEntry -->
-        <input type="hidden" id="f-pax" value="0"/>
       </div>
 
       <div class="field">
@@ -961,19 +968,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
         </div>
       </div>
 
-      <!-- SFP field — shown only for A330-800 flights -->
-      <div class="field full" id="sfp-field-wrap" style="display:none">
-        <label>Senior Flight Purser (SFP)
-          <span style="font-size:.7rem;color:var(--muted);font-weight:400"> — A330-800 only</span>
-        </label>
-        <div class="combo-wrap">
-          <input type="text" id="f-sfp" placeholder="Name of the SFP for this flight" autocomplete="off"
-            oninput="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
-            onfocus="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
-            onblur="delayClose('dd-sfp')"/>
-          <div class="combo-dropdown" id="dd-sfp"></div>
-        </div>
-      </div>
+      <div class="field full" id="crew-section-top"><!-- crew fields follow --></div>
 
       <div class="field full">
         <label>Crew Members <span style="font-weight:400;text-transform:none;letter-spacing:0">(max 10)</span></label>
@@ -5591,9 +5586,6 @@ function editEntry(id){
       document.getElementById('f-position').value       = e.position||'';
       document.getElementById('f-captain').value        = e.captain||'';
       document.getElementById('f-fo').value             = e.fo||'';
-      const sfpEl = document.getElementById('f-sfp');
-      if(sfpEl) sfpEl.value = e.sfp||'';
-      document.getElementById('f-std').value            = e.std||'';
       document.getElementById('f-sta').value            = e.sta||'';
       document.getElementById('f-safety').value         = e.safety||'';
       document.getElementById('f-firstaid').value       = e.firstAid||'';
@@ -5622,7 +5614,6 @@ function editEntry(id){
       renderCrewTags();
 
       // ── SFP field visibility ─────────────────────────────────
-      updateSFPField(e.actype||'');
     });
   });
 }
@@ -5668,7 +5659,6 @@ async function saveEntry(){
     flightNum2:(g('f-flightnum2')||'').toUpperCase()||null,
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
-    sfp:g('f-sfp')||'',
     sectorsData:  _sectors,
     flightTime:   getPrimaryFlightTime(),
     flightLevel:  getPrimaryFlightLevel(),
@@ -5706,7 +5696,7 @@ async function saveEntry(){
 }
 
 function clearForm(){
-  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo','f-sfp',
+  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo',
    'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status','f-remarks']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   // Reset sector count to 1
@@ -5718,7 +5708,7 @@ function clearForm(){
   clearSectorDetails();
   clearRouteFields();
   updateFlightNumFields(); // reset to single flight number field
-  updateSFPField('');      // hide SFP field
+  _lastActype = '';        // reset aircraft type tracker
   document.getElementById('f-date').valueAsDate=new Date();
   editingFlightId=null;
   const btn = document.querySelector('#tab-add .btn-primary');
@@ -5853,18 +5843,24 @@ function flOptions(selectedFL){
   return html;
 }
 
+// ─── Aircraft type change handler (only rebuilds on known types) ──
+const KNOWN_AC_TYPES = ['A330-800','B737','CRJ-900'];
+let _lastActype = '';
+
+function onActypeChange(val){
+  const v = val.trim();
+  // Only rebuild sector cards if value changed AND is a known type or was previously a known type
+  if(v === _lastActype) return;
+  _lastActype = v;
+  buildSectorDetails(null, v);
+}
+
 // ─── Aircraft type → cabin class config ──────────────────
 function getAcClasses(actype){
   const t = (actype||'').trim();
   if(t === 'A330-800') return ['JC','PYC','YC'];
   if(t === 'B737' || t === 'CRJ-900') return ['JC','YC'];
   return ['JC','YC']; // safe default for unknown types
-}
-
-// ─── SFP field visibility ─────────────────────────────────
-function updateSFPField(actype){
-  const wrap = document.getElementById('sfp-field-wrap');
-  if(wrap) wrap.style.display = actype === 'A330-800' ? 'block' : 'none';
 }
 
 // ─── Sector detail cards (FL + FT picker + per-class pax) ─
@@ -6034,7 +6030,9 @@ function getSectorsData(){
   return sectors;
 }
 
-// ─── Auto-sum total pax from all sectors ──────────────────
+// ─── Auto-sum total pax from all sectors with silent limits ──
+const PAX_LIMITS = { JC: 25, PYC: 35, YC: 215 };
+
 function updateTotalPax(){
   const sectorCount = parseInt(document.getElementById('f-sector-count')?.value || '1');
   const actype = document.getElementById('f-actype')?.value || '';
@@ -6042,11 +6040,19 @@ function updateTotalPax(){
   let total = 0;
   for(let i = 0; i < sectorCount; i++){
     classes.forEach(cls => {
-      total += parseInt(document.getElementById(`sector-pax-${i}-${cls}`)?.value || '0') || 0;
+      const inp = document.getElementById(`sector-pax-${i}-${cls}`);
+      if(!inp) return;
+      let val = parseInt(inp.value || '0') || 0;
+      // Silently enforce class maximum
+      const max = PAX_LIMITS[cls];
+      if(max && val > max){ val = max; inp.value = max; }
+      total += val;
     });
   }
   const dispEl = document.getElementById('f-pax-display');
-  if(dispEl) dispEl.textContent = total > 0 ? `${total} passengers (auto-summed from sectors)` : '0 — enter pax per sector below';
+  if(dispEl) dispEl.textContent = total > 0
+    ? `${total} passengers (auto-summed from sectors)`
+    : 'enter pax per sector above';
   const hidEl = document.getElementById('f-pax');
   if(hidEl) hidEl.value = total;
 }
