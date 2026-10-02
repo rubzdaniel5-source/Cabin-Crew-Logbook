@@ -5459,17 +5459,24 @@ const PFR_CHECKLIST = [
 
 async function openPFROverlay(){
   document.getElementById('pfr-overlay').classList.add('open');
-  // Check for existing draft for today
+  document.getElementById('pfr-form-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>';
   const today = new Date().toISOString().slice(0,10);
   const { data } = await sb.from('purser_reports')
     .select('*').eq('user_id',currentUser.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);
   if(data?.length){
     _pfrId   = data[0].id;
     _pfrData = data[0];
+    // Parse JSON string fields back to objects/arrays
+    try{ _pfrData.crew_list    = typeof _pfrData.crew_list==='string'    ? JSON.parse(_pfrData.crew_list)    : (_pfrData.crew_list||[]); }catch{ _pfrData.crew_list=[]; }
+    try{ _pfrData.sectors_data = typeof _pfrData.sectors_data==='string' ? JSON.parse(_pfrData.sectors_data) : (_pfrData.sectors_data||[]); }catch{ _pfrData.sectors_data=[]; }
+    try{ _pfrData.checklist    = typeof _pfrData.checklist==='string'    ? JSON.parse(_pfrData.checklist)    : (_pfrData.checklist||{}); }catch{ _pfrData.checklist={}; }
+    try{ _pfrData.recipients   = typeof _pfrData.recipients==='string'   ? JSON.parse(_pfrData.recipients)   : (_pfrData.recipients||[]); }catch{ _pfrData.recipients=[]; }
     document.getElementById('pfr-status-badge').textContent = 'Draft';
   } else {
     _pfrId   = null;
-    _pfrData = { date: today, flight_number: '', sector:'', ac_type:'', ac_reg:'', captain:'', purser: localStorage.getItem('ccl_crew_name')||'', crew_list:[], sectors_data:[], checklist:{}, reason_for_change:'', general_remarks:'', total_block_time:'' };
+    _pfrData = { date:today, flight_number:'', sector:'', ac_type:'', ac_reg:'', captain:'',
+      purser:localStorage.getItem('ccl_crew_name')||'',
+      crew_list:[], sectors_data:[], checklist:{}, reason_for_change:'', general_remarks:'', total_block_time:'' };
     document.getElementById('pfr-status-badge').textContent = 'New';
   }
   renderPFRForm();
@@ -5515,55 +5522,51 @@ function renderPFRForm(){
     </tr>`;
   }).join('');
 
-  // Build datalist option strings from cache
-  const flightNumOpts  = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const acTypeOpts     = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const acRegOpts      = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const captainOpts    = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const crewNameOpts   = (cache.shared?.crewNames||[]).map(v=>`<option value="${escHtml(v)}">`).join('');
-  const routeOpts      = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  // Build sector options from flight full routes
-  const sectorSet = new Set();
-  cache.flights.forEach(f=>{ if(f.fullRoute) sectorSet.add(f.fullRoute); else if(f.dep&&f.arr) sectorSet.add(`${f.dep} → ${f.arr}`); });
-  const sectorOpts = [...sectorSet].map(v=>`<option value="${escHtml(v)}">`).join('');
+  // Build unique option lists from cache
+  const _pfr_flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  const _pfr_acTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))];
+  const _pfr_acRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))];
+  const _pfr_captains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))];
+  const _pfr_crew       = [...new Set((cache.shared?.crewNames||[]).filter(Boolean))];
+  const _pfr_routes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
+  const _pfr_sectors    = [...new Set(cache.flights.map(f=>f.fullRoute||(f.dep&&f.arr?`${f.dep} → ${f.arr}`:'')).filter(Boolean))];
+
+  // Helper: build a combo-wrap field matching New Flight style
+  const pfrCombo = (lbl, id, val, opts, placeholder, extraStyle='') => `
+    <div class="field">
+      <label>${lbl}</label>
+      <div class="combo-wrap">
+        <input type="text" id="${id}" value="${escHtml(val||'')}" placeholder="${placeholder}"
+          autocomplete="off" ${extraStyle}
+          oninput="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}]);_pfrData.${id.replace('pfr-','')}=this.value"
+          onfocus="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}])"
+          onblur="setTimeout(()=>{ const d=document.getElementById('${id}-dd'); if(d) d.style.display='none'; },200)"/>
+        <div class="combo-dropdown" id="${id}-dd"></div>
+      </div>
+    </div>`;
 
   document.getElementById('pfr-form-body').innerHTML = `
-    <datalist id="dl-pfr-flightnum">${flightNumOpts}</datalist>
-    <datalist id="dl-pfr-actype">${acTypeOpts}</datalist>
-    <datalist id="dl-pfr-acreg">${acRegOpts}</datalist>
-    <datalist id="dl-pfr-captain">${captainOpts}</datalist>
-    <datalist id="dl-pfr-crew">${crewNameOpts}</datalist>
-    <datalist id="dl-pfr-sector">${sectorOpts}</datalist>
-    <datalist id="dl-pfr-routes">${routeOpts}</datalist>
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:10px">UGD-CAB-F-010 — Purser Flight Report</div>
 
-    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:6px">UGD-CAB-F-010</div>
-
-    <!-- Header with smart dropdowns -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Date</label>
-        <input type="date" value="${escHtml(d.date||'')}" oninput="_pfrData.date=this.value"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Flight Number</label>
-        <input type="text" list="dl-pfr-flightnum" value="${escHtml(d.flight_number||'')}" oninput="_pfrData.flight_number=this.value" placeholder="e.g. UR110"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Sector</label>
-        <input type="text" list="dl-pfr-sector" value="${escHtml(d.sector||'')}" oninput="_pfrData.sector=this.value" placeholder="EBB → NBO"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">A/C Type</label>
-        <input type="text" list="dl-pfr-actype" value="${escHtml(d.ac_type||'')}" oninput="_pfrData.ac_type=this.value" placeholder="A330-800"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">A/C Reg</label>
-        <input type="text" list="dl-pfr-acreg" value="${escHtml(d.ac_reg||'')}" oninput="_pfrData.ac_reg=this.value" placeholder="5X-CRN"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy);text-transform:uppercase"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Captain</label>
-        <input type="text" list="dl-pfr-captain" value="${escHtml(d.captain||'')}" oninput="_pfrData.captain=this.value" placeholder="Captain name"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Purser</label>
-        <input type="text" list="dl-pfr-crew" value="${escHtml(d.purser||'')}" oninput="_pfrData.purser=this.value" placeholder="Purser name"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Total Block Time</label>
-        <input type="text" value="${escHtml(d.total_block_time||'')}" oninput="_pfrData.total_block_time=this.value" placeholder="e.g. 02:30"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
+    <!-- Header grid -->
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="pfr-date" value="${escHtml(d.date||'')}" oninput="_pfrData.date=this.value"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      ${pfrCombo('Flight Number','pfr-flight_number',d.flight_number,_pfr_flightNums,'e.g. UR110')}
+      ${pfrCombo('Sector','pfr-sector',d.sector,_pfr_sectors,'e.g. EBB → NBO')}
+      ${pfrCombo('A/C Type','pfr-ac_type',d.ac_type,_pfr_acTypes,'e.g. A330-800')}
+      ${pfrCombo('A/C Reg','pfr-ac_reg',d.ac_reg,_pfr_acRegs,'e.g. 5X-CRN')}
+      ${pfrCombo('Captain','pfr-captain',d.captain,_pfr_captains,'Captain name')}
+      ${pfrCombo('Purser','pfr-purser',d.purser,_pfr_crew,'Purser name')}
+      <div class="field">
+        <label>Total Block Time</label>
+        <input type="text" id="pfr-total_block_time" value="${escHtml(d.total_block_time||'')}"
+          oninput="_pfrData.total_block_time=this.value" placeholder="e.g. 02:30"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
     </div>
 
     <!-- Crew List -->
@@ -5616,6 +5619,26 @@ function renderPFRForm(){
     </div>`;
 }
 
+// Generic combo filter for PFR and cabin log fields
+function pfrFilterCombo(inputId, ddId, options){
+  const inp = document.getElementById(inputId);
+  const dd  = document.getElementById(ddId);
+  if(!inp || !dd) return;
+  const q   = inp.value.toLowerCase();
+  const matches = options.filter(o => o.toLowerCase().includes(q)).slice(0, 20);
+  if(!matches.length){ dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(o =>
+    `<div class="combo-item" onclick="
+      document.getElementById('${inputId}').value='${o.replace(/'/g,"\\'")}';
+      const key='${inputId}'.replace('pfr-','').replace('clog-','');
+      if('${inputId}'.startsWith('pfr-')) _pfrData[key]='${o.replace(/'/g,"\\'")}';
+      else _clogData[key]='${o.replace(/'/g,"\\'")}';
+      document.getElementById('${ddId}').style.display='none';
+    ">${escHtml(o)}</div>`
+  ).join('');
+  dd.style.display = 'block';
+}
+
 function pfrCrewUpdate(i, key, val){
   if(!_pfrData.crew_list) _pfrData.crew_list = [];
   if(!_pfrData.crew_list[i]) _pfrData.crew_list[i] = {};
@@ -5649,10 +5672,19 @@ async function savePFRDraft(){
 }
 
 function openPFRSubmit(){
+  // Show recipients instantly — save happens when user confirms Send
   const el = document.getElementById('pfr-recipients-list');
-  el.innerHTML = PFR_RECIPIENTS.map(r=>`
+  el.innerHTML = `
+    <div style="background:var(--ice2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:.85rem;color:var(--green)">✓</span>
+        <span style="font-size:.85rem;font-weight:700;color:var(--navy)">Cabin Crew Manager</span>
+        <span style="font-size:.65rem;color:var(--muted);margin-left:auto">Always included</span>
+      </div>
+    </div>` +
+    PFR_RECIPIENTS.map(r=>`
     <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);cursor:pointer">
-      <input type="checkbox" id="pfr-rcpt-${r.id}" style="width:18px;height:18px"/>
+      <input type="checkbox" id="pfr-rcpt-${r.id}" style="width:18px;height:18px;cursor:pointer"/>
       <span style="font-size:.85rem;font-weight:600;color:var(--navy)">${r.label}</span>
     </label>`).join('');
   document.getElementById('pfr-submit-overlay').style.display = 'flex';
@@ -5679,16 +5711,19 @@ let _clogId   = null;
 
 async function openCabinLogOverlay(){
   document.getElementById('cabin-log-overlay').classList.add('open');
+  document.getElementById('cabin-log-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>';
   const { data } = await sb.from('cabin_logs')
     .select('*').eq('user_id',currentUser.id).eq('status','draft').order('created_at',{ascending:false}).limit(1);
   if(data?.length){
     _clogId   = data[0].id;
     _clogData = data[0];
-    _clogData.faults = typeof _clogData.faults==='string' ? JSON.parse(_clogData.faults) : (_clogData.faults||[]);
+    try{ _clogData.faults = typeof _clogData.faults==='string' ? JSON.parse(_clogData.faults) : (_clogData.faults||[{fault:'',action:''}]); }catch{ _clogData.faults=[{fault:'',action:''}]; }
     document.getElementById('clog-status-badge').textContent = 'Draft';
   } else {
     _clogId   = null;
-    _clogData = { date: new Date().toISOString().slice(0,10), flight_number:'', ac_type:'', ac_reg:'', dep:'', arr:'', sfp: localStorage.getItem('ccl_crew_name')||'', faults:[{fault:'',action:''}], captain:'', station:'' };
+    _clogData = { date:new Date().toISOString().slice(0,10), flight_number:'', ac_type:'', ac_reg:'',
+      dep:'', arr:'', sfp:localStorage.getItem('ccl_crew_name')||'',
+      faults:[{fault:'',action:''}], captain:'', station:'' };
     document.getElementById('clog-status-badge').textContent = 'New';
   }
   renderCabinLogForm();
@@ -5713,58 +5748,58 @@ function renderCabinLogForm(){
       ${faults.length>1?`<button onclick="removeClogFault(${i})" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">✕</button>`:''}
     </div>`).join('');
 
-  // Build datalist options from cache for cabin log
-  const clogFlightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const clogAcTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const clogAcRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const clogCaptains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
-  const clogCrewNames  = (cache.shared?.crewNames||[]).map(v=>`<option value="${escHtml(v)}">`).join('');
-  const clogRoutes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))].map(v=>`<option value="${escHtml(v)}">`).join('');
+  // Build unique option arrays from cache for cabin log
+  const _cl_flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  const _cl_acTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))];
+  const _cl_acRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))];
+  const _cl_captains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))];
+  const _cl_crew       = [...new Set((cache.shared?.crewNames||[]).filter(Boolean))];
+  const _cl_routes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
+
+  const clogCombo = (lbl, id, val, opts, placeholder) => `
+    <div class="field">
+      <label>${lbl}</label>
+      <div class="combo-wrap">
+        <input type="text" id="${id}" value="${escHtml(val||'')}" placeholder="${placeholder}"
+          autocomplete="off"
+          oninput="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}]);_clogData['${id.replace('clog-','')}'] = this.value"
+          onfocus="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}])"
+          onblur="setTimeout(()=>{ const d=document.getElementById('${id}-dd'); if(d) d.style.display='none'; },200)"/>
+        <div class="combo-dropdown" id="${id}-dd"></div>
+      </div>
+    </div>`;
 
   document.getElementById('cabin-log-body').innerHTML = `
-    <datalist id="dl-clog-fn">${clogFlightNums}</datalist>
-    <datalist id="dl-clog-actype">${clogAcTypes}</datalist>
-    <datalist id="dl-clog-acreg">${clogAcRegs}</datalist>
-    <datalist id="dl-clog-captain">${clogCaptains}</datalist>
-    <datalist id="dl-clog-crew">${clogCrewNames}</datalist>
-    <datalist id="dl-clog-routes">${clogRoutes}</datalist>
-
-    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:8px">Uganda Airlines Cabin Log</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">Date</label>
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:10px">Uganda Airlines Cabin Log</div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="field">
+        <label>Date</label>
         <input type="date" value="${escHtml(d.date||'')}" oninput="_clogData.date=this.value"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">Flight Number</label>
-        <input type="text" list="dl-clog-fn" value="${escHtml(d.flight_number||'')}" oninput="_clogData.flight_number=this.value" placeholder="e.g. UR110"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">A/C Type</label>
-        <input type="text" list="dl-clog-actype" value="${escHtml(d.ac_type||'')}" oninput="_clogData.ac_type=this.value" placeholder="A330-800"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">A/C Reg</label>
-        <input type="text" list="dl-clog-acreg" value="${escHtml(d.ac_reg||'')}" oninput="_clogData.ac_reg=this.value" placeholder="5X-CRN"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy);text-transform:uppercase"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">From</label>
-        <input type="text" list="dl-clog-routes" value="${escHtml(d.dep||'')}" oninput="_clogData.dep=this.value" placeholder="EBB"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy);text-transform:uppercase"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">To</label>
-        <input type="text" list="dl-clog-routes" value="${escHtml(d.arr||'')}" oninput="_clogData.arr=this.value" placeholder="NBO"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy);text-transform:uppercase"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">SFP/SCCM</label>
-        <input type="text" list="dl-clog-crew" value="${escHtml(d.sfp||'')}" oninput="_clogData.sfp=this.value" placeholder="SFP/SCCM name"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
-      <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">Captain</label>
-        <input type="text" list="dl-clog-captain" value="${escHtml(d.captain||'')}" oninput="_clogData.captain=this.value" placeholder="Captain name"
-          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
+      </div>
+      ${clogCombo('Flight Number','clog-flight_number',d.flight_number,_cl_flightNums,'e.g. UR110')}
+      ${clogCombo('A/C Type','clog-ac_type',d.ac_type,_cl_acTypes,'A330-800')}
+      ${clogCombo('A/C Reg','clog-ac_reg',d.ac_reg,_cl_acRegs,'5X-CRN')}
+      ${clogCombo('From (DEP)','clog-dep',d.dep,_cl_routes,'EBB')}
+      ${clogCombo('To (ARR)','clog-arr',d.arr,_cl_routes,'NBO')}
+      ${clogCombo('SFP / SCCM','clog-sfp',d.sfp,_cl_crew,'SFP or SCCM name')}
+      ${clogCombo('Captain','clog-captain',d.captain,_cl_captains,'Captain name')}
     </div>
 
     <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:8px">Cabin Defects</div>
     <div id="clog-faults">${faultRows}</div>
     <button onclick="addClogFault()" class="btn btn-ghost" style="width:100%;margin-bottom:14px">+ Add Another Defect</button>
 
-    <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">Station / Location</label>
-    <input type="text" list="dl-clog-routes" value="${escHtml(d.station||'')}" oninput="_clogData.station=this.value"
-      placeholder="e.g. EBB"
-      style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font)"/></div>
+    <div class="field">
+      <label>Station / Location</label>
+      <div class="combo-wrap">
+        <input type="text" id="clog-station" value="${escHtml(d.station||'')}" placeholder="e.g. EBB" autocomplete="off"
+          oninput="pfrFilterCombo('clog-station','clog-station-dd',[${_cl_routes.map(o=>`'${o}'`).join(',')}]);_clogData.station=this.value"
+          onfocus="pfrFilterCombo('clog-station','clog-station-dd',[${_cl_routes.map(o=>`'${o}'`).join(',')}])"
+          onblur="setTimeout(()=>{ const d=document.getElementById('clog-station-dd'); if(d) d.style.display='none'; },200)"/>
+        <div class="combo-dropdown" id="clog-station-dd"></div>
+      </div>
+    </div>
 
     <div style="font-size:.7rem;color:var(--muted);margin-top:16px;line-height:1.6;font-style:italic">
       I hereby certify that the defects listed were identified and the actions recorded are accurate.
