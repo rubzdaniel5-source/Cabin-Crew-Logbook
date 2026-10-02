@@ -1188,7 +1188,6 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <!-- Gradient header strip -->
   <div class="hub-header-strip">
     <div class="hub-title">🛫 Crew Hub</div>
-    <div class="hub-sub" id="hub-header-sub">Shared resources for your crew</div>
   </div>
   <!-- Card grid -->
   <div class="hub-grid" id="hub-card-grid">
@@ -5227,14 +5226,14 @@ function remindReviewLater(){
 
 const HUB_CARDS = [
   { id:'announcements', icon:'📢', title:'Onboard Announcements', sub:'Pre-flight, Inflight & After Landing', roles:['all'], action:()=>{ openMenuSection('announcements'); } },
-  { id:'manifest',      icon:'📋', title:'Passenger Manifest',    sub:'View or upload flight manifest',     roles:['admin','ops_manager'], action:openManifestOverlay },
-  { id:'purser-report', icon:'📝', title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',    roles:['admin','senior_purser','purser'], action:openPFROverlay },
-  { id:'manuals',       icon:'📖', title:'Manuals',               sub:'Cabin crew & operations manuals',   roles:['all'], action:()=>{ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); closeMenu(); } },
-  { id:'cabin-log',     icon:'🔧', title:'Cabin Log',             sub:'Record cabin defects',              roles:['admin','senior_purser','purser'], action:openCabinLogOverlay },
-  { id:'chat',          icon:'💬', title:'Crew Chat',             sub:'Group & private messaging',         roles:['all'], action:()=>{ openChat(); } },
-  { id:'iqsms',         icon:'🛡', title:'IQSMS',                 sub:'Report safety concerns',            roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
-  { id:'notices',       icon:'📌', title:'Cabin Notices',         sub:'Operational notices & bulletins',   roles:['all'], action:openNoticesOverlay },
-  { id:'nexa',          icon:'🤖', title:'Nexa Crew AI',          sub:'AI assistant · Manuals & Logbook',  roles:['all'], action:()=>{ openNexa(); } },
+  { id:'nexa',          icon:'🤖', title:'Nexa Crew AI',          sub:'AI assistant · Manuals & Logbook',     roles:['all'], action:()=>{ openNexa(); } },
+  { id:'manifest',      icon:'📋', title:'Passenger Manifest',    sub:'View or upload flight manifest',        roles:['admin','ops_manager'], action:openManifestOverlay },
+  { id:'purser-report', icon:'📝', title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',       roles:['admin','senior_purser','purser'], action:openPFROverlay },
+  { id:'manuals',       icon:'📖', title:'Manuals',               sub:'Cabin crew & operations manuals',      roles:['all'], action:()=>{ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); closeMenu(); } },
+  { id:'cabin-log',     icon:'🔧', title:'Cabin Log',             sub:'Record cabin defects',                 roles:['admin','senior_purser','purser'], action:openCabinLogOverlay },
+  { id:'chat',          icon:'💬', title:'Crew Chat',             sub:'Group & private messaging',            roles:['all'], action:()=>{ openChat(); } },
+  { id:'iqsms',         icon:'🛡', title:'IQSMS',                 sub:'Report safety concerns',               roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
+  { id:'notices',       icon:'📌', title:'Cabin Notices',         sub:'Operational notices & bulletins',      roles:['all'], action:openNoticesOverlay },
 ];
 
 function getUserRole(){
@@ -5522,25 +5521,26 @@ function renderPFRForm(){
     </tr>`;
   }).join('');
 
-  // Build unique option lists from cache
-  const _pfr_flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-  const _pfr_acTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))];
-  const _pfr_acRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))];
-  const _pfr_captains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))];
-  const _pfr_crew       = [...new Set((cache.shared?.crewNames||[]).filter(Boolean))];
-  const _pfr_routes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
-  const _pfr_sectors    = [...new Set(cache.flights.map(f=>f.fullRoute||(f.dep&&f.arr?`${f.dep} → ${f.arr}`:'')).filter(Boolean))];
+  // Store PFR options globally — safe reference from event handlers
+  window._pfrOpts = {
+    flightNums: [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))],
+    acTypes:    [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))],
+    acRegs:     [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))],
+    captains:   [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))],
+    crew:       [...new Set((cache.shared?.crewNames||[]).filter(Boolean))],
+    sectors:    [...new Set(cache.flights.map(f=>f.fullRoute||(f.dep&&f.arr?`${f.dep} → ${f.arr}`:'')).filter(Boolean))],
+  };
 
-  // Helper: build a combo-wrap field matching New Flight style
-  const pfrCombo = (lbl, id, val, opts, placeholder, extraStyle='') => `
+  // id format: 'pfr-DATAKEY' → data-dkey = DATAKEY → _pfrData[DATAKEY]
+  const pfrCombo = (lbl, id, val, optKey) => `
     <div class="field">
       <label>${lbl}</label>
       <div class="combo-wrap">
-        <input type="text" id="${id}" value="${escHtml(val||'')}" placeholder="${placeholder}"
-          autocomplete="off" ${extraStyle}
-          oninput="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}]);_pfrData.${id.replace('pfr-','')}=this.value"
-          onfocus="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}])"
-          onblur="setTimeout(()=>{ const d=document.getElementById('${id}-dd'); if(d) d.style.display='none'; },200)"/>
+        <input type="text" id="${id}" data-dkey="${id.slice(4)}" value="${escHtml(val||'')}"
+          placeholder="" autocomplete="off"
+          oninput="pfrComboFilter('${id}','${optKey}')"
+          onfocus="pfrComboFilter('${id}','${optKey}')"
+          onblur="setTimeout(()=>{const el=document.getElementById('${id}-dd');if(el)el.style.display='none';},200)"/>
         <div class="combo-dropdown" id="${id}-dd"></div>
       </div>
     </div>`;
@@ -5555,12 +5555,12 @@ function renderPFRForm(){
         <input type="date" id="pfr-date" value="${escHtml(d.date||'')}" oninput="_pfrData.date=this.value"
           style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
       </div>
-      ${pfrCombo('Flight Number','pfr-flight_number',d.flight_number,_pfr_flightNums,'e.g. UR110')}
-      ${pfrCombo('Sector','pfr-sector',d.sector,_pfr_sectors,'e.g. EBB → NBO')}
-      ${pfrCombo('A/C Type','pfr-ac_type',d.ac_type,_pfr_acTypes,'e.g. A330-800')}
-      ${pfrCombo('A/C Reg','pfr-ac_reg',d.ac_reg,_pfr_acRegs,'e.g. 5X-CRN')}
-      ${pfrCombo('Captain','pfr-captain',d.captain,_pfr_captains,'Captain name')}
-      ${pfrCombo('Purser','pfr-purser',d.purser,_pfr_crew,'Purser name')}
+      ${pfrCombo('Flight Number','pfr-flight_number',d.flight_number,'flightNums')}
+      ${pfrCombo('Sector','pfr-sector',d.sector,'sectors')}
+      ${pfrCombo('A/C Type','pfr-ac_type',d.ac_type,'acTypes')}
+      ${pfrCombo('A/C Reg','pfr-ac_reg',d.ac_reg,'acRegs')}
+      ${pfrCombo('Captain','pfr-captain',d.captain,'captains')}
+      ${pfrCombo('Purser','pfr-purser',d.purser,'crew')}
       <div class="field">
         <label>Total Block Time</label>
         <input type="text" id="pfr-total_block_time" value="${escHtml(d.total_block_time||'')}"
@@ -5619,24 +5619,24 @@ function renderPFRForm(){
     </div>`;
 }
 
-// Generic combo filter for PFR and cabin log fields
-function pfrFilterCombo(inputId, ddId, options){
-  const inp = document.getElementById(inputId);
-  const dd  = document.getElementById(ddId);
+// PFR combo filter — reads options from window._pfrOpts[optKey], writes to _pfrData via data-dkey
+function pfrComboFilter(inputId, optKey){
+  const inp  = document.getElementById(inputId);
+  const dd   = document.getElementById(inputId+'-dd');
   if(!inp || !dd) return;
-  const q   = inp.value.toLowerCase();
-  const matches = options.filter(o => o.toLowerCase().includes(q)).slice(0, 20);
+  const dkey = inp.dataset.dkey;
+  if(dkey) _pfrData[dkey] = inp.value;
+  const q    = inp.value.toLowerCase();
+  const opts = (window._pfrOpts||{})[optKey] || [];
+  const matches = opts.filter(o=>o.toLowerCase().includes(q)).slice(0,20);
   if(!matches.length){ dd.style.display='none'; return; }
-  dd.innerHTML = matches.map(o =>
-    `<div class="combo-item" onclick="
-      document.getElementById('${inputId}').value='${o.replace(/'/g,"\\'")}';
-      const key='${inputId}'.replace('pfr-','').replace('clog-','');
-      if('${inputId}'.startsWith('pfr-')) _pfrData[key]='${o.replace(/'/g,"\\'")}';
-      else _clogData[key]='${o.replace(/'/g,"\\'")}';
-      document.getElementById('${ddId}').style.display='none';
-    ">${escHtml(o)}</div>`
-  ).join('');
-  dd.style.display = 'block';
+  dd.innerHTML = matches.map(o=>`<div class="combo-item" onmousedown="event.preventDefault();
+    const inp=document.getElementById('${inputId}');
+    inp.value='${escHtml(o).replace(/'/g,"&#39;")}';
+    if(inp.dataset.dkey) _pfrData[inp.dataset.dkey]=inp.value;
+    document.getElementById('${inputId}-dd').style.display='none';
+  ">${escHtml(o)}</div>`).join('');
+  dd.style.display='block';
 }
 
 function pfrCrewUpdate(i, key, val){
@@ -5733,8 +5733,36 @@ function closeCabinLogOverlay(){
   document.getElementById('cabin-log-overlay').classList.remove('open');
 }
 
+// Store combo options globally so event handlers can reference them safely
+// without embedding arrays inside HTML attribute strings
+const _clogOpts = {};
+
 function renderCabinLogForm(){
   const d = _clogData;
+
+  // Store options in global so inline handlers can call getClogOpts()
+  _clogOpts.flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  _clogOpts.acTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))];
+  _clogOpts.acRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))];
+  _clogOpts.captains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))];
+  _clogOpts.crew       = [...new Set((cache.shared?.crewNames||[]).filter(Boolean))];
+  _clogOpts.routes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
+
+  // id format: 'clog-DATAKEY' e.g. 'clog-flight_number' → _clogData.flight_number
+  // Handler reads data-dkey attribute to avoid any inline string complexity
+  const clogCombo = (lbl, id, val, optKey, placeholder) => `
+    <div class="field">
+      <label>${lbl}</label>
+      <div class="combo-wrap">
+        <input type="text" id="${id}" data-dkey="${id.slice(5)}" value="${escHtml(val||'')}"
+          placeholder="${placeholder}" autocomplete="off"
+          oninput="clogComboFilter('${id}','${optKey}')"
+          onfocus="clogComboFilter('${id}','${optKey}')"
+          onblur="setTimeout(()=>{const el=document.getElementById('${id}-dd');if(el)el.style.display='none';},200)"/>
+        <div class="combo-dropdown" id="${id}-dd"></div>
+      </div>
+    </div>`;
+
   const faults = d.faults?.length ? d.faults : [{fault:'',action:''}];
   const faultRows = faults.map((f,i)=>`
     <div style="background:var(--ice2);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
@@ -5748,62 +5776,62 @@ function renderCabinLogForm(){
       ${faults.length>1?`<button onclick="removeClogFault(${i})" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">✕</button>`:''}
     </div>`).join('');
 
-  // Build unique option arrays from cache for cabin log
-  const _cl_flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-  const _cl_acTypes    = [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))];
-  const _cl_acRegs     = [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))];
-  const _cl_captains   = [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))];
-  const _cl_crew       = [...new Set((cache.shared?.crewNames||[]).filter(Boolean))];
-  const _cl_routes     = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
+  const body = document.getElementById('cabin-log-body');
+  if(!body) return;
 
-  const clogCombo = (lbl, id, val, opts, placeholder) => `
-    <div class="field">
-      <label>${lbl}</label>
-      <div class="combo-wrap">
-        <input type="text" id="${id}" value="${escHtml(val||'')}" placeholder="${placeholder}"
-          autocomplete="off"
-          oninput="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}]);_clogData['${id.replace('clog-','')}'] = this.value"
-          onfocus="pfrFilterCombo('${id}','${id}-dd',[${opts.map(o=>`'${o.replace(/'/g,"\\'")}'`).join(',')}])"
-          onblur="setTimeout(()=>{ const d=document.getElementById('${id}-dd'); if(d) d.style.display='none'; },200)"/>
-        <div class="combo-dropdown" id="${id}-dd"></div>
-      </div>
-    </div>`;
-
-  document.getElementById('cabin-log-body').innerHTML = `
+  body.innerHTML = `
     <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:10px">Uganda Airlines Cabin Log</div>
     <div class="form-grid" style="margin-bottom:14px">
       <div class="field">
         <label>Date</label>
-        <input type="date" value="${escHtml(d.date||'')}" oninput="_clogData.date=this.value"
+        <input type="date" id="clog-date" value="${escHtml(d.date||'')}" oninput="_clogData.date=this.value"
           style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
       </div>
-      ${clogCombo('Flight Number','clog-flight_number',d.flight_number,_cl_flightNums,'e.g. UR110')}
-      ${clogCombo('A/C Type','clog-ac_type',d.ac_type,_cl_acTypes,'A330-800')}
-      ${clogCombo('A/C Reg','clog-ac_reg',d.ac_reg,_cl_acRegs,'5X-CRN')}
-      ${clogCombo('From (DEP)','clog-dep',d.dep,_cl_routes,'EBB')}
-      ${clogCombo('To (ARR)','clog-arr',d.arr,_cl_routes,'NBO')}
-      ${clogCombo('SFP / SCCM','clog-sfp',d.sfp,_cl_crew,'SFP or SCCM name')}
-      ${clogCombo('Captain','clog-captain',d.captain,_cl_captains,'Captain name')}
+      ${clogCombo('Flight Number','clog-flight_number',d.flight_number,'flightNums','e.g. UR110')}
+      ${clogCombo('A/C Type','clog-ac_type',d.ac_type,'acTypes','A330-800')}
+      ${clogCombo('A/C Reg','clog-ac_reg',d.ac_reg,'acRegs','5X-CRN')}
+      ${clogCombo('From (DEP)','clog-dep',d.dep,'routes','EBB')}
+      ${clogCombo('To (ARR)','clog-arr',d.arr,'routes','NBO')}
+      ${clogCombo('SFP / SCCM','clog-sfp',d.sfp,'crew','SFP or SCCM name')}
+      ${clogCombo('Captain','clog-captain',d.captain,'captains','Captain name')}
     </div>
-
     <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:8px">Cabin Defects</div>
     <div id="clog-faults">${faultRows}</div>
     <button onclick="addClogFault()" class="btn btn-ghost" style="width:100%;margin-bottom:14px">+ Add Another Defect</button>
-
     <div class="field">
       <label>Station / Location</label>
       <div class="combo-wrap">
         <input type="text" id="clog-station" value="${escHtml(d.station||'')}" placeholder="e.g. EBB" autocomplete="off"
-          oninput="pfrFilterCombo('clog-station','clog-station-dd',[${_cl_routes.map(o=>`'${o}'`).join(',')}]);_clogData.station=this.value"
-          onfocus="pfrFilterCombo('clog-station','clog-station-dd',[${_cl_routes.map(o=>`'${o}'`).join(',')}])"
-          onblur="setTimeout(()=>{ const d=document.getElementById('clog-station-dd'); if(d) d.style.display='none'; },200)"/>
+          oninput="clogComboFilter('clog-station','routes');_clogData.station=this.value"
+          onfocus="clogComboFilter('clog-station','routes')"
+          onblur="setTimeout(()=>{const el=document.getElementById('clog-station-dd');if(el)el.style.display='none';},200)"/>
         <div class="combo-dropdown" id="clog-station-dd"></div>
       </div>
     </div>
-
     <div style="font-size:.7rem;color:var(--muted);margin-top:16px;line-height:1.6;font-style:italic">
       I hereby certify that the defects listed were identified and the actions recorded are accurate.
     </div>`;
+}
+
+function clogComboFilter(inputId, optKey){
+  const inp  = document.getElementById(inputId);
+  const dd   = document.getElementById(inputId+'-dd');
+  if(!inp || !dd) return;
+  // Write current value to _clogData on every keystroke
+  const dkey = inp.dataset.dkey;
+  if(dkey) _clogData[dkey] = inp.value;
+  const q    = inp.value.toLowerCase();
+  const opts = _clogOpts[optKey] || [];
+  const matches = opts.filter(o=>o.toLowerCase().includes(q)).slice(0,20);
+  if(!matches.length){ dd.style.display='none'; return; }
+  // Use onmousedown (fires before onblur) to select item
+  dd.innerHTML = matches.map(o=>`<div class="combo-item" onmousedown="event.preventDefault();
+    const inp=document.getElementById('${inputId}');
+    inp.value='${escHtml(o).replace(/'/g,"&#39;")}';
+    if(inp.dataset.dkey) _clogData[inp.dataset.dkey]=inp.value;
+    document.getElementById('${inputId}-dd').style.display='none';
+  ">${escHtml(o)}</div>`).join('');
+  dd.style.display='block';
 }
 
 function addClogFault(){
