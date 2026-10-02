@@ -347,6 +347,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 
 @keyframes pulse{50%{opacity:.3}}
 
+/* ── CREW HUB ────────────────────────────────────────────── */
+.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:20px}
+.hub-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:16px 14px;cursor:pointer;transition:box-shadow .15s,transform .1s;display:flex;flex-direction:column;align-items:flex-start;gap:8px;position:relative;min-height:100px}
+.hub-card:hover,.hub-card:active{box-shadow:var(--shadow);transform:translateY(-1px)}
+.hub-card-icon{font-size:1.6rem;line-height:1}
+.hub-card-title{font-size:.82rem;font-weight:800;color:var(--navy);line-height:1.3}
+.hub-card-sub{font-size:.68rem;color:var(--muted);line-height:1.4}
+.hub-card-badge{position:absolute;top:10px;right:10px;background:var(--sky);color:#fff;border-radius:10px;padding:1px 7px;font-size:.6rem;font-weight:800}
+.hub-card.locked{opacity:.55;cursor:default}
+.hub-card.locked::after{content:'Coming Soon';position:absolute;bottom:10px;right:10px;font-size:.6rem;font-weight:800;color:var(--muted);background:var(--border2);padding:2px 7px;border-radius:8px}
+/* Hub overlays reuse fs-overlay */
+.hub-overlay-hdr{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:#fff}
+
 /* ── BLOCKED USER SCREEN ─────────────────────────────────── */
 #blocked-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
 .blocked-icon{font-size:3.5rem;margin-bottom:16px}
@@ -726,7 +740,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <button onclick="showTab('add')"><span class="tab-icon">✚</span>New Flight</button>
     <button onclick="showTab('log')"><span class="tab-icon">📋</span>Logbook</button>
     <button onclick="showTab('perdiem')"><span class="tab-icon">💰</span>Per Diem</button>
-    <button id="tab-btn-db" onclick="showTab('db')"><span class="tab-icon">🗄</span>Database<span class="db-new-badge" id="db-new-badge">New</span></button>
+    <button id="tab-btn-hub" onclick="showTab('hub')"><span class="tab-icon">🛫</span>Crew Hub<span class="db-new-badge" id="hub-chat-badge" style="display:none;background:var(--sky)">●</span></button>
   </div>
 </header>
 
@@ -1161,7 +1175,27 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     5. DATABASE MANAGER
+     5. CREW HUB
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-hub">
+  <!-- Admin sees full hub; crew sees limited view for now -->
+  <div id="hub-admin-view">
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:14px">Crew Hub — Shared resources for your crew.</div>
+    <div class="hub-grid" id="hub-card-grid">
+      <!-- Cards rendered by renderCrewHub() -->
+    </div>
+  </div>
+  <div id="hub-crew-coming-soon" style="display:none">
+    <div class="empty" style="padding:40px 20px">
+      <div class="empty-icon">🛫</div>
+      <h3>Crew Hub</h3>
+      <p style="line-height:1.6">Shared crew resources are being prepared.<br>Check back soon.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     6. ADMIN PANEL (formerly Database)
 ════════════════════════════════════════════════════════════ -->
 <div class="section" id="tab-db">
 
@@ -1304,18 +1338,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div class="menu-app-version" id="menu-version-text">Version —</div>
   </div>
   <div class="menu-items">
-    <button class="menu-item" onclick="openMenuSection('agent')">
-      <span class="menu-item-icon">🤖</span>Nexa Crew AI
-    </button>
-    <button class="menu-item" onclick="openMenuSection('announcements')">
-      <span class="menu-item-icon">📢</span>Onboard Announcements
-    </button>
-    <button class="menu-item" onclick="openMenuSection('chat')">
-      <span class="menu-item-icon">💬</span>Crew Chat
-      <span class="menu-item-badge" id="chat-unread-menu-badge" style="display:none">0</span>
-    </button>
-    <button class="menu-item" onclick="openMenuSection('manuals')">
-      <span class="menu-item-icon">📖</span>Manuals
+    <!-- Admin Panel (admin only) -->
+    <button class="menu-item" id="menu-admin-btn" style="display:none" onclick="openMenuSection('db')">
+      <span class="menu-item-icon">🗄</span>Admin Panel
+      <span class="menu-item-badge" id="db-new-badge" style="display:none">New</span>
     </button>
     <button class="menu-item" onclick="openMenuSection('notes')">
       <span class="menu-item-icon">📝</span>My Notes
@@ -1913,6 +1939,127 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
+     CREW HUB OVERLAYS
+════════════════════════════════════════════════════════════ -->
+
+<!-- ── ONBOARD ANNOUNCEMENTS (from menu, now hub) ─────────── -->
+<!-- announcement-overlay already exists — reused via openMenuSection('announcements') -->
+
+<!-- ── MANUALS (from menu, now hub) ──────────────────────── -->
+<!-- manuals-overlay already exists — reused via loadManualsForCrew() -->
+
+<!-- ── CREW CHAT (from menu, now hub) ────────────────────── -->
+<!-- chat-overlay already exists — reused via openChat() -->
+
+<!-- ── NEXA (from menu, now hub) ─────────────────────────── -->
+<!-- nexa-overlay already exists — reused via openNexa() -->
+
+<!-- ── IQSMS ───────────────────────────────────────────────── -->
+<!-- Opens browser — no overlay needed -->
+
+<!-- ── PASSENGER MANIFEST ─────────────────────────────────── -->
+<div class="fs-overlay" id="manifest-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <h2>📋 Passenger Manifest</h2>
+      <button class="fs-close" onclick="closeManifestOverlay()">✕</button>
+    </div>
+    <!-- Admin upload bar -->
+    <div id="manifest-upload-bar" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border2);background:var(--ice2)">
+      <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:8px">Upload manifest (CSV or PDF) for a flight</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Number</label>
+          <input type="text" id="mfst-flightnum" placeholder="e.g. UR110" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/></div>
+        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Date</label>
+          <input type="date" id="mfst-date" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">DEP</label>
+          <input type="text" id="mfst-dep" placeholder="e.g. EBB" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font);text-transform:uppercase"/></div>
+        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">ARR</label>
+          <input type="text" id="mfst-arr" placeholder="e.g. NBO" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font);text-transform:uppercase"/></div>
+      </div>
+      <input type="file" id="mfst-file" accept=".csv,.pdf" style="display:none" onchange="handleManifestFile(this)"/>
+      <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('mfst-file').click()">📂 Choose CSV or PDF File</button>
+      <div id="mfst-file-name" style="font-size:.72rem;color:var(--muted);margin-top:6px;text-align:center"></div>
+      <button id="mfst-upload-btn" class="btn btn-gold" style="width:100%;margin-top:8px;display:none" onclick="uploadManifest()">⬆ Upload Manifest</button>
+    </div>
+    <!-- Manifest list/view -->
+    <div style="flex:1;overflow-y:auto;padding:14px" id="manifest-content">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PURSER FLIGHT REPORT ────────────────────────────────── -->
+<div class="fs-overlay" id="pfr-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <button class="fs-close" id="pfr-back-btn" onclick="closePFROverlay()" style="color:#7A9BB8;font-size:1rem;background:none;border:none;cursor:pointer">✕</button>
+      <h2>📝 Purser Flight Report</h2>
+      <span style="font-size:.62rem;color:#7A9BB8;background:rgba(255,255,255,.1);padding:3px 8px;border-radius:8px" id="pfr-status-badge">Draft</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px" id="pfr-form-body"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border2);display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-ghost" style="flex:1" onclick="savePFRDraft()">💾 Save Draft</button>
+      <button class="btn btn-gold" style="flex:1" onclick="openPFRSubmit()">📤 Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PFR SUBMIT MODAL ────────────────────────────────────── -->
+<div class="fs-overlay" id="pfr-submit-overlay" style="background:rgba(11,29,58,.7);display:none;align-items:flex-end">
+  <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">
+    <div style="font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:14px">📤 Submit Report — Select Recipients</div>
+    <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Cabin Crew Manager receives all reports automatically.</div>
+    <div id="pfr-recipients-list"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="submitPFR()">✈ Send Report</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="document.getElementById('pfr-submit-overlay').style.display='none'">Cancel</button>
+  </div>
+</div>
+
+<!-- ── CABIN LOG ───────────────────────────────────────────── -->
+<div class="fs-overlay" id="cabin-log-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <button onclick="closeCabinLogOverlay()" class="fs-close" style="color:#7A9BB8;font-size:1rem;background:none;border:none;cursor:pointer">✕</button>
+      <h2>🔧 Cabin Log</h2>
+      <span style="font-size:.62rem;color:#7A9BB8;background:rgba(255,255,255,.1);padding:3px 8px;border-radius:8px" id="clog-status-badge">Draft</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px" id="cabin-log-body"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border2);display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-ghost" style="flex:1" onclick="saveCabinLogDraft()">💾 Save Draft</button>
+      <button class="btn btn-primary" style="flex:1" onclick="submitCabinLog()">📤 Submit to Engineering</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CABIN NOTICES ───────────────────────────────────────── -->
+<div class="fs-overlay" id="notices-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <h2>📌 Cabin Notices</h2>
+      <button class="fs-close" onclick="closeNoticesOverlay()">✕</button>
+    </div>
+    <!-- Upload bar (admin + ops manager only) -->
+    <div id="notices-upload-bar" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border2);background:var(--ice2)">
+      <input type="text" id="notice-title-inp" placeholder="Notice title *"
+        style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;font-size:.85rem;font-family:var(--font);margin-bottom:8px"/>
+      <textarea id="notice-content-inp" placeholder="Notice content (or upload a PDF below)…" rows="3"
+        style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;font-size:.82rem;font-family:var(--font);resize:vertical;margin-bottom:8px"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Effective Date</label>
+          <input type="date" id="notice-date-inp" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="saveNotice()">📌 Post Notice</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px" id="notices-list-body">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
      BLOCKED USER SCREEN
 ════════════════════════════════════════════════════════════ -->
 <div id="blocked-screen">
@@ -2277,8 +2424,9 @@ async function initAuth(){
       document.getElementById('user-avatar').textContent = '?';
       document.getElementById('user-avatar').style.background = '';
       document.getElementById('hdr-total').textContent = '0';
-      const dbBtn = document.getElementById('tab-btn-db');
-      if(dbBtn) dbBtn.style.display = 'none';
+      localStorage.removeItem('ccl_role');
+      const adminBtn = document.getElementById('menu-admin-btn');
+      if(adminBtn) adminBtn.style.display = 'none';
       const banner = document.getElementById('crew-link-banner');
       if(banner) banner.remove();
 
@@ -2463,11 +2611,12 @@ function openMenuSection(section){
   closeMenu();
   if(section === 'announcements'){ loadAnnouncements(); document.getElementById('ann-overlay').classList.add('open'); }
   else if(section === 'settings'){ openSettings(); }
-  else if(section === 'help'){ document.getElementById('help-overlay').classList.add('open'); }
+  else if(section === 'help')   { document.getElementById('help-overlay').classList.add('open'); }
   else if(section === 'manuals'){ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); }
-  else if(section === 'notes'){ openNotes(); }
-  else if(section === 'chat'){ openChat(); }
-  else if(section === 'agent'){ openNexa(); }
+  else if(section === 'notes')  { openNotes(); }
+  else if(section === 'chat')   { openChat(); }
+  else if(section === 'agent')  { openNexa(); }
+  else if(section === 'db')     { showTab('db'); } // Admin Panel
   else { toast('🚧 Coming soon!'); }
 }
 
@@ -4076,11 +4225,11 @@ function markChannelRead(channelId){
 
 function updateChatMenuBadge(){
   const total = Object.values(_chatUnreadCounts).reduce((a,b)=>a+b,0);
-  const badge = document.getElementById('chat-unread-menu-badge');
-  if(badge){
-    badge.textContent = total;
-    badge.style.display = total > 0 ? 'block' : 'none';
-  }
+  // Update hub tab badge
+  const hubBadge = document.getElementById('hub-chat-badge');
+  if(hubBadge) hubBadge.style.display = total > 0 ? 'inline' : 'none';
+  // Re-render hub cards if open to refresh chat badge
+  if(document.getElementById('tab-hub')?.classList.contains('active')) renderCrewHub();
 }
 
 // ── New private chat picker ───────────────────────────────
@@ -5070,6 +5219,571 @@ function remindReviewLater(){
   document.getElementById('review-card')?.remove();
 }
 
+// ═══════════════════════════════════════════════
+// CREW HUB
+// ═══════════════════════════════════════════════
+
+const HUB_CARDS = [
+  { id:'announcements', icon:'📢', title:'Onboard Announcements', sub:'Pre-flight, Inflight & After Landing', roles:['all'], action:()=>{ openMenuSection('announcements'); } },
+  { id:'manifest',      icon:'📋', title:'Passenger Manifest',    sub:'View or upload flight manifest',     roles:['admin','ops_manager'], action:openManifestOverlay },
+  { id:'purser-report', icon:'📝', title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',    roles:['admin','senior_purser','purser'], action:openPFROverlay },
+  { id:'manuals',       icon:'📖', title:'Manuals',               sub:'Cabin crew & operations manuals',   roles:['all'], action:()=>{ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); closeMenu(); } },
+  { id:'cabin-log',     icon:'🔧', title:'Cabin Log',             sub:'Record cabin defects',              roles:['admin','senior_purser','purser'], action:openCabinLogOverlay },
+  { id:'chat',          icon:'💬', title:'Crew Chat',             sub:'Group & private messaging',         roles:['all'], action:()=>{ openChat(); } },
+  { id:'iqsms',         icon:'🛡', title:'IQSMS',                 sub:'Report safety concerns',            roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
+  { id:'notices',       icon:'📌', title:'Cabin Notices',         sub:'Operational notices & bulletins',   roles:['all'], action:openNoticesOverlay },
+  { id:'nexa',          icon:'🤖', title:'Nexa Crew AI',          sub:'AI assistant · Manuals & Logbook',  roles:['all'], action:()=>{ openNexa(); } },
+];
+
+function getUserRole(){
+  if(isAdmin) return 'admin';
+  return localStorage.getItem('ccl_role') || 'crew';
+}
+
+function canSeeHubCard(card){
+  if(card.roles.includes('all')) return true;
+  const role = getUserRole();
+  return card.roles.includes(role);
+}
+
+function renderCrewHub(){
+  const grid = document.getElementById('hub-card-grid');
+  if(!grid) return;
+
+  // Unread chat count for badge
+  const chatUnread = Object.values(_chatUnreadCounts||{}).reduce((a,b)=>a+b,0);
+
+  grid.innerHTML = HUB_CARDS.map(card => {
+    const visible = canSeeHubCard(card);
+    const badge   = card.id==='chat' && chatUnread > 0
+      ? `<span class="hub-card-badge">${chatUnread}</span>` : '';
+    return `
+    <div class="hub-card${visible?'':' locked'}"
+      onclick="${visible ? `hubCardClick('${card.id}')` : ''}">
+      <div class="hub-card-icon">${card.icon}</div>
+      <div class="hub-card-title">${card.title}</div>
+      <div class="hub-card-sub">${card.sub}</div>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function hubCardClick(id){
+  const card = HUB_CARDS.find(c=>c.id===id);
+  if(card?.action) card.action();
+}
+
+// ── Update chat badge on hub tab ──────────────────────────
+function updateHubChatBadge(){
+  const total = Object.values(_chatUnreadCounts||{}).reduce((a,b)=>a+b,0);
+  const badge = document.getElementById('hub-chat-badge');
+  if(badge){ badge.style.display = total>0?'inline':'none'; }
+}
+
+// ── Wire into showTab ─────────────────────────────────────
+// (called inside showTab's name==='hub' branch)
+
+// ═══════════════════════════════════════════════
+// PASSENGER MANIFEST
+// ═══════════════════════════════════════════════
+let _manifestData   = null; // parsed CSV/PDF data
+let _manifestFile   = null;
+
+function openManifestOverlay(){
+  document.getElementById('manifest-overlay').classList.add('open');
+  const canUpload = isAdmin || getUserRole()==='ops_manager';
+  document.getElementById('manifest-upload-bar').style.display = canUpload ? 'block' : 'none';
+  document.getElementById('mfst-date').valueAsDate = new Date();
+  loadManifests();
+}
+function closeManifestOverlay(){
+  document.getElementById('manifest-overlay').classList.remove('open');
+}
+
+function handleManifestFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  _manifestFile = file;
+  document.getElementById('mfst-file-name').textContent = `Selected: ${file.name}`;
+  document.getElementById('mfst-upload-btn').style.display = 'block';
+}
+
+async function uploadManifest(){
+  const flightNum = document.getElementById('mfst-flightnum').value.trim().toUpperCase();
+  const date      = document.getElementById('mfst-date').value;
+  const dep       = document.getElementById('mfst-dep').value.trim().toUpperCase();
+  const arr       = document.getElementById('mfst-arr').value.trim().toUpperCase();
+
+  if(!flightNum || !date){ toast('⚠ Flight number and date are required.'); return; }
+  if(!_manifestFile){ toast('⚠ Please select a file.'); return; }
+
+  // Parse CSV if applicable
+  let passengers = [];
+  if(_manifestFile.name.toLowerCase().endsWith('.csv')){
+    const text = await _manifestFile.text();
+    passengers = parseManifestCSV(text);
+  }
+
+  const { error } = await sb.from('passenger_manifests').insert({
+    flight_number: flightNum, flight_date: date,
+    dep, arr, passengers: JSON.stringify(passengers),
+    uploaded_by: currentUser.id
+  });
+  if(error){ toast('⚠ ' + error.message); return; }
+  toast('✅ Manifest uploaded!');
+  _manifestFile = null;
+  document.getElementById('mfst-file-name').textContent = '';
+  document.getElementById('mfst-upload-btn').style.display = 'none';
+  document.getElementById('mfst-file').value = '';
+  loadManifests();
+}
+
+function parseManifestCSV(text){
+  const lines = text.trim().split('\n');
+  if(lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[^a-z0-9_]/g,'_'));
+  return lines.slice(1).map(line => {
+    const cols = line.split(',');
+    const obj  = {};
+    headers.forEach((h,i) => { obj[h] = (cols[i]||'').trim().replace(/^"|"$/g,''); });
+    return obj;
+  });
+}
+
+async function loadManifests(){
+  const el = document.getElementById('manifest-content');
+  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading…</div>';
+
+  let query = sb.from('passenger_manifests').select('*').order('created_at',{ascending:false});
+
+  // Crew only see manifests matching their own flights
+  if(!isAdmin && getUserRole()!=='ops_manager'){
+    const myFlightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+    const myDates      = [...new Set(cache.flights.map(f=>f.date).filter(Boolean))];
+    if(!myFlightNums.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests yet</h3><p>Manifests for your flights will appear here.</p></div>'; return; }
+    query = query.in('flight_number', myFlightNums);
+  }
+
+  const { data, error } = await query.limit(50);
+  if(error || !data?.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><h3>No manifests found</h3><p>Upload a manifest using the form above.</p></div>';
+    return;
+  }
+
+  // Filter crew: only show manifests where both flight_number AND flight_date match their logged flights
+  let manifests = data;
+  if(!isAdmin && getUserRole()!=='ops_manager'){
+    manifests = data.filter(m => cache.flights.some(f => f.flightNum===m.flight_number && f.date===m.flight_date));
+  }
+
+  el.innerHTML = manifests.map(m => {
+    const pax = m.passengers ? (typeof m.passengers==='string' ? JSON.parse(m.passengers) : m.passengers) : [];
+    const uploaded = new Date(m.created_at).toLocaleDateString();
+    const jcCount  = pax.filter(p=>(p.class||p.cabin_class||p.seat_class||'').toUpperCase().includes('J')).length;
+    const ycCount  = pax.filter(p=>(p.class||p.cabin_class||p.seat_class||'').toUpperCase().includes('Y')).length;
+    const total    = pax.length;
+    return `
+    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="viewManifest('${m.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:800;color:var(--navy)">${escHtml(m.flight_number)} · ${m.flight_date}</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${escHtml(m.dep||'?')} → ${escHtml(m.arr||'?')} · Uploaded ${uploaded}</div>
+        </div>
+        <div style="text-align:right;font-size:.72rem;color:var(--muted)">
+          ${total>0?`${total} pax${jcCount?` · JC:${jcCount}`:''}${ycCount?` · YC:${ycCount}`:''}`:'No pax data'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function viewManifest(id){
+  const { data, error } = await sb.from('passenger_manifests').select('*').eq('id',id).single();
+  if(error || !data){ toast('⚠ Could not load manifest.'); return; }
+  const pax = data.passengers ? (typeof data.passengers==='string' ? JSON.parse(data.passengers) : data.passengers) : [];
+  const el  = document.getElementById('manifest-content');
+
+  // Group by class
+  const byClass = {};
+  pax.forEach(p => {
+    const cls = (p.class||p.cabin_class||p.seat_class||p.CLASS||'Unknown').toUpperCase();
+    if(!byClass[cls]) byClass[cls] = [];
+    byClass[cls].push(p);
+  });
+
+  const classOrder = ['J','PY','Y','UNKNOWN'];
+  const classLabels = { J:'Business Class (JC)', PY:'Premium Economy (PYC)', Y:'Economy (YC)', UNKNOWN:'Unclassified' };
+
+  let html = `
+    <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">← Back to list</button>
+    <div style="font-weight:800;color:var(--navy);font-size:.95rem;margin-bottom:4px">${escHtml(data.flight_number)} · ${data.flight_date}</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:14px">${escHtml(data.dep||'?')} → ${escHtml(data.arr||'?')} · ${pax.length} passengers total</div>`;
+
+  if(!pax.length){
+    html += '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:20px">No passenger data in this manifest (PDF upload — data not parsed).</div>';
+  } else {
+    const allKeys = [...new Set(pax.flatMap(p=>Object.keys(p)))].filter(k=>!['class','cabin_class','seat_class','CLASS'].includes(k));
+    Object.entries(byClass).forEach(([cls, passengers]) => {
+      const label = Object.entries(classLabels).find(([k])=>cls.startsWith(k))?.[1] || cls;
+      html += `<div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin:12px 0 6px">${label} (${passengers.length})</div>`;
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
+      html += '<tr>' + allKeys.map(k=>`<th style="text-align:left;padding:5px 8px;background:var(--navy);color:#fff;font-size:.65rem;white-space:nowrap">${k.replace(/_/g,' ').toUpperCase()}</th>`).join('') + '</tr>';
+      html += passengers.map((p,i)=>`<tr style="background:${i%2?'var(--ice2)':''}">` + allKeys.map(k=>`<td style="padding:5px 8px;border-bottom:1px solid var(--border2)">${escHtml(String(p[k]||''))}</td>`).join('') + '</tr>').join('');
+      html += '</table></div>';
+    });
+  }
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// PURSER FLIGHT REPORT (UGD-CAB-F-010)
+// ═══════════════════════════════════════════════
+let _pfrData = {};
+let _pfrId   = null;
+
+const PFR_RECIPIENTS = [
+  { id:'catering',     label:'Catering Department' },
+  { id:'dispatch',     label:'Flight Operations / Dispatch' },
+  { id:'hr',           label:'Human Resources' },
+  { id:'safety',       label:'Safety Department' },
+  { id:'engineering',  label:'Engineering' },
+  { id:'ticketing',    label:'Ticketing' },
+];
+
+const PFR_CHECKLIST = [
+  'Cleaning','Catering','Meal Quantities','Cabin Equipment',
+  'Briefing Topic','Security Checks','Seating','Change in Order of Service'
+];
+
+async function openPFROverlay(){
+  document.getElementById('pfr-overlay').classList.add('open');
+  // Check for existing draft for today
+  const today = new Date().toISOString().slice(0,10);
+  const { data } = await sb.from('purser_reports')
+    .select('*').eq('user_id',currentUser.id).eq('status','draft').order('updated_at',{ascending:false}).limit(1);
+  if(data?.length){
+    _pfrId   = data[0].id;
+    _pfrData = data[0];
+    document.getElementById('pfr-status-badge').textContent = 'Draft';
+  } else {
+    _pfrId   = null;
+    _pfrData = { date: today, flight_number: '', sector:'', ac_type:'', ac_reg:'', captain:'', purser: localStorage.getItem('ccl_crew_name')||'', crew_list:[], sectors_data:[], checklist:{}, reason_for_change:'', general_remarks:'', total_block_time:'' };
+    document.getElementById('pfr-status-badge').textContent = 'New';
+  }
+  renderPFRForm();
+}
+
+function closePFROverlay(){
+  document.getElementById('pfr-overlay').classList.remove('open');
+}
+
+function renderPFRForm(){
+  const d = _pfrData;
+  const crewRows = Array.from({length:8},(_,i)=>{
+    const c = d.crew_list?.[i] || {};
+    return `<tr>
+      <td style="padding:4px 6px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
+      <td><input type="text" value="${escHtml(c.name||'')}" oninput="pfrCrewUpdate(${i},'name',this.value)" placeholder="Name / ID / Code" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.78rem;font-family:var(--font)"/></td>
+      <td><input type="date" value="${c.boarded_date||''}" oninput="pfrCrewUpdate(${i},'boarded_date',this.value)" style="border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font)"/></td>
+      <td><input type="time" value="${c.boarded_time||''}" oninput="pfrCrewUpdate(${i},'boarded_time',this.value)" style="border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font)"/></td>
+      <td><input type="date" value="${c.left_date||''}" oninput="pfrCrewUpdate(${i},'left_date',this.value)" style="border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font)"/></td>
+      <td><input type="time" value="${c.left_time||''}" oninput="pfrCrewUpdate(${i},'left_time',this.value)" style="border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font)"/></td>
+    </tr>`;
+  }).join('');
+
+  const sectorRows = Array.from({length:6},(_,i)=>{
+    const s = d.sectors_data?.[i] || {};
+    return `<tr>
+      <td style="padding:4px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
+      <td><input type="text" value="${escHtml(s.flight_number||'')}" oninput="pfrSectorUpdate(${i},'flight_number',this.value)" placeholder="UR110" style="width:90px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font)"/></td>
+      <td><input type="text" value="${escHtml(s.sector||'')}" oninput="pfrSectorUpdate(${i},'sector',this.value)" placeholder="EBB→NBO" style="width:80px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font)"/></td>
+      <td><input type="number" value="${s.j_pax||''}" oninput="pfrSectorUpdate(${i},'j_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center"/></td>
+      <td><input type="number" value="${s.y_pax||''}" oninput="pfrSectorUpdate(${i},'y_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center"/></td>
+      <td style="font-size:.75rem;font-weight:700;padding:4px;text-align:center">${(parseInt(s.j_pax||0)+parseInt(s.y_pax||0))||''}</td>
+      <td><input type="text" value="${escHtml(s.remarks||'')}" oninput="pfrSectorUpdate(${i},'remarks',this.value)" placeholder="Remarks" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font)"/></td>
+    </tr>`;
+  }).join('');
+
+  const checklistRows = PFR_CHECKLIST.map((item,i)=>{
+    const val = d.checklist?.[i] || '';
+    return `<tr>
+      <td style="padding:5px 8px;font-size:.75rem;">${i+1}</td>
+      <td style="padding:5px 8px;font-size:.75rem;font-weight:600">${item}</td>
+      ${['A','B','C'].map(opt=>`<td style="text-align:center;padding:5px"><input type="radio" name="pfr-cl-${i}" value="${opt}" ${val===opt?'checked':''} onchange="pfrChecklistUpdate(${i},'${opt}')"/></td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pfr-form-body').innerHTML = `
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:6px">UGD-CAB-F-010</div>
+
+    <!-- Header -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      ${[['Date','date','date'],['Flight Number','text','flight_number'],['Sector','text','sector'],['A/C Type','text','ac_type'],['A/C Reg','text','ac_reg'],['Captain','text','captain'],['Purser','text','purser'],['Total Block Time','text','total_block_time']].map(([lbl,type,key])=>`
+        <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">${lbl}</label>
+        <input type="${type}" value="${escHtml(String(d[key]||''))}" oninput="_pfrData['${key}']=this.value"
+          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>`).join('')}
+    </div>
+
+    <!-- Crew List -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:6px">Crew List</div>
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+        <thead><tr style="background:var(--navy);color:#fff">
+          <th style="padding:5px 6px">#</th><th style="padding:5px 6px">Name / ID / Code</th>
+          <th style="padding:5px 6px">Boarded Date</th><th style="padding:5px 6px">Time</th>
+          <th style="padding:5px 6px">Left Date</th><th style="padding:5px 6px">Time</th>
+        </tr></thead>
+        <tbody>${crewRows}</tbody>
+      </table>
+    </div>
+
+    <!-- Sectors -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:6px">Flight Sectors</div>
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+        <thead><tr style="background:var(--navy);color:#fff">
+          <th style="padding:5px">#</th><th style="padding:5px">Flt No.</th>
+          <th style="padding:5px">Sector</th><th style="padding:5px">J Pax</th>
+          <th style="padding:5px">Y Pax</th><th style="padding:5px">Total</th><th style="padding:5px">Remarks</th>
+        </tr></thead>
+        <tbody>${sectorRows}</tbody>
+      </table>
+    </div>
+
+    <!-- Checklist -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:6px">Flight in General</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead><tr style="background:var(--navy);color:#fff;font-size:.65rem">
+        <th style="padding:5px 8px;text-align:left">#</th><th style="padding:5px 8px;text-align:left">Description</th>
+        <th style="padding:5px 8px">A</th><th style="padding:5px 8px">B</th><th style="padding:5px 8px">C</th>
+      </tr></thead>
+      <tbody>${checklistRows}</tbody>
+    </table>
+
+    <!-- Reason for change -->
+    <div class="field" style="margin-bottom:12px">
+      <label>Reason for Change in Order of Service</label>
+      <textarea oninput="_pfrData.reason_for_change=this.value" rows="2" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:var(--font);resize:vertical">${escHtml(d.reason_for_change||'')}</textarea>
+    </div>
+
+    <!-- General Remarks -->
+    <div class="field" style="margin-bottom:16px">
+      <label>General Remarks / Observations</label>
+      <textarea id="pfr-remarks" oninput="_pfrData.general_remarks=this.value" rows="6"
+        style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:var(--font);resize:vertical;min-height:120px">${escHtml(d.general_remarks||'')}</textarea>
+    </div>`;
+}
+
+function pfrCrewUpdate(i, key, val){
+  if(!_pfrData.crew_list) _pfrData.crew_list = [];
+  if(!_pfrData.crew_list[i]) _pfrData.crew_list[i] = {};
+  _pfrData.crew_list[i][key] = val;
+}
+function pfrSectorUpdate(i, key, val){
+  if(!_pfrData.sectors_data) _pfrData.sectors_data = [];
+  if(!_pfrData.sectors_data[i]) _pfrData.sectors_data[i] = {};
+  _pfrData.sectors_data[i][key] = val;
+}
+function pfrChecklistUpdate(i, val){
+  if(!_pfrData.checklist) _pfrData.checklist = {};
+  _pfrData.checklist[i] = val;
+}
+
+async function savePFRDraft(){
+  const payload = { ..._pfrData, user_id: currentUser.id, status:'draft', updated_at: new Date().toISOString(),
+    crew_list:   JSON.stringify(_pfrData.crew_list||[]),
+    sectors_data:JSON.stringify(_pfrData.sectors_data||[]),
+    checklist:   JSON.stringify(_pfrData.checklist||{}) };
+  if(_pfrId){
+    const { error } = await sb.from('purser_reports').update(payload).eq('id',_pfrId);
+    if(error){ toast('⚠ ' + error.message); return; }
+  } else {
+    const { data, error } = await sb.from('purser_reports').insert(payload).select().single();
+    if(error){ toast('⚠ ' + error.message); return; }
+    _pfrId = data.id;
+  }
+  document.getElementById('pfr-status-badge').textContent = 'Draft saved ✓';
+  toast('✅ Draft saved!');
+}
+
+function openPFRSubmit(){
+  const el = document.getElementById('pfr-recipients-list');
+  el.innerHTML = PFR_RECIPIENTS.map(r=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);cursor:pointer">
+      <input type="checkbox" id="pfr-rcpt-${r.id}" style="width:18px;height:18px"/>
+      <span style="font-size:.85rem;font-weight:600;color:var(--navy)">${r.label}</span>
+    </label>`).join('');
+  document.getElementById('pfr-submit-overlay').style.display = 'flex';
+}
+
+async function submitPFR(){
+  await savePFRDraft();
+  const selected = PFR_RECIPIENTS.filter(r=>document.getElementById(`pfr-rcpt-${r.id}`)?.checked).map(r=>r.id);
+  const recipients = ['cabin_crew_manager', ...selected];
+  const { error } = await sb.from('purser_reports').update({
+    status: 'submitted', recipients: JSON.stringify(recipients), updated_at: new Date().toISOString()
+  }).eq('id',_pfrId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  document.getElementById('pfr-submit-overlay').style.display = 'none';
+  document.getElementById('pfr-status-badge').textContent = 'Submitted ✓';
+  toast('✅ Report submitted! Set up your webhook to enable email delivery.');
+}
+
+// ═══════════════════════════════════════════════
+// CABIN LOG
+// ═══════════════════════════════════════════════
+let _clogData = {};
+let _clogId   = null;
+
+async function openCabinLogOverlay(){
+  document.getElementById('cabin-log-overlay').classList.add('open');
+  const { data } = await sb.from('cabin_logs')
+    .select('*').eq('user_id',currentUser.id).eq('status','draft').order('created_at',{ascending:false}).limit(1);
+  if(data?.length){
+    _clogId   = data[0].id;
+    _clogData = data[0];
+    _clogData.faults = typeof _clogData.faults==='string' ? JSON.parse(_clogData.faults) : (_clogData.faults||[]);
+    document.getElementById('clog-status-badge').textContent = 'Draft';
+  } else {
+    _clogId   = null;
+    _clogData = { date: new Date().toISOString().slice(0,10), flight_number:'', ac_type:'', ac_reg:'', dep:'', arr:'', sfp: localStorage.getItem('ccl_crew_name')||'', faults:[{fault:'',action:''}], captain:'', station:'' };
+    document.getElementById('clog-status-badge').textContent = 'New';
+  }
+  renderCabinLogForm();
+}
+
+function closeCabinLogOverlay(){
+  document.getElementById('cabin-log-overlay').classList.remove('open');
+}
+
+function renderCabinLogForm(){
+  const d = _clogData;
+  const faults = d.faults?.length ? d.faults : [{fault:'',action:''}];
+  const faultRows = faults.map((f,i)=>`
+    <div style="background:var(--ice2);border-radius:8px;padding:12px;margin-bottom:8px;position:relative">
+      <div style="font-size:.65rem;font-weight:800;color:var(--sky);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Defect ${i+1}</div>
+      <label style="font-size:.7rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Fault Identified</label>
+      <textarea oninput="_clogData.faults[${i}].fault=this.value" rows="3"
+        style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:.82rem;font-family:var(--font);resize:vertical;margin-bottom:8px">${escHtml(f.fault||'')}</textarea>
+      <label style="font-size:.7rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Action Recommended / Taken</label>
+      <textarea oninput="_clogData.faults[${i}].action=this.value" rows="3"
+        style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:.82rem;font-family:var(--font);resize:vertical">${escHtml(f.action||'')}</textarea>
+      ${faults.length>1?`<button onclick="removeClogFault(${i})" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">✕</button>`:''}
+    </div>`).join('');
+
+  document.getElementById('cabin-log-body').innerHTML = `
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky);margin-bottom:8px">Uganda Airlines Cabin Log</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      ${[['Date','date','date'],['Flight Number','text','flight_number'],['A/C Type','text','ac_type'],['A/C Reg','text','ac_reg'],['From','text','dep'],['To','text','arr'],['SFP/SCCM','text','sfp'],['Captain','text','captain']].map(([lbl,type,key])=>`
+        <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">${lbl}</label>
+        <input type="${type}" value="${escHtml(String(d[key]||''))}" oninput="_clogData['${key}']=this.value"
+          style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font);color:var(--navy)"/></div>`).join('')}
+    </div>
+
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:8px">Cabin Defects</div>
+    <div id="clog-faults">${faultRows}</div>
+    <button onclick="addClogFault()" class="btn btn-ghost" style="width:100%;margin-bottom:14px">+ Add Another Defect</button>
+
+    <div><label style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px">Station / Location</label>
+    <input type="text" value="${escHtml(d.station||'')}" oninput="_clogData.station=this.value"
+      style="width:100%;border:none;border-bottom:1.5px solid var(--border);padding:5px 2px;font-size:.85rem;font-family:var(--font)"/></div>
+
+    <div style="font-size:.7rem;color:var(--muted);margin-top:16px;line-height:1.6;font-style:italic">
+      I hereby certify that the defects listed were identified and the actions recorded are accurate.
+    </div>`;
+}
+
+function addClogFault(){
+  if(!_clogData.faults) _clogData.faults = [];
+  _clogData.faults.push({fault:'',action:''});
+  renderCabinLogForm();
+}
+function removeClogFault(i){
+  _clogData.faults.splice(i,1);
+  renderCabinLogForm();
+}
+
+async function saveCabinLogDraft(){
+  const payload = { ..._clogData, user_id: currentUser.id, status:'draft',
+    faults: JSON.stringify(_clogData.faults||[]) };
+  if(_clogId){
+    const { error } = await sb.from('cabin_logs').update(payload).eq('id',_clogId);
+    if(error){ toast('⚠ ' + error.message); return; }
+  } else {
+    const { data, error } = await sb.from('cabin_logs').insert(payload).select().single();
+    if(error){ toast('⚠ ' + error.message); return; }
+    _clogId = data.id;
+  }
+  document.getElementById('clog-status-badge').textContent = 'Draft saved ✓';
+  toast('✅ Cabin log draft saved!');
+}
+
+async function submitCabinLog(){
+  await saveCabinLogDraft();
+  const { error } = await sb.from('cabin_logs').update({
+    status:'submitted', submitted_at: new Date().toISOString()
+  }).eq('id',_clogId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  document.getElementById('clog-status-badge').textContent = 'Submitted ✓';
+  toast('✅ Cabin log submitted to Engineering. Set up webhook for email delivery.');
+}
+
+// ═══════════════════════════════════════════════
+// CABIN NOTICES
+// ═══════════════════════════════════════════════
+function openNoticesOverlay(){
+  document.getElementById('notices-overlay').classList.add('open');
+  const canUpload = isAdmin || getUserRole()==='ops_manager';
+  document.getElementById('notices-upload-bar').style.display = canUpload ? 'block' : 'none';
+  loadNotices();
+}
+function closeNoticesOverlay(){
+  document.getElementById('notices-overlay').classList.remove('open');
+}
+
+async function loadNotices(){
+  const el = document.getElementById('notices-list-body');
+  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading…</div>';
+  const { data, error } = await sb.from('cabin_notices').select('*').order('created_at',{ascending:false});
+  if(error || !data?.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📌</div><h3>No notices yet</h3><p>Notices posted by admin will appear here.</p></div>';
+    return;
+  }
+  el.innerHTML = data.map(n=>`
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--navy);font-size:.88rem">${escHtml(n.title)}</div>
+        <div style="font-size:.65rem;color:var(--muted);flex-shrink:0;margin-left:8px">${n.effective_date||new Date(n.created_at).toLocaleDateString()}</div>
+      </div>
+      ${n.content?`<div style="font-size:.8rem;color:var(--navy);line-height:1.6;white-space:pre-wrap">${escHtml(n.content)}</div>`:''}
+      ${(isAdmin||getUserRole()==='ops_manager')?`<button onclick="deleteNotice('${n.id}')" class="btn btn-danger btn-sm" style="margin-top:8px">🗑 Delete</button>`:''}
+    </div>`).join('');
+}
+
+async function saveNotice(){
+  const title   = document.getElementById('notice-title-inp').value.trim();
+  const content = document.getElementById('notice-content-inp').value.trim();
+  const date    = document.getElementById('notice-date-inp').value;
+  if(!title){ toast('⚠ Title is required.'); return; }
+  const { error } = await sb.from('cabin_notices').insert({
+    title, content: content||null, effective_date: date||null, uploaded_by: currentUser.id
+  });
+  if(error){ toast('⚠ ' + error.message); return; }
+  document.getElementById('notice-title-inp').value   = '';
+  document.getElementById('notice-content-inp').value = '';
+  document.getElementById('notice-date-inp').value    = '';
+  toast('✅ Notice posted!');
+  loadNotices();
+}
+
+async function deleteNotice(id){
+  if(!confirm('Delete this notice?')) return;
+  const { error } = await sb.from('cabin_notices').delete().eq('id',id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  toast('🗑 Notice deleted.');
+  loadNotices();
+}
+
 function escHtml(str){
   if(!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5107,9 +5821,12 @@ async function onLoggedIn(){
   if(profile?.crew_name) localStorage.setItem('ccl_crew_name', profile.crew_name);
   if(profile?.position)  localStorage.setItem('ccl_position', profile.position);
 
-  // Show Database tab only for admins
-  const dbTabBtn = document.getElementById('tab-btn-db');
-  if(dbTabBtn) dbTabBtn.style.display = isAdmin ? '' : 'none';
+  // Admin Panel menu item (admin only)
+  const adminMenuBtn = document.getElementById('menu-admin-btn');
+  if(adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
+
+  // Load and cache user role
+  if(profile?.role) localStorage.setItem('ccl_role', profile.role);
 
   // Gold avatar for admin
   if(isAdmin){
@@ -5297,28 +6014,29 @@ function monthLabel(d){ return d.toLocaleDateString('en-GB',{month:'long',year:'
 // ═══════════════════════════════════════════════
 // TABS
 // ═══════════════════════════════════════════════
-const TABS=['dash','add','log','perdiem','db'];
+const TABS=['dash','add','log','perdiem','hub','db'];
 function showTab(name){
+  // db tab only accessible via menu (Admin Panel)
   if(name==='db' && !isAdmin){ toast('⚠ Admin access only.'); return; }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  // Highlight only visible tab buttons
   document.querySelectorAll('.tab-bar button').forEach(b=>{
     const fn = b.getAttribute('onclick')||'';
     b.classList.toggle('active', fn.includes(`'${name}'`));
   });
-  document.getElementById('tab-'+name).classList.add('active');
+  const tabEl = document.getElementById('tab-'+name);
+  if(tabEl) tabEl.classList.add('active');
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
   if(name==='log')     renderLog();
+  if(name==='hub')     renderCrewHub();
   if(name==='db'){
     loadAdminUsers().then(()=>{
       loadAnnouncements().then(()=>{
         loadManualsMetadata().then(()=>renderDB());
       });
     });
-    // Load reviews summary for KPI card subtitle
     if(isAdmin && isOnline){
-      sb.from('app_reviews').select('rating', {count:'exact'}).then(({data, count})=>{
+      sb.from('app_reviews').select('rating',{count:'exact'}).then(({data})=>{
         const subEl = document.getElementById('reviews-kpi-sub');
         if(subEl && data){
           const avg = data.length ? (data.reduce((a,r)=>a+r.rating,0)/data.length).toFixed(1) : null;
