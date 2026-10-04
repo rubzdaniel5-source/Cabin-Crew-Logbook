@@ -2927,30 +2927,48 @@ async function deleteAnn(id){
 
 // ── Admin: reorder with ↑↓ arrows ────────────────────────
 async function annMove(id, direction){
-  // Work only within the current category
-  const catItems = _annCache.filter(a=>a.category===_annCat)
-    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const idx = catItems.findIndex(a=>a.id===id);
-  if(idx===-1) return;
-  const swapIdx = direction==='up' ? idx-1 : idx+1;
-  if(swapIdx<0 || swapIdx>=catItems.length) return;
+  // Work only within the current category, sorted by current order
+  const catItems = _annCache
+    .filter(a => a.category === _annCat)
+    .sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
 
-  // Swap sort_order values
+  const idx = catItems.findIndex(a => a.id === id);
+  if(idx === -1) return;
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if(swapIdx < 0 || swapIdx >= catItems.length) return;
+
+  // Ensure every item in this category has a unique sequential sort_order
+  // (fixes the case where all items have sort_order = 0 after column was just added)
+  const needsInit = catItems.every(a => (a.sort_order||0) === 0) ||
+    catItems.some((a,i) => i>0 && (a.sort_order||0) <= (catItems[i-1].sort_order||0));
+
+  if(needsInit){
+    // Write sequential values 10, 20, 30... to give room between items
+    const initUpdates = catItems.map((item, i) =>
+      sb.from('announcements').update({ sort_order: (i+1)*10 }).eq('id', item.id)
+    );
+    await Promise.all(initUpdates);
+    catItems.forEach((item, i) => {
+      const c = _annCache.find(a => a.id === item.id);
+      if(c) c.sort_order = (i+1)*10;
+    });
+  }
+
+  // Now swap the sort_order of the two items
   const itemA = catItems[idx];
   const itemB = catItems[swapIdx];
-  const orderA = itemA.sort_order ?? idx;
-  const orderB = itemB.sort_order ?? swapIdx;
+  const cA = _annCache.find(a => a.id === itemA.id);
+  const cB = _annCache.find(a => a.id === itemB.id);
+  const orderA = cA?.sort_order ?? (idx+1)*10;
+  const orderB = cB?.sort_order ?? (swapIdx+1)*10;
 
-  // Write swapped orders to Supabase
   const [r1, r2] = await Promise.all([
     sb.from('announcements').update({ sort_order: orderB }).eq('id', itemA.id),
     sb.from('announcements').update({ sort_order: orderA }).eq('id', itemB.id),
   ]);
-  if(r1.error || r2.error){ toast('⚠ Reorder failed.'); return; }
+  if(r1.error || r2.error){ toast('⚠ Reorder failed — ' + (r1.error||r2.error).message); return; }
 
-  // Update local cache
-  const cA = _annCache.find(a=>a.id===itemA.id);
-  const cB = _annCache.find(a=>a.id===itemB.id);
+  // Update local cache and re-render
   if(cA) cA.sort_order = orderB;
   if(cB) cB.sort_order = orderA;
   localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
