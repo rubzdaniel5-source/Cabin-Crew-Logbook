@@ -368,6 +368,41 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .hub-overlay-hdr{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:#fff}
 
+/* ── PASSENGER MANIFEST ──────────────────────────────────── */
+.mfst-header{background:var(--navy);color:#fff;padding:14px 16px;border-radius:var(--radius) var(--radius) 0 0;margin:-16px -16px 14px}
+.mfst-flight-num{font-size:1.1rem;font-weight:900;letter-spacing:-.01em}
+.mfst-flight-sub{font-size:.72rem;color:#7A9BB8;margin-top:3px}
+.mfst-class-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.mfst-class-pill{background:var(--ice2);border:1.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:.72rem;font-weight:800;color:var(--navy)}
+.mfst-class-pill span{color:var(--sky);margin-left:4px}
+.mfst-section-hdr{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border2)}
+.mfst-pax-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border2)}
+.mfst-pax-row:last-child{border-bottom:none}
+.mfst-seat{font-size:.8rem;font-weight:900;color:var(--navy);min-width:36px;text-align:center;background:var(--ice2);border-radius:6px;padding:3px 5px}
+.mfst-name{flex:1;font-size:.83rem;font-weight:700;color:var(--navy)}
+.mfst-meta{font-size:.68rem;color:var(--muted)}
+.mfst-status-badge{font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:8px}
+.mfst-status-badge.checked{background:#d4f4e2;color:#1a7a45}
+.mfst-status-badge.pending{background:#fef3cd;color:#8a6200}
+.mfst-upload-method{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:8px;display:inline-block;margin-left:6px}
+.mfst-upload-method.admin{background:#e8f0fe;color:#1a56db}
+.mfst-upload-method.agent{background:#f0fdf4;color:#166534}
+.mfst-upload-method.api{background:#fdf4ff;color:#7e22ce}
+
+/* ── CHECK-IN AGENT INTERFACE ────────────────────────────── */
+#agent-screen{display:none;position:fixed;inset:0;background:var(--white);z-index:9998;flex-direction:column}
+.agent-hdr{background:var(--navy);padding:18px 16px;color:#fff}
+.agent-hdr-title{font-size:1rem;font-weight:900}
+.agent-hdr-sub{font-size:.72rem;color:#7A9BB8;margin-top:3px}
+.agent-upload-card{background:var(--card);border:2px dashed var(--border);border-radius:var(--radius);padding:24px 16px;text-align:center;margin:16px;cursor:pointer;transition:border-color .15s}
+.agent-upload-card:hover{border-color:var(--sky)}
+.agent-flight-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:14px;margin:0 16px 10px;display:flex;align-items:center;gap:12px}
+
+/* ── API STATUS ───────────────────────────────────────────── */
+.api-status-badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:4px 10px;border-radius:10px;margin-bottom:12px}
+.api-status-badge.pending{background:#fef3cd;color:#8a6200}
+.api-status-badge.active{background:#d4f4e2;color:#1a7a45}
+
 /* ── BLOCKED USER SCREEN ─────────────────────────────────── */
 #blocked-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
 .blocked-icon{font-size:3.5rem;margin-bottom:16px}
@@ -1996,27 +2031,74 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <h2>📋 Passenger Manifest</h2>
       <button class="fs-close" onclick="closeManifestOverlay()">✕</button>
     </div>
-    <!-- Admin upload bar -->
-    <div id="manifest-upload-bar" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border2);background:var(--ice2)">
-      <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:8px">Upload manifest (CSV or PDF) for a flight</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Number</label>
-          <input type="text" id="mfst-flightnum" placeholder="e.g. UR110" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/></div>
-        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Date</label>
-          <input type="date" id="mfst-date" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font)"/></div>
+
+    <!-- Admin / Ops Manager upload panel -->
+    <div id="manifest-upload-bar" style="display:none;border-bottom:1px solid var(--border2);background:var(--ice2)">
+
+      <!-- Amadeus API option (Option C) -->
+      <div style="padding:12px 16px 0">
+        <div class="api-status-badge pending" id="mfst-api-badge">
+          <span>⏳</span> Amadeus API — Pending Configuration
+        </div>
+        <button id="mfst-api-btn" onclick="fetchManifestViaAPI()" disabled
+          style="width:100%;margin-bottom:10px;opacity:.4;cursor:not-allowed"
+          class="btn btn-primary">
+          🔗 Fetch from Amadeus DCS
+        </button>
+        <div style="text-align:center;font-size:.68rem;color:var(--muted);margin-bottom:10px;font-weight:700">— or upload manually —</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">DEP</label>
-          <input type="text" id="mfst-dep" placeholder="e.g. EBB" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font);text-transform:uppercase"/></div>
-        <div><label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">ARR</label>
-          <input type="text" id="mfst-arr" placeholder="e.g. NBO" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:var(--font);text-transform:uppercase"/></div>
+
+      <!-- Manual upload fields -->
+      <div style="padding:0 16px 12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Number *</label>
+            <div class="combo-wrap">
+              <input type="text" id="mfst-flightnum" placeholder="e.g. UR720" autocomplete="off"
+                oninput="mfstFilterCombo('mfst-flightnum','mfst-fn-dd','flightNums')"
+                onfocus="mfstFilterCombo('mfst-flightnum','mfst-fn-dd','flightNums')"
+                onblur="setTimeout(()=>{const d=document.getElementById('mfst-fn-dd');if(d)d.style.display='none'},200)"
+                style="text-transform:uppercase"/>
+              <div class="combo-dropdown" id="mfst-fn-dd"></div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Date *</label>
+            <input type="date" id="mfst-date" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:var(--font)"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">DEP</label>
+            <div class="combo-wrap">
+              <input type="text" id="mfst-dep" placeholder="EBB" autocomplete="off"
+                oninput="mfstFilterCombo('mfst-dep','mfst-dep-dd','airports')"
+                onfocus="mfstFilterCombo('mfst-dep','mfst-dep-dd','airports')"
+                onblur="setTimeout(()=>{const d=document.getElementById('mfst-dep-dd');if(d)d.style.display='none'},200)"
+                style="text-transform:uppercase"/>
+              <div class="combo-dropdown" id="mfst-dep-dd"></div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">ARR</label>
+            <div class="combo-wrap">
+              <input type="text" id="mfst-arr" placeholder="NBO" autocomplete="off"
+                oninput="mfstFilterCombo('mfst-arr','mfst-arr-dd','airports')"
+                onfocus="mfstFilterCombo('mfst-arr','mfst-arr-dd','airports')"
+                onblur="setTimeout(()=>{const d=document.getElementById('mfst-arr-dd');if(d)d.style.display='none'},200)"
+                style="text-transform:uppercase"/>
+              <div class="combo-dropdown" id="mfst-arr-dd"></div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="mfst-file" accept=".txt,.csv,.pdf,text/plain" style="display:none" onchange="handleManifestFile(this)"/>
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px" onclick="document.getElementById('mfst-file').click()">📂 Choose PNL / CSV / PDF File</button>
+        <div id="mfst-file-name" style="font-size:.72rem;color:var(--sky);font-weight:700;text-align:center;min-height:16px"></div>
+        <button id="mfst-upload-btn" class="btn btn-gold" style="width:100%;margin-top:8px;display:none" onclick="uploadManifest()">⬆ Upload Manifest</button>
       </div>
-      <input type="file" id="mfst-file" accept=".csv,.pdf" style="display:none" onchange="handleManifestFile(this)"/>
-      <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('mfst-file').click()">📂 Choose CSV or PDF File</button>
-      <div id="mfst-file-name" style="font-size:.72rem;color:var(--muted);margin-top:6px;text-align:center"></div>
-      <button id="mfst-upload-btn" class="btn btn-gold" style="width:100%;margin-top:8px;display:none" onclick="uploadManifest()">⬆ Upload Manifest</button>
     </div>
-    <!-- Manifest list/view -->
+
+    <!-- Manifest list / detail view -->
     <div style="flex:1;overflow-y:auto;padding:14px" id="manifest-content">
       <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
     </div>
@@ -2088,6 +2170,60 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
     <div style="flex:1;overflow-y:auto;padding:14px" id="notices-list-body">
       <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CHECK-IN AGENT INTERFACE
+════════════════════════════════════════════════════════════ -->
+<div id="agent-screen">
+  <div class="agent-hdr">
+    <div class="agent-hdr-title">✈ Uganda Airlines — Manifest Upload</div>
+    <div class="agent-hdr-sub" id="agent-hdr-name">Check-in Agent Portal</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:20px">
+    <!-- Upload new manifest -->
+    <div style="padding:16px 16px 0">
+      <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">Upload Passenger Manifest</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Number *</label>
+          <div class="combo-wrap">
+            <input type="text" id="agent-flightnum" placeholder="e.g. UR720" autocomplete="off"
+              oninput="agentFilterCombo('agent-flightnum','agent-fn-dd')"
+              onfocus="agentFilterCombo('agent-flightnum','agent-fn-dd')"
+              onblur="setTimeout(()=>{const d=document.getElementById('agent-fn-dd');if(d)d.style.display='none'},200)"
+              style="text-transform:uppercase"/>
+            <div class="combo-dropdown" id="agent-fn-dd"></div>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.68rem;font-weight:700;color:var(--muted);display:block;margin-bottom:3px">Flight Date *</label>
+          <input type="date" id="agent-date" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:.82rem;font-family:var(--font)"/>
+        </div>
+      </div>
+    </div>
+    <div class="agent-upload-card" onclick="document.getElementById('agent-file-inp').click()">
+      <div style="font-size:2rem;margin-bottom:8px">📄</div>
+      <div style="font-weight:700;color:var(--navy);font-size:.88rem">Tap to select PNL file</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Text file exported from Amadeus DCS</div>
+      <div id="agent-file-name" style="font-size:.75rem;color:var(--sky);font-weight:700;margin-top:8px"></div>
+      <input type="file" id="agent-file-inp" accept=".txt,.csv,.pdf,text/plain" style="display:none" onchange="onAgentFileSelected(this)"/>
+    </div>
+    <div style="padding:0 16px">
+      <button id="agent-upload-btn" class="btn btn-primary" style="width:100%;display:none" onclick="agentUploadManifest()">⬆ Upload Manifest</button>
+    </div>
+
+    <!-- Recent uploads (last 48 hrs) -->
+    <div style="padding:16px 16px 0">
+      <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">Recent Uploads (Last 48 Hours)</div>
+      <div id="agent-recent-list">
+        <div style="text-align:center;color:var(--muted);padding:20px;font-size:.82rem">Loading…</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border2);background:var(--white)">
+    <button class="btn btn-ghost" style="width:100%" onclick="sb.auth.signOut()">Sign Out</button>
   </div>
 </div>
 
@@ -4820,6 +4956,137 @@ function dismissPhonePrompt(){
   localStorage.setItem('ccl_phone_prompt_dismissed', '1');
 }
 
+// ═══════════════════════════════════════════════
+// CHECK-IN AGENT INTERFACE
+// ═══════════════════════════════════════════════
+function showAgentScreen(profile){
+  // Show agent-specific stripped interface, hide main app
+  document.getElementById('agent-screen').style.display = 'flex';
+  document.querySelector('header').style.display = 'none';
+  document.querySelectorAll('.section,.tab-bar,.fab').forEach(el=>el.style.display='none');
+  const name = profile?.full_name || profile?.crew_name || currentUser?.email;
+  const nameEl = document.getElementById('agent-hdr-name');
+  if(nameEl) nameEl.textContent = `Agent: ${name}`;
+  document.getElementById('agent-date').valueAsDate = new Date();
+  agentBuildFlightNumOpts();
+  loadAgentRecentUploads();
+}
+
+function agentBuildFlightNumOpts(){
+  // Agent gets flight nums from shared DB
+  window._agentFlightNums = getDB('flightNumbers') || [];
+}
+
+function agentFilterCombo(inputId, ddId){
+  const inp = document.getElementById(inputId);
+  const dd  = document.getElementById(ddId);
+  if(!inp||!dd) return;
+  const q    = inp.value.toLowerCase();
+  const opts = window._agentFlightNums || [];
+  const matches = opts.filter(o=>o.toLowerCase().includes(q)).slice(0,15);
+  if(!matches.length){ dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(o=>`<div class="combo-item" onmousedown="event.preventDefault();
+    document.getElementById('${inputId}').value='${o}';
+    document.getElementById('${ddId}').style.display='none';
+  ">${escHtml(o)}</div>`).join('');
+  dd.style.display='block';
+}
+
+let _agentFile = null;
+function onAgentFileSelected(input){
+  const file = input.files[0];
+  if(!file) return;
+  _agentFile = file;
+  document.getElementById('agent-file-name').textContent = `✓ ${file.name}`;
+  document.getElementById('agent-upload-btn').style.display = 'block';
+}
+
+async function agentUploadManifest(){
+  const flightNum = document.getElementById('agent-flightnum').value.trim().toUpperCase();
+  const date      = document.getElementById('agent-date').value;
+  if(!flightNum||!date){ toast('⚠ Flight number and date required.'); return; }
+  if(!_agentFile){ toast('⚠ Select a file first.'); return; }
+
+  const btn = document.getElementById('agent-upload-btn');
+  btn.textContent='Uploading…'; btn.disabled=true;
+
+  let passengers=[], summary={}, raw_text='';
+  try{
+    raw_text  = await _agentFile.text();
+    const res = parsePNLText(raw_text);
+    passengers = res.passengers;
+    summary    = res.summary;
+  }catch(e){ toast('⚠ Parse error: '+e.message); btn.textContent='⬆ Upload Manifest'; btn.disabled=false; return; }
+
+  // Upsert: update if exists, insert if new
+  const { data:existing } = await sb.from('passenger_manifests')
+    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
+
+  const payload = {
+    flight_number:flightNum, flight_date:date,
+    dep: summary.dep||'', arr:'',
+    passengers:     JSON.stringify(passengers),
+    flight_summary: JSON.stringify(summary),
+    raw_text,
+    uploaded_by:    currentUser.id,
+    upload_method:  'agent',
+  };
+
+  let error;
+  if(existing?.length){
+    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
+  } else {
+    ({ error } = await sb.from('passenger_manifests').insert(payload));
+  }
+
+  btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
+  if(error){ toast('⚠ '+error.message); return; }
+  toast(`✅ Manifest uploaded — ${passengers.length} passengers`);
+  _agentFile = null;
+  document.getElementById('agent-file-name').textContent='';
+  document.getElementById('agent-upload-btn').style.display='none';
+  document.getElementById('agent-file-inp').value='';
+  loadAgentRecentUploads();
+}
+
+async function loadAgentRecentUploads(){
+  const el = document.getElementById('agent-recent-list');
+  if(!el) return;
+  // Last 48 hours
+  const since = new Date(Date.now()-48*3600000).toISOString();
+  const { data, error } = await sb.from('passenger_manifests')
+    .select('id,flight_number,flight_date,dep,arr,created_at,passengers')
+    .eq('uploaded_by', currentUser.id)
+    .gte('created_at', since)
+    .order('created_at',{ascending:false});
+
+  if(error||!data?.length){
+    el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:.82rem;padding:16px">No uploads in the last 48 hours.</div>';
+    return;
+  }
+  el.innerHTML = data.map(m=>{
+    const pax   = m.passengers ? (typeof m.passengers==='string'?JSON.parse(m.passengers):m.passengers) : [];
+    const when  = new Date(m.created_at).toLocaleTimeString('default',{hour:'2-digit',minute:'2-digit'});
+    const dated = new Date(m.created_at).toLocaleDateString('default',{day:'numeric',month:'short'});
+    return `
+    <div class="agent-flight-card">
+      <div style="width:40px;height:40px;border-radius:10px;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">✈</div>
+      <div style="flex:1">
+        <div style="font-weight:800;color:var(--navy);font-size:.88rem">${escHtml(m.flight_number)} · ${m.flight_date}</div>
+        <div style="font-size:.7rem;color:var(--muted)">${pax.length} pax · Uploaded ${when} on ${dated}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="agentReUpload('${m.id}','${m.flight_number}','${m.flight_date}')">Update</button>
+    </div>`;
+  }).join('');
+}
+
+function agentReUpload(id, flightNum, date){
+  // Pre-fill the upload form for re-upload
+  document.getElementById('agent-flightnum').value = flightNum;
+  document.getElementById('agent-date').value      = date;
+  document.getElementById('agent-file-inp').click();
+}
+
 function showBlockedScreen(){
   document.getElementById('blocked-screen').style.display = 'flex';
   document.querySelector('header').style.display          = 'none';
@@ -5113,7 +5380,18 @@ async function openUserProfile(userId){
         : '<span style="color:var(--muted)">Not yet submitted</span>'}</span>
     </div>
 
-    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:20px 0 10px">Actions</div>
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:20px 0 10px">Role</div>
+    <div class="detail-row" style="align-items:center">
+      <span class="d-lbl">Account Role</span>
+      <select id="um-role-sel" onchange="adminSetRole('${u.id}',this.value)"
+        style="border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:.82rem;font-family:var(--font);color:var(--navy)">
+        <option value="crew" ${(u.role||'crew')==='crew'?'selected':''}>Crew</option>
+        <option value="ops_manager" ${u.role==='ops_manager'?'selected':''}>Ops Manager</option>
+        <option value="check_in_agent" ${u.role==='check_in_agent'?'selected':''}>Check-in Agent</option>
+      </select>
+    </div>
+
+    <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:16px 0 10px">Actions</div>
     ${isNew ? `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="adminMarkReviewed('${u.id}')">&#x2713; Mark as Reviewed</button>` : ''}
     <button class="btn ${u.blocked?'btn-primary':'btn-danger'}" style="width:100%;margin-bottom:8px"
       onclick="adminToggleBlock('${u.id}',${!u.blocked})">
@@ -5299,6 +5577,14 @@ async function adminDeleteUser(userId, name){
   openUMUserList(_umCurrentFilter);
 }
 
+async function adminSetRole(userId, role){
+  const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const u = _allUsers.find(u=>u.id===userId);
+  if(u) u.role = role;
+  toast(`✅ Role set to ${role}.`);
+}
+
 function editUserPhone(userId){
   document.getElementById('um-phone-edit').style.display = 'block';
   document.getElementById('um-phone-inp').focus();
@@ -5482,58 +5768,137 @@ function updateHubChatBadge(){
 // ═══════════════════════════════════════════════
 // PASSENGER MANIFEST
 // ═══════════════════════════════════════════════
-let _manifestData   = null; // parsed CSV/PDF data
 let _manifestFile   = null;
+let _manifestParsed = null; // parsed passenger array before upload
 
+// Amadeus cabin class code → airline display class
+function amadeusClassToDisplay(code){
+  if(!code) return '?';
+  const c = code.toUpperCase();
+  if(c.startsWith('C') || c==='J' || c==='F') return 'JC';
+  if(c.startsWith('PY'))                       return 'PYC';
+  return 'YC'; // Y*, Q*, K*, etc.
+}
+
+// ── Manifest combo filter ─────────────────────────────────
+const _mfstOpts = {};
+function mfstBuildOpts(){
+  _mfstOpts.flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  _mfstOpts.airports   = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
+}
+function mfstFilterCombo(inputId, ddId, optKey){
+  const inp = document.getElementById(inputId);
+  const dd  = document.getElementById(ddId);
+  if(!inp||!dd) return;
+  const q    = inp.value.toLowerCase();
+  const opts = _mfstOpts[optKey]||[];
+  const matches = opts.filter(o=>o.toLowerCase().includes(q)).slice(0,15);
+  if(!matches.length){ dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(o=>`<div class="combo-item" onmousedown="event.preventDefault();
+    document.getElementById('${inputId}').value='${o}';
+    document.getElementById('${ddId}').style.display='none';
+  ">${escHtml(o)}</div>`).join('');
+  dd.style.display='block';
+}
+
+// ── Open overlay ──────────────────────────────────────────
 function openManifestOverlay(){
   document.getElementById('manifest-overlay').classList.add('open');
   const canUpload = isAdmin || getUserRole()==='ops_manager';
   document.getElementById('manifest-upload-bar').style.display = canUpload ? 'block' : 'none';
   document.getElementById('mfst-date').valueAsDate = new Date();
+  _manifestFile   = null;
+  _manifestParsed = null;
+  mfstBuildOpts();
   loadManifests();
 }
 function closeManifestOverlay(){
   document.getElementById('manifest-overlay').classList.remove('open');
 }
 
+// ── File selection ────────────────────────────────────────
 function handleManifestFile(input){
   const file = input.files[0];
   if(!file) return;
   _manifestFile = file;
-  document.getElementById('mfst-file-name').textContent = `Selected: ${file.name}`;
+  document.getElementById('mfst-file-name').textContent = `✓ ${file.name}`;
   document.getElementById('mfst-upload-btn').style.display = 'block';
 }
 
-async function uploadManifest(){
-  const flightNum = document.getElementById('mfst-flightnum').value.trim().toUpperCase();
-  const date      = document.getElementById('mfst-date').value;
-  const dep       = document.getElementById('mfst-dep').value.trim().toUpperCase();
-  const arr       = document.getElementById('mfst-arr').value.trim().toUpperCase();
+// ── Parse Amadeus PNL text format ─────────────────────────
+function parsePNLText(text){
+  const lines      = text.split(/\r?\n/);
+  const passengers = [];
+  let summary      = {};
 
-  if(!flightNum || !date){ toast('⚠ Flight number and date are required.'); return; }
-  if(!_manifestFile){ toast('⚠ Please select a file.'); return; }
+  for(const line of lines){
+    // Header summary line: "LIST OF: ALL CUSTOMERS C0 Y20 TOTAL 20"
+    const sumMatch = line.match(/LIST OF:.*?C(\d+)\s+Y(\d+)\s+TOTAL\s+(\d+)/i);
+    if(sumMatch){
+      summary = { c_count:parseInt(sumMatch[1]), y_count:parseInt(sumMatch[2]),
+                  total:parseInt(sumMatch[3]) };
+      continue;
+    }
+    // Flight header: "UR720 03OCT EBB STD2100 BOARD 2000 GATE 3A"
+    const fltMatch = line.match(/(\w+)\s+(\d{2}[A-Z]{3})\s+(\w{3})\s+STD(\d{4})\s+BOARD\s*(\d{4})?\s+GATE\s*(\S+)/i);
+    if(fltMatch && !summary.flight_number){
+      summary.flight_number = fltMatch[1];
+      summary.date_raw      = fltMatch[2];
+      summary.dep           = fltMatch[3];
+      summary.std           = fltMatch[4];
+      summary.board_time    = fltMatch[5]||'';
+      summary.gate          = fltMatch[6]||'';
+      continue;
+    }
+    // Passenger line: " 1.ABDI/AHMED BASHOW MR M EBB LUN YQ A 012C"
+    const paxMatch = line.match(/^\s*(\d+)\.(.+)/);
+    if(!paxMatch) continue;
+    const rest  = paxMatch[2].trim();
+    const parts = rest.split(/\s+/);
+    // Name is everything up to a 2-3 letter airport code appearing twice
+    // Strategy: scan from right for known patterns
+    let seat='', status='', cabinCode='', arr='', dep='', gender='', title='';
+    let nameEnd = parts.length;
 
-  // Parse CSV if applicable
-  let passengers = [];
-  if(_manifestFile.name.toLowerCase().endsWith('.csv')){
-    const text = await _manifestFile.text();
-    passengers = parseManifestCSV(text);
+    // Work backwards from end
+    let pi = parts.length - 1;
+    // Seat: matches row+letter pattern e.g. 012C, 11J, 016L or just a row number
+    if(pi>=0 && /^\d{2,3}[A-Z]?$/i.test(parts[pi])){ seat=parts[pi--]; }
+    // Status: single letter A (accepted) or similar
+    if(pi>=0 && /^[A-Z]$/.test(parts[pi]) && parts[pi]!='M' && parts[pi]!='F'){
+      status=parts[pi--];
+    }
+    // Cabin class: 2-3 chars starting with C,Y,F,J,P
+    if(pi>=0 && /^[CYJFPQ][A-Z0-9]{0,2}$/i.test(parts[pi])){ cabinCode=parts[pi--]; }
+    // ARR airport: 3 letters
+    if(pi>=0 && /^[A-Z]{3}$/.test(parts[pi])){ arr=parts[pi--]; }
+    // DEP airport: 3 letters
+    if(pi>=0 && /^[A-Z]{3}$/.test(parts[pi])){ dep=parts[pi--]; }
+    // Gender: M or F
+    if(pi>=0 && /^[MFI]$/.test(parts[pi])){ gender=parts[pi--]; }
+    // Title: MR, MS, MISS, MRS, MSTR, DR
+    if(pi>=0 && /^(MR|MS|MISS|MRS|MSTR|DR|MAS|DELIG)$/i.test(parts[pi])){ title=parts[pi--]; }
+    // Everything left is the name
+    const name = parts.slice(0,pi+1).join(' ');
+    const displayClass = amadeusClassToDisplay(cabinCode);
+
+    passengers.push({
+      seq:        parseInt(paxMatch[1]),
+      name:       name.trim(),
+      title:      title,
+      gender:     gender,
+      dep:        dep || summary.dep || '',
+      arr:        arr,
+      cabin_code: cabinCode,
+      cabin:      displayClass,
+      status:     status === 'A' ? 'checked_in' : 'pending',
+      seat:       seat,
+    });
   }
-
-  const { error } = await sb.from('passenger_manifests').insert({
-    flight_number: flightNum, flight_date: date,
-    dep, arr, passengers: JSON.stringify(passengers),
-    uploaded_by: currentUser.id
-  });
-  if(error){ toast('⚠ ' + error.message); return; }
-  toast('✅ Manifest uploaded!');
-  _manifestFile = null;
-  document.getElementById('mfst-file-name').textContent = '';
-  document.getElementById('mfst-upload-btn').style.display = 'none';
-  document.getElementById('mfst-file').value = '';
-  loadManifests();
+  return { summary, passengers };
 }
 
+// ── Parse CSV fallback ────────────────────────────────────
 function parseManifestCSV(text){
   const lines = text.trim().split('\n');
   if(lines.length < 2) return [];
@@ -5546,89 +5911,253 @@ function parseManifestCSV(text){
   });
 }
 
-async function loadManifests(){
-  const el = document.getElementById('manifest-content');
-  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading…</div>';
+// ── Upload manifest ───────────────────────────────────────
+async function uploadManifest(){
+  const flightNum = document.getElementById('mfst-flightnum').value.trim().toUpperCase();
+  const date      = document.getElementById('mfst-date').value;
+  const dep       = document.getElementById('mfst-dep').value.trim().toUpperCase();
+  const arr       = document.getElementById('mfst-arr').value.trim().toUpperCase();
+  if(!flightNum || !date){ toast('⚠ Flight number and date are required.'); return; }
+  if(!_manifestFile){ toast('⚠ Please select a file.'); return; }
 
-  let query = sb.from('passenger_manifests').select('*').order('created_at',{ascending:false});
+  const btn = document.getElementById('mfst-upload-btn');
+  btn.textContent = 'Parsing…'; btn.disabled = true;
 
-  // Crew only see manifests matching their own flights
-  if(!isAdmin && getUserRole()!=='ops_manager'){
-    const myFlightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-    const myDates      = [...new Set(cache.flights.map(f=>f.date).filter(Boolean))];
-    if(!myFlightNums.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests yet</h3><p>Manifests for your flights will appear here.</p></div>'; return; }
-    query = query.in('flight_number', myFlightNums);
-  }
+  let passengers = [], summary = {}, raw_text = '';
+  const fname = _manifestFile.name.toLowerCase();
 
-  const { data, error } = await query.limit(50);
-  if(error || !data?.length){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><h3>No manifests found</h3><p>Upload a manifest using the form above.</p></div>';
+  try{
+    if(fname.endsWith('.pdf')){
+      // PDF: store as-is, no auto-parse
+      passengers = [];
+      summary    = { note:'PDF upload — passenger data not auto-parsed' };
+      raw_text   = 'PDF file';
+    } else {
+      // Text or CSV
+      raw_text = await _manifestFile.text();
+      if(fname.endsWith('.csv')){
+        const rows = parseManifestCSV(raw_text);
+        passengers = rows.map((r,i)=>({
+          seq:    i+1,
+          name:   r.name||r.passenger_name||r.pax_name||'',
+          cabin:  amadeusClassToDisplay(r.class||r.cabin_class||r.seat_class||''),
+          seat:   r.seat||r.seat_number||'',
+          status: (r.status||'').toLowerCase().includes('check')?'checked_in':'pending',
+          dep:    r.dep||r.from||dep,
+          arr:    r.arr||r.to||arr,
+        }));
+      } else {
+        // Amadeus PNL text format
+        const parsed = parsePNLText(raw_text);
+        passengers   = parsed.passengers;
+        summary      = parsed.summary;
+        // Auto-fill flight header fields if parsed
+        if(summary.flight_number && !flightNum){
+          document.getElementById('mfst-flightnum').value = summary.flight_number;
+        }
+      }
+    }
+  }catch(e){
+    toast('⚠ Could not parse file: '+e.message);
+    btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
     return;
   }
 
-  // Filter crew: only show manifests where both flight_number AND flight_date match their logged flights
-  let manifests = data;
-  if(!isAdmin && getUserRole()!=='ops_manager'){
-    manifests = data.filter(m => cache.flights.some(f => f.flightNum===m.flight_number && f.date===m.flight_date));
+  // Check if manifest already exists for this flight+date — update instead of insert
+  const { data: existing } = await sb.from('passenger_manifests')
+    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
+
+  const payload = {
+    flight_number:flightNum, flight_date:date, dep, arr,
+    passengers:   JSON.stringify(passengers),
+    flight_summary: JSON.stringify(summary),
+    raw_text,
+    uploaded_by:  currentUser.id,
+    upload_method: isAdmin ? 'admin' : getUserRole(),
+  };
+
+  let error;
+  if(existing?.length){
+    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
+  } else {
+    ({ error } = await sb.from('passenger_manifests').insert(payload));
   }
 
-  el.innerHTML = manifests.map(m => {
-    const pax = m.passengers ? (typeof m.passengers==='string' ? JSON.parse(m.passengers) : m.passengers) : [];
-    const uploaded = new Date(m.created_at).toLocaleDateString();
-    const jcCount  = pax.filter(p=>(p.class||p.cabin_class||p.seat_class||'').toUpperCase().includes('J')).length;
-    const ycCount  = pax.filter(p=>(p.class||p.cabin_class||p.seat_class||'').toUpperCase().includes('Y')).length;
-    const total    = pax.length;
-    return `
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="viewManifest('${m.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-weight:800;color:var(--navy)">${escHtml(m.flight_number)} · ${m.flight_date}</div>
-          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${escHtml(m.dep||'?')} → ${escHtml(m.arr||'?')} · Uploaded ${uploaded}</div>
-        </div>
-        <div style="text-align:right;font-size:.72rem;color:var(--muted)">
-          ${total>0?`${total} pax${jcCount?` · JC:${jcCount}`:''}${ycCount?` · YC:${ycCount}`:''}`:'No pax data'}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
+  if(error){ toast('⚠ '+error.message); return; }
+  toast(`✅ Manifest uploaded — ${passengers.length} passengers`);
+  _manifestFile = null;
+  document.getElementById('mfst-file-name').textContent = '';
+  document.getElementById('mfst-upload-btn').style.display = 'none';
+  document.getElementById('mfst-file').value = '';
+  loadManifests();
 }
 
+// ── Amadeus API stub (Option C) ───────────────────────────
+async function fetchManifestViaAPI(){
+  toast('⏳ Amadeus API integration pending configuration. Use manual upload for now.');
+}
+
+// ── Load manifest list ────────────────────────────────────
+async function loadManifests(){
+  const el = document.getElementById('manifest-content');
+  if(!el) return;
+  el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading…</div>';
+
+  try{
+    let query = sb.from('passenger_manifests').select('*').order('created_at',{ascending:false});
+    // Crew: filter to their own flights by number AND date
+    if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
+      const myNums  = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+      const myDates = [...new Set(cache.flights.map(f=>f.date).filter(Boolean))];
+      if(!myNums.length){
+        el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests yet</h3><p>Manifests for your flights will appear here once uploaded.</p></div>';
+        return;
+      }
+      query = query.in('flight_number', myNums);
+    }
+
+    const { data, error } = await query.limit(50);
+    if(error){ el.innerHTML=`<div style="color:var(--muted);padding:20px;text-align:center">Could not load manifests: ${escHtml(error.message)}</div>`; return; }
+    if(!data?.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests</h3><p>No manifests have been uploaded yet.</p></div>'; return; }
+
+    // For crew: only show manifests matching both flight_number AND date
+    let manifests = data;
+    if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
+      manifests = data.filter(m => cache.flights.some(f=>f.flightNum===m.flight_number && f.date===m.flight_date));
+      if(!manifests.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests for your flights</h3><p>Your flights do not have uploaded manifests yet.</p></div>'; return; }
+    }
+
+    el.innerHTML = manifests.map(m=>{
+      const pax      = m.passengers ? (typeof m.passengers==='string' ? JSON.parse(m.passengers) : m.passengers) : [];
+      const summary  = m.flight_summary ? (typeof m.flight_summary==='string' ? JSON.parse(m.flight_summary) : m.flight_summary) : {};
+      const uploaded = new Date(m.created_at).toLocaleDateString('default',{day:'numeric',month:'short'});
+      const jc = pax.filter(p=>p.cabin==='JC').length;
+      const py = pax.filter(p=>p.cabin==='PYC').length;
+      const yc = pax.filter(p=>p.cabin==='YC').length;
+      const methodBadge = m.upload_method ? `<span class="mfst-upload-method ${m.upload_method}">${m.upload_method==='api'?'🔗 API':m.upload_method==='agent'?'🎫 Agent':'👤 Admin'}</span>` : '';
+      return `
+      <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="viewManifest('${m.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div>
+            <div style="font-weight:800;color:var(--navy)">${escHtml(m.flight_number)} ${methodBadge}</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${m.flight_date} · ${escHtml(m.dep||'?')} → ${escHtml(m.arr||'?')} · Uploaded ${uploaded}</div>
+          </div>
+          <div style="text-align:right;font-size:.72rem;color:var(--muted)">
+            ${pax.length > 0
+              ? `<div style="font-weight:700;color:var(--navy)">${pax.length} pax</div>
+                 <div>${jc?`JC:${jc} ·`:''} ${py?`PYC:${py} ·`:''} YC:${yc}</div>`
+              : '<div>No pax data</div>'}
+          </div>
+        </div>
+        ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted)">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ── View a single manifest ────────────────────────────────
 async function viewManifest(id){
   const { data, error } = await sb.from('passenger_manifests').select('*').eq('id',id).single();
-  if(error || !data){ toast('⚠ Could not load manifest.'); return; }
-  const pax = data.passengers ? (typeof data.passengers==='string' ? JSON.parse(data.passengers) : data.passengers) : [];
+  if(error||!data){ toast('⚠ Could not load manifest.'); return; }
   const el  = document.getElementById('manifest-content');
+  const pax = data.passengers ? (typeof data.passengers==='string' ? JSON.parse(data.passengers) : data.passengers) : [];
+  const summary = data.flight_summary ? (typeof data.flight_summary==='string' ? JSON.parse(data.flight_summary) : data.flight_summary) : {};
 
-  // Group by class
-  const byClass = {};
-  pax.forEach(p => {
-    const cls = (p.class||p.cabin_class||p.seat_class||p.CLASS||'Unknown').toUpperCase();
-    if(!byClass[cls]) byClass[cls] = [];
-    byClass[cls].push(p);
+  // Class counts
+  const jcPax  = pax.filter(p=>p.cabin==='JC');
+  const pycPax = pax.filter(p=>p.cabin==='PYC');
+  const ycPax  = pax.filter(p=>p.cabin==='YC');
+
+  // Group by destination
+  const byDest = {};
+  pax.forEach(p=>{
+    const key = p.arr||'Unknown';
+    if(!byDest[key]) byDest[key]=[];
+    byDest[key].push(p);
   });
 
-  const classOrder = ['J','PY','Y','UNKNOWN'];
-  const classLabels = { J:'Business Class (JC)', PY:'Premium Economy (PYC)', Y:'Economy (YC)', UNKNOWN:'Unclassified' };
+  const paxRowHtml = (passengers) => passengers.map(p=>`
+    <div class="mfst-pax-row">
+      <div class="mfst-seat">${p.seat||'—'}</div>
+      <div class="mfst-name">
+        ${escHtml(p.name||'Unknown')}
+        ${p.title?`<span style="font-size:.65rem;color:var(--muted);font-weight:400"> ${p.title}</span>`:''}
+        <div class="mfst-meta">${p.gender||''} ${p.arr?`→ ${p.arr}`:''}</div>
+      </div>
+      <span class="mfst-status-badge ${p.status==='checked_in'?'checked':'pending'}">
+        ${p.status==='checked_in'?'✓ Checked In':'Pending'}
+      </span>
+    </div>`).join('');
 
-  let html = `
+  const destSections = Object.entries(byDest).map(([dest,passengers])=>`
+    <div class="mfst-section-hdr">→ ${dest} (${passengers.length} passengers)</div>
+    ${paxRowHtml(passengers)}`).join('');
+
+  el.innerHTML = `
     <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">← Back to list</button>
-    <div style="font-weight:800;color:var(--navy);font-size:.95rem;margin-bottom:4px">${escHtml(data.flight_number)} · ${data.flight_date}</div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:14px">${escHtml(data.dep||'?')} → ${escHtml(data.arr||'?')} · ${pax.length} passengers total</div>`;
 
-  if(!pax.length){
-    html += '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:20px">No passenger data in this manifest (PDF upload — data not parsed).</div>';
-  } else {
-    const allKeys = [...new Set(pax.flatMap(p=>Object.keys(p)))].filter(k=>!['class','cabin_class','seat_class','CLASS'].includes(k));
-    Object.entries(byClass).forEach(([cls, passengers]) => {
-      const label = Object.entries(classLabels).find(([k])=>cls.startsWith(k))?.[1] || cls;
-      html += `<div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin:12px 0 6px">${label} (${passengers.length})</div>`;
-      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
-      html += '<tr>' + allKeys.map(k=>`<th style="text-align:left;padding:5px 8px;background:var(--navy);color:#fff;font-size:.65rem;white-space:nowrap">${k.replace(/_/g,' ').toUpperCase()}</th>`).join('') + '</tr>';
-      html += passengers.map((p,i)=>`<tr style="background:${i%2?'var(--ice2)':''}">` + allKeys.map(k=>`<td style="padding:5px 8px;border-bottom:1px solid var(--border2)">${escHtml(String(p[k]||''))}</td>`).join('') + '</tr>').join('');
-      html += '</table></div>';
-    });
-  }
-  el.innerHTML = html;
+    <!-- Flight header -->
+    <div class="mfst-header">
+      <div class="mfst-flight-num">${escHtml(data.flight_number)} · ${data.flight_date}</div>
+      <div class="mfst-flight-sub">
+        ${escHtml(data.dep||'?')} → ${escHtml(data.arr||'?')}
+        ${summary.gate?` · Gate ${summary.gate}`:''}
+        ${summary.std?` · STD ${summary.std}`:''}
+        ${summary.board_time?` · Board ${summary.board_time}`:''}
+      </div>
+    </div>
+
+    <!-- Class summary -->
+    <div class="mfst-class-bar">
+      ${jcPax.length  ? `<div class="mfst-class-pill">JC <span>${jcPax.length}</span></div>` : ''}
+      ${pycPax.length ? `<div class="mfst-class-pill">PYC <span>${pycPax.length}</span></div>` : ''}
+      <div class="mfst-class-pill">YC <span>${ycPax.length}</span></div>
+      <div class="mfst-class-pill" style="background:var(--navy);color:#fff">Total <span style="color:var(--gold)">${pax.length}</span></div>
+    </div>
+
+    <!-- Search -->
+    <input type="text" placeholder="🔍  Search passenger or seat…" id="mfst-search"
+      oninput="mfstSearchFilter(this.value,'${id}')"
+      style="width:100%;border:1.5px solid var(--border);border-radius:20px;padding:8px 14px;font-size:.82rem;font-family:var(--font);margin-bottom:12px"/>
+
+    <!-- Passenger list grouped by destination -->
+    <div id="mfst-pax-list">
+      ${pax.length ? destSections : '<div style="text-align:center;color:var(--muted);padding:20px">No passenger data in this manifest.</div>'}
+    </div>`;
+
+  // Store pax on element for search
+  el.dataset.paxJson = JSON.stringify(pax);
+}
+
+function mfstSearchFilter(q, manifestId){
+  const el      = document.getElementById('mfst-pax-list');
+  const paxData = document.getElementById('manifest-content');
+  if(!el || !paxData.dataset.paxJson) return;
+  const allPax = JSON.parse(paxData.dataset.paxJson);
+  const qLow   = q.toLowerCase().trim();
+  const filtered = qLow ? allPax.filter(p =>
+    (p.name||'').toLowerCase().includes(qLow) ||
+    (p.seat||'').toLowerCase().includes(qLow) ||
+    (p.arr||'').toLowerCase().includes(qLow)
+  ) : allPax;
+
+  if(!filtered.length){ el.innerHTML='<div style="text-align:center;color:var(--muted);padding:16px">No results.</div>'; return; }
+  // Group filtered by destination
+  const byDest = {};
+  filtered.forEach(p=>{ const k=p.arr||'Unknown'; if(!byDest[k])byDest[k]=[]; byDest[k].push(p); });
+  el.innerHTML = Object.entries(byDest).map(([dest,passengers])=>`
+    <div class="mfst-section-hdr">→ ${dest} (${passengers.length})</div>
+    ${passengers.map(p=>`
+      <div class="mfst-pax-row">
+        <div class="mfst-seat">${p.seat||'—'}</div>
+        <div class="mfst-name">${escHtml(p.name||'?')}
+          <div class="mfst-meta">${p.gender||''} → ${p.arr||''}</div>
+        </div>
+        <span class="mfst-status-badge ${p.status==='checked_in'?'checked':'pending'}">${p.status==='checked_in'?'✓ In':'Pend'}</span>
+      </div>`).join('')}`).join('');
 }
 
 // ═══════════════════════════════════════════════
@@ -6145,6 +6674,14 @@ async function onLoggedIn(){
   // Write email to profiles (backfills for existing users, updates if changed)
   if(currentUser.email && (!profile?.email || profile.email !== currentUser.email)){
     sb.from('profiles').update({ email: currentUser.email }).eq('id', currentUser.id).then(()=>{});
+  }
+
+  // ── Check-in agent: show stripped agent interface ──────
+  if(profile?.role === 'check_in_agent'){
+    // Load shared DB first so flight numbers are available
+    await loadSharedData();
+    showAgentScreen(profile);
+    return; // stop normal app init
   }
 
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
