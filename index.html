@@ -476,6 +476,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .ann-cat-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .ann-cat-tab{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer;color:var(--muted);transition:all .15s;font-family:var(--font)}
 .ann-cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.ann-admin-row{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:6px}
+.ann-admin-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:.72rem;cursor:pointer;color:var(--muted);font-family:var(--font);transition:all .12s}
+.ann-admin-btn:hover{background:var(--ice2);color:var(--navy)}
+.ann-admin-btn.danger:hover{background:#fde8e8;color:#c0392b;border-color:#e74c3c}
 /* Title list items */
 .ann-list-item{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:13px 15px;margin-bottom:8px;cursor:pointer;transition:border-color .18s,box-shadow .18s}
 .ann-list-item:hover{border-color:var(--sky);box-shadow:var(--shadow)}
@@ -1259,7 +1263,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
       <div class="field">
         <label>Category</label>
         <select id="ann-cat-sel" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;font-size:.88rem;font-family:var(--font)">
-          <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option>
+          <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option><option>Special</option>
         </select>
       </div>
       <div class="field">
@@ -1433,18 +1437,23 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div class="fs-modal" style="max-width:500px">
     <div class="fs-modal-hdr">
       <h2>📢 Onboard Announcements</h2>
-      <button class="fs-close" onclick="closeAnn()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <!-- Admin-only: add new announcement button -->
+        <button id="ann-add-btn" onclick="openAnnAdd()" style="display:none;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:.75rem;font-weight:700;cursor:pointer">+ Add</button>
+        <button class="fs-close" onclick="closeAnn()">✕</button>
+      </div>
     </div>
     <div style="padding:16px">
-      <!-- Category tabs -->
+      <!-- Category tabs — 4 categories -->
       <div class="ann-cat-tabs">
-        <button class="ann-cat-tab active" onclick="switchAnnCat('Pre-Flight',this)">Pre-Flight</button>
-        <button class="ann-cat-tab" onclick="switchAnnCat('Inflight',this)">Inflight</button>
-        <button class="ann-cat-tab" onclick="switchAnnCat('After Landing',this)">After Landing</button>
+        <button class="ann-cat-tab active" id="ann-tab-pf"  onclick="switchAnnCat('Pre-Flight',this)">Pre-Flight</button>
+        <button class="ann-cat-tab"        id="ann-tab-if"  onclick="switchAnnCat('Inflight',this)">Inflight</button>
+        <button class="ann-cat-tab"        id="ann-tab-al"  onclick="switchAnnCat('After Landing',this)">After Landing</button>
+        <button class="ann-cat-tab"        id="ann-tab-sp"  onclick="switchAnnCat('Special',this)">Special</button>
       </div>
-      <!-- List view (titles only) -->
+      <!-- List view -->
       <div id="ann-list"></div>
-      <!-- Detail view (full announcement) -->
+      <!-- Detail view (read announcement) -->
       <div id="ann-detail" style="display:none">
         <div class="ann-card">
           <div class="ann-title-row">
@@ -1455,6 +1464,28 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
           <div style="margin-top:16px">
             <button class="btn btn-ghost" style="width:100%" onclick="closeAnnDetail()">← Back to List</button>
           </div>
+        </div>
+      </div>
+      <!-- Edit view (admin only) -->
+      <div id="ann-edit-view" style="display:none">
+        <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:10px" id="ann-edit-heading">Edit Announcement</div>
+        <div class="field" style="margin-bottom:8px">
+          <label>Category</label>
+          <select id="ann-edit-cat" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)">
+            <option>Pre-Flight</option><option>Inflight</option><option>After Landing</option><option>Special</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label>Title</label>
+          <input type="text" id="ann-edit-title" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>Announcement Text</label>
+          <textarea id="ann-edit-content" rows="8" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.85rem;font-family:var(--font);resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="saveAnnEdit()">💾 Save Changes</button>
+          <button class="btn btn-ghost" style="flex:1" onclick="closeAnnEdit()">Cancel</button>
         </div>
       </div>
     </div>
@@ -2693,12 +2724,15 @@ function checkCrewNameLinked(profile){
 // ANNOUNCEMENTS
 // ═══════════════════════════════════════════════
 let _annCache = [];
-let _annCat   = 'Pre-Flight';
+let _annCat = 'Pre-Flight';
+const ANN_CATS = ['Pre-Flight','Inflight','After Landing','Special'];
 
 async function loadAnnouncements(){
   if(isOnline){
     try{
-      const { data } = await sb.from('announcements').select('*').order('sort_order').order('created_at');
+      const { data } = await sb.from('announcements').select('*')
+        .order('sort_order', {ascending:true, nullsFirst:false})
+        .order('created_at', {ascending:true});
       _annCache = data || [];
       localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
     }catch{ _annCache = getCachedAnn(); }
@@ -2706,14 +2740,21 @@ async function loadAnnouncements(){
     _annCache = getCachedAnn();
   }
   renderAnnList();
+  // Show/hide admin controls in overlay
+  const addBtn = document.getElementById('ann-add-btn');
+  if(addBtn) addBtn.style.display = isAdmin ? 'inline-block' : 'none';
 }
+
 function getCachedAnn(){
   try{ return JSON.parse(localStorage.getItem('ccl_ann_cache')||'[]'); }catch{ return []; }
 }
+
 function closeAnn(){
   closeAnnDetail();
+  closeAnnEdit();
   document.getElementById('ann-overlay').classList.remove('open');
 }
+
 function closeHelp(){ document.getElementById('help-overlay').classList.remove('open'); }
 
 async function submitFeedback(){
@@ -2722,80 +2763,157 @@ async function submitFeedback(){
   const message = document.getElementById('help-message').value.trim();
   if(!subject || !message){ toast('⚠ Please fill in subject and details.'); return; }
   const crewName = localStorage.getItem('ccl_crew_name') || currentUser?.email || 'Unknown';
-  try{
-    await sb.from('feedback').insert({ type, subject, message, submitted_by:currentUser?.id, crew_name:crewName });
-  }catch(e){}
+  try{ await sb.from('feedback').insert({ type, subject, message, submitted_by:currentUser?.id, crew_name:crewName }); }catch{}
   document.getElementById('help-subject').value = '';
   document.getElementById('help-message').value = '';
   toast('✅ Feedback submitted — thank you!');
   closeHelp();
 }
+
 function switchAnnCat(cat, btn){
   _annCat = cat;
   document.querySelectorAll('.ann-cat-tab').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  closeAnnDetail();
+  closeAnnEdit();
   renderAnnList();
 }
+
+// ── Render announcement list ──────────────────────────────
 function renderAnnList(){
-  const listEl  = document.getElementById('ann-list');
-  const detailEl = document.getElementById('ann-detail');
-  if(listEl)  listEl.style.display  = 'block';
-  if(detailEl) detailEl.style.display = 'none';
+  const listEl = document.getElementById('ann-list');
+  if(!listEl) return;
+  listEl.style.display = 'block';
 
   const items = _annCache.filter(a => a.category === _annCat);
   if(!items.length){
-    listEl.innerHTML = '<div class="empty" style="padding:30px 0"><div class="empty-icon">📢</div><h3>No announcements yet</h3><p>Nothing in this category.</p></div>';
+    listEl.innerHTML = `<div class="empty" style="padding:30px 0">
+      <div class="empty-icon">📢</div>
+      <h3>No announcements</h3>
+      <p>Nothing in this category${isAdmin?' — tap + Add to create one.':'.'}.</p>
+    </div>`;
     return;
   }
-  listEl.innerHTML = items.map(a => `
+
+  listEl.innerHTML = items.map((a, idx) => {
+    const adminControls = isAdmin ? `
+      <div class="ann-admin-row" onclick="event.stopPropagation()">
+        ${idx > 0
+          ? `<button class="ann-admin-btn" title="Move up" onclick="annMove('${a.id}','up')">↑</button>`
+          : `<button class="ann-admin-btn" style="opacity:.25;cursor:default" disabled>↑</button>`}
+        ${idx < items.length - 1
+          ? `<button class="ann-admin-btn" title="Move down" onclick="annMove('${a.id}','down')">↓</button>`
+          : `<button class="ann-admin-btn" style="opacity:.25;cursor:default" disabled>↓</button>`}
+        <button class="ann-admin-btn" title="Edit" onclick="openAnnEdit('${a.id}')">✏</button>
+        <button class="ann-admin-btn danger" title="Delete" onclick="deleteAnn('${a.id}')">🗑</button>
+      </div>` : '';
+
+    return `
     <div class="ann-list-item" onclick="openAnnDetail('${a.id}')">
-      <div class="ann-list-item-left">
+      <div class="ann-list-item-left" style="flex:1;min-width:0">
         <div class="ann-list-title">${escHtml(a.title)}</div>
         <div class="ann-list-lang">${a.language||'English'}</div>
       </div>
-      <span class="ann-list-chevron">›</span>
-    </div>`).join('');
+      ${adminControls}
+      ${!isAdmin ? '<span class="ann-list-chevron">›</span>' : ''}
+    </div>`;
+  }).join('');
 }
 
+// ── Open detail (read) ────────────────────────────────────
 function openAnnDetail(id){
   const a = _annCache.find(x => x.id === id);
   if(!a) return;
   document.getElementById('ann-detail-title').textContent   = a.title;
-  document.getElementById('ann-detail-lang').textContent    = a.language || 'English';
+  document.getElementById('ann-detail-lang').textContent    = a.language||'English';
   document.getElementById('ann-detail-content').textContent = a.content;
   document.getElementById('ann-list').style.display   = 'none';
   document.getElementById('ann-detail').style.display = 'block';
-  // Scroll modal to top
-  const overlay = document.getElementById('ann-overlay');
-  if(overlay) overlay.scrollTop = 0;
+  document.getElementById('ann-edit-view').style.display = 'none';
+  document.getElementById('ann-overlay').scrollTop = 0;
 }
 
 function closeAnnDetail(){
-  document.getElementById('ann-detail').style.display = 'none';
-  document.getElementById('ann-list').style.display   = 'block';
+  const d = document.getElementById('ann-detail');
+  const l = document.getElementById('ann-list');
+  if(d) d.style.display = 'none';
+  if(l) l.style.display = 'block';
 }
-async function saveAnnouncement(){
-  if(!isAdmin){ toast('⚠ Admin only.'); return; }
-  const cat     = document.getElementById('ann-cat-sel').value;
-  const title   = document.getElementById('ann-title-inp').value.trim();
-  const content = document.getElementById('ann-content-inp').value.trim();
-  if(!title || !content){ toast('⚠ Title and announcement text are required.'); return; }
-  const { data, error } = await sb.from('announcements')
-    .insert({ category: cat, title, content, language: 'English', added_by: currentUser.id })
-    .select().single();
-  if(error){ toast('⚠ '+error.message); return; }
-  _annCache.push(data);
-  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
-  document.getElementById('ann-title-inp').value = '';
-  document.getElementById('ann-content-inp').value = '';
-  _annCat = cat;
-  document.querySelectorAll('.ann-cat-tab').forEach((b,i) => {
-    b.classList.toggle('active', ['Pre-Flight','Inflight','After Landing'][i] === cat);
-  });
+
+// ── Admin: add new announcement (re-uses edit view) ───────
+function openAnnAdd(){
+  document.getElementById('ann-edit-heading').textContent = 'New Announcement';
+  document.getElementById('ann-edit-cat').value   = _annCat;
+  document.getElementById('ann-edit-title').value = '';
+  document.getElementById('ann-edit-content').value = '';
+  document.getElementById('ann-list').style.display     = 'none';
+  document.getElementById('ann-detail').style.display   = 'none';
+  document.getElementById('ann-edit-view').style.display = 'block';
+  document.getElementById('ann-edit-view').dataset.editId = '';
+  document.getElementById('ann-overlay').scrollTop = 0;
+}
+
+// ── Admin: edit existing announcement ─────────────────────
+function openAnnEdit(id){
+  const a = _annCache.find(x => x.id === id);
+  if(!a) return;
+  document.getElementById('ann-edit-heading').textContent = 'Edit Announcement';
+  document.getElementById('ann-edit-cat').value     = a.category;
+  document.getElementById('ann-edit-title').value   = a.title;
+  document.getElementById('ann-edit-content').value = a.content;
+  document.getElementById('ann-list').style.display     = 'none';
+  document.getElementById('ann-detail').style.display   = 'none';
+  document.getElementById('ann-edit-view').style.display = 'block';
+  document.getElementById('ann-edit-view').dataset.editId = id;
+  document.getElementById('ann-overlay').scrollTop = 0;
+}
+
+function closeAnnEdit(){
+  const e = document.getElementById('ann-edit-view');
+  if(e) e.style.display = 'none';
+  closeAnnDetail();
   renderAnnList();
-  renderDBAnnList();
-  toast('✅ Announcement saved!');
 }
+
+async function saveAnnEdit(){
+  const cat     = document.getElementById('ann-edit-cat').value;
+  const title   = document.getElementById('ann-edit-title').value.trim();
+  const content = document.getElementById('ann-edit-content').value.trim();
+  const editId  = document.getElementById('ann-edit-view').dataset.editId;
+  if(!title || !content){ toast('⚠ Title and text are required.'); return; }
+
+  if(editId){
+    // Update existing
+    const { error } = await sb.from('announcements')
+      .update({ category:cat, title, content }).eq('id', editId);
+    if(error){ toast('⚠ '+error.message); return; }
+    const idx = _annCache.findIndex(a=>a.id===editId);
+    if(idx>-1) _annCache[idx] = {..._annCache[idx], category:cat, title, content};
+    toast('✅ Announcement updated.');
+  } else {
+    // New announcement — assign sort_order as max + 1 within category
+    const catItems   = _annCache.filter(a=>a.category===cat);
+    const maxOrder   = catItems.reduce((m,a)=>Math.max(m, a.sort_order||0), 0);
+    const { data, error } = await sb.from('announcements')
+      .insert({ category:cat, title, content, language:'English',
+        added_by:currentUser.id, sort_order: maxOrder+1 })
+      .select().single();
+    if(error){ toast('⚠ '+error.message); return; }
+    _annCache.push(data);
+    toast('✅ Announcement saved.');
+  }
+
+  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+  // Switch to the saved category
+  _annCat = cat;
+  document.querySelectorAll('.ann-cat-tab').forEach(b=>{
+    b.classList.toggle('active', b.textContent===cat);
+  });
+  closeAnnEdit();
+  renderDBAnnList();
+}
+
+// ── Admin: delete ─────────────────────────────────────────
 async function deleteAnn(id){
   if(!confirm('Delete this announcement for all crew?')) return;
   const { error } = await sb.from('announcements').delete().eq('id', id);
@@ -2805,6 +2923,65 @@ async function deleteAnn(id){
   renderAnnList();
   renderDBAnnList();
   toast('🗑 Announcement deleted.');
+}
+
+// ── Admin: reorder with ↑↓ arrows ────────────────────────
+async function annMove(id, direction){
+  // Work only within the current category
+  const catItems = _annCache.filter(a=>a.category===_annCat)
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const idx = catItems.findIndex(a=>a.id===id);
+  if(idx===-1) return;
+  const swapIdx = direction==='up' ? idx-1 : idx+1;
+  if(swapIdx<0 || swapIdx>=catItems.length) return;
+
+  // Swap sort_order values
+  const itemA = catItems[idx];
+  const itemB = catItems[swapIdx];
+  const orderA = itemA.sort_order ?? idx;
+  const orderB = itemB.sort_order ?? swapIdx;
+
+  // Write swapped orders to Supabase
+  const [r1, r2] = await Promise.all([
+    sb.from('announcements').update({ sort_order: orderB }).eq('id', itemA.id),
+    sb.from('announcements').update({ sort_order: orderA }).eq('id', itemB.id),
+  ]);
+  if(r1.error || r2.error){ toast('⚠ Reorder failed.'); return; }
+
+  // Update local cache
+  const cA = _annCache.find(a=>a.id===itemA.id);
+  const cB = _annCache.find(a=>a.id===itemB.id);
+  if(cA) cA.sort_order = orderB;
+  if(cB) cB.sort_order = orderA;
+  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+  renderAnnList();
+}
+
+// ── Admin: save new from Admin Panel ─────────────────────
+async function saveAnnouncement(){
+  if(!isAdmin){ toast('⚠ Admin only.'); return; }
+  const cat     = document.getElementById('ann-cat-sel').value;
+  const title   = document.getElementById('ann-title-inp').value.trim();
+  const content = document.getElementById('ann-content-inp').value.trim();
+  if(!title || !content){ toast('⚠ Title and announcement text are required.'); return; }
+  const catItems = _annCache.filter(a=>a.category===cat);
+  const maxOrder = catItems.reduce((m,a)=>Math.max(m,a.sort_order||0),0);
+  const { data, error } = await sb.from('announcements')
+    .insert({ category:cat, title, content, language:'English',
+      added_by:currentUser.id, sort_order:maxOrder+1 })
+    .select().single();
+  if(error){ toast('⚠ '+error.message); return; }
+  _annCache.push(data);
+  localStorage.setItem('ccl_ann_cache', JSON.stringify(_annCache));
+  document.getElementById('ann-title-inp').value   = '';
+  document.getElementById('ann-content-inp').value = '';
+  _annCat = cat;
+  document.querySelectorAll('.ann-cat-tab').forEach(b=>{
+    b.classList.toggle('active', b.textContent===cat);
+  });
+  renderAnnList();
+  renderDBAnnList();
+  toast('✅ Announcement saved!');
 }
 
 // ═══════════════════════════════════════════════
@@ -5225,7 +5402,7 @@ function remindReviewLater(){
 // ═══════════════════════════════════════════════
 
 const HUB_CARDS = [
-  { id:'announcements', icon:'📢', title:'Onboard Announcements', sub:'Pre-flight, Inflight & After Landing', roles:['all'], action:()=>{ openMenuSection('announcements'); } },
+  { id:'announcements', icon:'📢', title:'Onboard Announcements', sub:'Pre-Flight · Inflight · After Landing · Special', roles:['all'], action:()=>{ openMenuSection('announcements'); } },
   { id:'nexa',          icon:'🤖', title:'Nexa Crew AI',          sub:'AI assistant · Manuals & Logbook',     roles:['all'], action:()=>{ openNexa(); } },
   { id:'manifest',      icon:'📋', title:'Passenger Manifest',    sub:'View or upload flight manifest',        roles:['admin','ops_manager'], action:openManifestOverlay },
   { id:'purser-report', icon:'📝', title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',       roles:['admin','senior_purser','purser'], action:openPFROverlay },
@@ -7497,13 +7674,22 @@ function renderDBAnnList(){
   const listEl = document.getElementById('db-ann-list');
   if(!listEl) return;
   if(!_annCache.length){ listEl.innerHTML='<div class="db-empty">No announcements yet.</div>'; return; }
-  listEl.innerHTML = _annCache.map((a,i) => `
+  // Sort by category order then sort_order
+  const sorted = [..._annCache].sort((a,b)=>{
+    const catOrder = ANN_CATS.indexOf(a.category) - ANN_CATS.indexOf(b.category);
+    if(catOrder!==0) return catOrder;
+    return (a.sort_order||0)-(b.sort_order||0);
+  });
+  listEl.innerHTML = sorted.map(a => `
     <div class="db-item">
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div class="db-item-text">${escHtml(a.title)}</div>
         <div class="db-item-sub">${a.category} · ${a.language||'English'}</div>
       </div>
-      <button class="btn btn-danger btn-icon btn-sm" onclick="deleteAnn('${a.id}')">✕</button>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn btn-ghost btn-sm" onclick="openMenuSection('announcements');setTimeout(()=>openAnnEdit('${a.id}'),400)">✏</button>
+        <button class="btn btn-danger btn-icon btn-sm" onclick="deleteAnn('${a.id}')">✕</button>
+      </div>
     </div>`).join('');
 }
 
