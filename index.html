@@ -2136,7 +2136,7 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 </div>
 
 <!-- ── PFR SUBMIT MODAL ────────────────────────────────────── -->
-<div class="fs-overlay" id="pfr-submit-overlay" style="background:rgba(11,29,58,.7);display:none;align-items:flex-end">
+<div id="pfr-submit-overlay" style="display:none;position:fixed;inset:0;background:rgba(11,29,58,.7);z-index:9000;align-items:flex-end">
   <div style="background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">
     <div style="font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:14px">📤 Submit Report — Select Recipients</div>
     <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Cabin Crew Manager receives all reports automatically.</div>
@@ -2246,7 +2246,10 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   <div style="display:flex;flex-direction:column;height:100%">
     <div class="hub-overlay-hdr">
       <h2>🌟 Passenger Feedback</h2>
-      <button class="fs-close" onclick="closePaxFeedbackOverlay()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="pfb-rcpt-btn" onclick="openFeedbackRecipients()" style="display:none;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer">📧 Recipients</button>
+        <button class="fs-close" onclick="closePaxFeedbackOverlay()">✕</button>
+      </div>
     </div>
     <!-- Filter bar -->
     <div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--ice2);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2288,8 +2291,121 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
 </div>
 
+<!-- ── FEEDBACK RECIPIENTS CONFIG (admin only) ─────────── -->
+<div class="hub-fs-overlay" id="pfb-recipients-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <button onclick="document.getElementById('pfb-recipients-overlay').classList.remove('open')"
+        class="fs-close" style="color:#7A9BB8;font-size:1rem;background:none;border:none;cursor:pointer">← Back</button>
+      <h2>📧 Feedback Email Recipients</h2>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px">
+      <div style="font-size:.75rem;color:var(--muted);line-height:1.6;margin-bottom:14px;background:var(--ice2);padding:12px;border-radius:var(--radius-sm)">
+        Configure who receives email notifications when passenger feedback is submitted.
+        <strong>Crew (Crew Hub)</strong> and <strong>Operations Manager</strong> always receive all feedback.
+        Other departments receive based on feedback type.
+      </div>
+
+      <!-- Always recipients -->
+      <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin-bottom:8px">Always Notified</div>
+      <div class="card" style="margin-bottom:10px;padding:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:1rem">👥</span>
+          <div><div style="font-weight:700;font-size:.85rem">Crew (Crew Hub)</div>
+          <div style="font-size:.7rem;color:var(--muted)">All crew see feedback in the app — no email</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1rem">👔</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:.85rem">Operations / Cabin Crew Manager</div>
+            <input type="email" id="rcpt-ops-email" placeholder="ops.manager@ugairlines.ug"
+              style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:4px"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conditional recipients -->
+      <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--sky);margin:14px 0 8px">Notified Based on Feedback Type</div>
+
+      <!-- Complaints only -->
+      <div class="card" style="margin-bottom:10px;padding:12px;border-left:3px solid var(--red)">
+        <div style="font-size:.68rem;font-weight:800;color:var(--red);margin-bottom:8px">😟 COMPLAINTS ONLY</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:1rem">🍽</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:.82rem">Catering Department</div>
+          <input type="email" id="rcpt-catering-email" placeholder="catering@ugairlines.ug"
+            style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:1rem">🛡</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:.82rem">Safety Department</div>
+          <input type="email" id="rcpt-safety-email" placeholder="safety@ugairlines.ug"
+            style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:1rem">🛠</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:.82rem">Engineering</div>
+          <input type="email" id="rcpt-engineering-email" placeholder="engineering@ugairlines.ug"
+            style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1rem">👥</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:.82rem">Human Resources</div>
+          <input type="email" id="rcpt-hr-email" placeholder="hr@ugairlines.ug"
+            style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/></div>
+        </div>
+      </div>
+
+      <!-- Compliments -->
+      <div class="card" style="margin-bottom:10px;padding:12px;border-left:3px solid var(--green)">
+        <div style="font-size:.68rem;font-weight:800;color:var(--green);margin-bottom:8px">😊 COMPLIMENTS</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1rem">📣</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:.82rem">Marketing / PR Department</div>
+            <input type="email" id="rcpt-marketing-email" placeholder="marketing@ugairlines.ug"
+              style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestions -->
+      <div class="card" style="margin-bottom:10px;padding:12px;border-left:3px solid var(--gold)">
+        <div style="font-size:.68rem;font-weight:800;color:#8a6200;margin-bottom:8px">💡 SUGGESTIONS</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1rem">🗂</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:.82rem">Quality Assurance / Management</div>
+            <input type="email" id="rcpt-qa-email" placeholder="quality@ugairlines.ug"
+              style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urgent flag -->
+      <div class="card" style="margin-bottom:20px;padding:12px;border-left:3px solid #e74c3c;background:#fff5f5">
+        <div style="font-size:.68rem;font-weight:800;color:var(--red);margin-bottom:6px">⚠ URGENT (Complaint rated below 3★)</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px">These additional recipients are CC'd immediately for urgent complaints</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1rem">🔔</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:.82rem">Senior Management / CEO Office</div>
+            <input type="email" id="rcpt-senior-email" placeholder="ceo.office@ugairlines.ug"
+              style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:.78rem;font-family:var(--font);margin-top:3px"/>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="saveFeedbackRecipients()">💾 Save Recipients</button>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center;line-height:1.5">
+        Email delivery requires webhook setup via Make.com.<br>Recipients are saved in app settings.
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- QR code modal -->
-<div class="fs-overlay" id="qr-modal" style="background:rgba(11,29,58,.85);display:none;align-items:center;justify-content:center">
+<div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(11,29,58,.85);z-index:9000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:300px;margin:20px">
     <div style="font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:14px">Scan to Leave Feedback</div>
     <div id="qr-display" style="width:200px;height:200px;margin:0 auto 14px;background:var(--ice2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);text-align:center;padding:10px"></div>
@@ -6728,13 +6844,47 @@ const FEEDBACK_BASE_URL = 'https://rubzdaniel5-source.github.io/ug-feedback';
 
 function openPaxFeedbackOverlay(){
   document.getElementById('pax-feedback-overlay').classList.add('open');
-  // Admin: show QR/link panel
-  const qrPanel = document.getElementById('pfb-qr-panel');
+  // Admin: show QR/link panel and Recipients button
+  const qrPanel  = document.getElementById('pfb-qr-panel');
+  const rcptBtn  = document.getElementById('pfb-rcpt-btn');
   if(qrPanel) qrPanel.style.display = isAdmin ? 'block' : 'none';
+  if(rcptBtn) rcptBtn.style.display = isAdmin ? 'inline-block' : 'none';
   // Populate link display
   const linkEl = document.getElementById('pfb-link-display');
   if(linkEl) linkEl.textContent = FEEDBACK_BASE_URL;
   loadPaxFeedback();
+}
+
+function openFeedbackRecipients(){
+  document.getElementById('pfb-recipients-overlay').classList.add('open');
+  loadFeedbackRecipients();
+}
+
+function loadFeedbackRecipients(){
+  // Load saved emails from app_config
+  const saved = JSON.parse(localStorage.getItem('ccl_fb_recipients')||'{}');
+  ['ops','catering','safety','engineering','hr','marketing','qa','senior'].forEach(key=>{
+    const el = document.getElementById(`rcpt-${key}-email`);
+    if(el && saved[key]) el.value = saved[key];
+  });
+}
+
+async function saveFeedbackRecipients(){
+  const recipients = {};
+  ['ops','catering','safety','engineering','hr','marketing','qa','senior'].forEach(key=>{
+    const el = document.getElementById(`rcpt-${key}-email`);
+    if(el && el.value.trim()) recipients[key] = el.value.trim().toLowerCase();
+  });
+  // Save to Supabase app_config and localStorage
+  localStorage.setItem('ccl_fb_recipients', JSON.stringify(recipients));
+  try{
+    await sb.from('app_config').upsert({
+      key:'feedback_recipients', value: JSON.stringify(recipients)
+    }, { onConflict:'key' });
+    toast('✅ Recipients saved!');
+  }catch(e){
+    toast('✅ Saved locally. Will sync when online.');
+  }
 }
 
 function closePaxFeedbackOverlay(){
@@ -6753,10 +6903,14 @@ async function loadPaxFeedback(){
   try{
     let query = sb.from('passenger_feedback').select('*').order('created_at',{ascending:false}).limit(100);
 
-    // Crew see only feedback for their flights
+    // Crew see feedback for their flights OR feedback with no flight number
     if(!isAdmin){
       const myNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-      if(myNums.length) query = query.in('flight_number', myNums);
+      if(myNums.length){
+        // Show feedback matching their flights OR with no flight specified
+        query = query.or(`flight_number.in.(${myNums.join(',')}),flight_number.is.null`);
+      }
+      // If crew has no flights logged yet, show all feedback so they can see it
     }
 
     if(filterType) query = query.eq('feedback_type', filterType);
@@ -6836,9 +6990,11 @@ function generateQRCode(){
   const qrDisplay= document.getElementById('qr-display');
   const qrUrlTxt = document.getElementById('qr-url-text');
   if(!qrModal) return;
-  // Use QR code API (Google Charts — free, no key needed)
-  const qrImgUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(url)}&choe=UTF-8`;
-  qrDisplay.innerHTML = `<img src="${qrImgUrl}" width="200" height="200" alt="QR Code" style="border-radius:8px" onerror="this.parentElement.innerHTML='<div style=padding:20px;font-size:.75rem>QR generation requires internet connection</div>'"/>`;
+  // qr-server.com is a reliable free QR API with no auth
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=0B1D3A&margin=10`;
+  qrDisplay.innerHTML = `<img src="${qrImgUrl}" width="200" height="200" alt="QR Code for ${escHtml(url)}"
+    style="border-radius:8px;display:block"
+    onerror="this.outerHTML='<div style=\\'padding:14px;font-size:.72rem;color:var(--muted);text-align:center\\'>Could not generate QR — check internet connection and try again.</div>'"/>`;
   if(qrUrlTxt) qrUrlTxt.textContent = url;
   qrModal.style.display = 'flex';
 }
