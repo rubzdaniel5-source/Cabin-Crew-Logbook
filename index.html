@@ -368,6 +368,20 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
 .hub-overlay-hdr{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:#fff}
 
+/* ── PASSENGER FEEDBACK ──────────────────────────────────── */
+.pfb-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:13px 14px;margin-bottom:10px}
+.pfb-card.urgent{border-left:4px solid var(--red)}
+.pfb-card.compliment{border-left:4px solid var(--green)}
+.pfb-card.suggestion{border-left:4px solid var(--gold)}
+.pfb-type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:10px;margin-bottom:6px}
+.pfb-type-badge.compliment{background:#d4f4e2;color:#1a7a45}
+.pfb-type-badge.complaint{background:#fde8e8;color:#c0392b}
+.pfb-type-badge.suggestion{background:#fef3cd;color:#8a6200}
+.pfb-stars{color:var(--gold);font-size:.85rem;letter-spacing:1px}
+.pfb-cat-ratings{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pfb-cat-pill{font-size:.62rem;font-weight:700;color:var(--muted);background:var(--ice2);border-radius:8px;padding:2px 8px}
+.pfb-cat-pill span{color:var(--gold)}
+
 /* ── PASSENGER MANIFEST ──────────────────────────────────── */
 .mfst-header{background:var(--navy);color:#fff;padding:14px 16px;border-radius:var(--radius) var(--radius) 0 0;margin:-16px -16px 14px}
 .mfst-flight-num{font-size:1.1rem;font-weight:900;letter-spacing:-.01em}
@@ -2224,6 +2238,63 @@ header{background:var(--navy);color:#fff;padding:14px 18px 0;position:sticky;top
   </div>
   <div style="padding:12px 16px;border-top:1px solid var(--border2);background:var(--white)">
     <button class="btn btn-ghost" style="width:100%" onclick="sb.auth.signOut()">Sign Out</button>
+  </div>
+</div>
+
+<!-- ── PASSENGER FEEDBACK OVERLAY ────────────────────────── -->
+<div class="hub-fs-overlay" id="pax-feedback-overlay">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="hub-overlay-hdr">
+      <h2>🌟 Passenger Feedback</h2>
+      <button class="fs-close" onclick="closePaxFeedbackOverlay()">✕</button>
+    </div>
+    <!-- Filter bar -->
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--ice2);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="pfb-filter-type" onchange="loadPaxFeedback()"
+        style="border:1.5px solid var(--border);border-radius:20px;padding:5px 10px;font-size:.75rem;font-family:var(--font);color:var(--navy);background:#fff">
+        <option value="">All Types</option>
+        <option value="compliment">😊 Compliments</option>
+        <option value="complaint">😟 Complaints</option>
+        <option value="suggestion">💡 Suggestions</option>
+      </select>
+      <select id="pfb-filter-rating" onchange="loadPaxFeedback()"
+        style="border:1.5px solid var(--border);border-radius:20px;padding:5px 10px;font-size:.75rem;font-family:var(--font);color:var(--navy);background:#fff">
+        <option value="">All Ratings</option>
+        <option value="5">★★★★★ 5 stars</option>
+        <option value="4">★★★★ 4+ stars</option>
+        <option value="3">★★★ 3+ stars</option>
+        <option value="low">⚠ Below 3 (urgent)</option>
+      </select>
+      <div style="margin-left:auto;font-size:.7rem;color:var(--muted)" id="pfb-count"></div>
+    </div>
+    <!-- QR + link panel (admin only) -->
+    <div id="pfb-qr-panel" style="display:none;padding:12px 14px;background:#fff;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div id="pfb-qr-code" style="width:72px;height:72px;background:var(--ice2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0">QR</div>
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:.72rem;font-weight:800;color:var(--navy);margin-bottom:4px">Passenger Feedback Link</div>
+          <div style="font-size:.68rem;color:var(--sky);word-break:break-all;font-family:monospace" id="pfb-link-display"></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn btn-ghost btn-sm" onclick="copyFeedbackLink()">📋 Copy Link</button>
+            <button class="btn btn-ghost btn-sm" onclick="generateQRCode()">📱 Show QR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Feedback list -->
+    <div style="flex:1;overflow-y:auto;padding:12px 14px" id="pfb-list">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- QR code modal -->
+<div class="fs-overlay" id="qr-modal" style="background:rgba(11,29,58,.85);display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:300px;margin:20px">
+    <div style="font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:14px">Scan to Leave Feedback</div>
+    <div id="qr-display" style="width:200px;height:200px;margin:0 auto 14px;background:var(--ice2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--muted);text-align:center;padding:10px"></div>
+    <div id="qr-url-text" style="font-size:.65rem;color:var(--muted);word-break:break-all;font-family:monospace;margin-bottom:14px"></div>
+    <button class="btn btn-ghost" onclick="document.getElementById('qr-modal').style.display='none'">Close</button>
   </div>
 </div>
 
@@ -5715,6 +5786,7 @@ const HUB_CARDS = [
   { id:'chat',          icon:'💬', title:'Crew Chat',             sub:'Group & private messaging',            roles:['all'], action:()=>{ openChat(); } },
   { id:'iqsms',         icon:'🛡', title:'IQSMS',                 sub:'Report safety concerns',               roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
   { id:'notices',       icon:'📌', title:'Cabin Notices',         sub:'Operational notices & bulletins',      roles:['all'], action:openNoticesOverlay },
+  { id:'pax-feedback',  icon:'🌟', title:'Passenger Feedback',    sub:'Experience reports & ratings',         roles:['all'], action:openPaxFeedbackOverlay },
 ];
 
 function getUserRole(){
@@ -6647,6 +6719,128 @@ async function deleteNotice(id){
   if(error){ toast('⚠ ' + error.message); return; }
   toast('🗑 Notice deleted.');
   loadNotices();
+}
+
+// ═══════════════════════════════════════════════
+// PASSENGER FEEDBACK OVERLAY (Crew Hub)
+// ═══════════════════════════════════════════════
+const FEEDBACK_BASE_URL = 'https://rubzdaniel5-source.github.io/ug-feedback';
+
+function openPaxFeedbackOverlay(){
+  document.getElementById('pax-feedback-overlay').classList.add('open');
+  // Admin: show QR/link panel
+  const qrPanel = document.getElementById('pfb-qr-panel');
+  if(qrPanel) qrPanel.style.display = isAdmin ? 'block' : 'none';
+  // Populate link display
+  const linkEl = document.getElementById('pfb-link-display');
+  if(linkEl) linkEl.textContent = FEEDBACK_BASE_URL;
+  loadPaxFeedback();
+}
+
+function closePaxFeedbackOverlay(){
+  document.getElementById('pax-feedback-overlay').classList.remove('open');
+}
+
+async function loadPaxFeedback(){
+  const listEl  = document.getElementById('pfb-list');
+  const countEl = document.getElementById('pfb-count');
+  if(!listEl) return;
+  listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>';
+
+  const filterType   = document.getElementById('pfb-filter-type')?.value   || '';
+  const filterRating = document.getElementById('pfb-filter-rating')?.value || '';
+
+  try{
+    let query = sb.from('passenger_feedback').select('*').order('created_at',{ascending:false}).limit(100);
+
+    // Crew see only feedback for their flights
+    if(!isAdmin){
+      const myNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+      if(myNums.length) query = query.in('flight_number', myNums);
+    }
+
+    if(filterType) query = query.eq('feedback_type', filterType);
+    if(filterRating === 'low') query = query.lt('overall_rating', 3);
+    else if(filterRating)      query = query.gte('overall_rating', parseInt(filterRating));
+
+    const { data, error } = await query;
+    if(error) throw error;
+    if(!data?.length){
+      listEl.innerHTML = '<div class="empty"><div class="empty-icon">🌟</div><h3>No feedback yet</h3><p>Passenger feedback will appear here once submitted.</p></div>';
+      if(countEl) countEl.textContent = '';
+      return;
+    }
+
+    if(countEl) countEl.textContent = `${data.length} result${data.length!==1?'s':''}`;
+
+    const CAT_LABELS = {
+      rating_crew:'Crew', rating_food:'Food', rating_comfort:'Comfort',
+      rating_cleanliness:'Clean', rating_entertainment:'Entertainment', rating_ground:'Ground'
+    };
+
+    listEl.innerHTML = data.map(fb=>{
+      const isUrgent = fb.feedback_type==='complaint' && (fb.overall_rating||5) < 3;
+      const typeIcon = fb.feedback_type==='compliment'?'😊':fb.feedback_type==='complaint'?'😟':'💡';
+      const stars    = fb.overall_rating ? '★'.repeat(fb.overall_rating)+'☆'.repeat(5-fb.overall_rating) : '—';
+      const date     = new Date(fb.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
+
+      const catRatings = Object.entries(CAT_LABELS)
+        .filter(([k])=>fb[k])
+        .map(([k,lbl])=>`<span class="pfb-cat-pill">${lbl} <span>${'★'.repeat(fb[k])}</span></span>`)
+        .join('');
+
+      return `
+      <div class="pfb-card ${isUrgent?'urgent':fb.feedback_type||''}">
+        ${isUrgent?'<div style="font-size:.68rem;font-weight:800;color:var(--red);margin-bottom:4px">⚠ URGENT — Low Rating Complaint</div>':''}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div>
+            <span class="pfb-type-badge ${fb.feedback_type||''}">${typeIcon} ${(fb.feedback_type||'feedback').charAt(0).toUpperCase()+(fb.feedback_type||'').slice(1)}</span>
+            <div style="font-weight:800;font-size:.88rem;color:var(--navy)">${escHtml(fb.passenger_name||'Anonymous')}</div>
+            <div style="font-size:.7rem;color:var(--muted)">${escHtml(fb.passenger_email||'')} ${fb.seat_number?'· Seat '+fb.seat_number:''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:10px">
+            <div class="pfb-stars">${stars}</div>
+            <div style="font-size:.65rem;color:var(--muted);margin-top:2px">${date}</div>
+          </div>
+        </div>
+        ${fb.flight_number?`<div style="font-size:.7rem;color:var(--sky);font-weight:700;margin-bottom:6px">✈ ${escHtml(fb.flight_number)} ${fb.route?'· '+escHtml(fb.route):''}${fb.flight_date?' · '+fb.flight_date:''}</div>`:''}
+        ${fb.comments?`<div style="font-size:.82rem;color:var(--navy);line-height:1.55;font-style:italic;border-left:3px solid var(--border2);padding-left:10px;margin-bottom:8px">"${escHtml(fb.comments)}"</div>`:''}
+        ${catRatings?`<div class="pfb-cat-ratings">${catRatings}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){
+    listEl.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center">Could not load feedback: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ── QR code and link sharing ──────────────────────────────
+function copyFeedbackLink(){
+  const url = FEEDBACK_BASE_URL;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>toast('📋 Link copied!')).catch(()=>fallbackCopy(url));
+  } else { fallbackCopy(url); }
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  toast('📋 Link copied!');
+}
+
+function generateQRCode(){
+  const url      = FEEDBACK_BASE_URL;
+  const qrModal  = document.getElementById('qr-modal');
+  const qrDisplay= document.getElementById('qr-display');
+  const qrUrlTxt = document.getElementById('qr-url-text');
+  if(!qrModal) return;
+  // Use QR code API (Google Charts — free, no key needed)
+  const qrImgUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(url)}&choe=UTF-8`;
+  qrDisplay.innerHTML = `<img src="${qrImgUrl}" width="200" height="200" alt="QR Code" style="border-radius:8px" onerror="this.parentElement.innerHTML='<div style=padding:20px;font-size:.75rem>QR generation requires internet connection</div>'"/>`;
+  if(qrUrlTxt) qrUrlTxt.textContent = url;
+  qrModal.style.display = 'flex';
 }
 
 function escHtml(str){
