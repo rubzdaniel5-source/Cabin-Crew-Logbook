@@ -1,4 +1,4 @@
-const CACHE   = 'crew-logbook-v42';
+const CACHE   = 'crew-logbook-v43';
 const ASSETS  = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const ASSETS  = [
   './icon.svg',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js'
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+  'https://cdn.jsdelivr.net/npm/lucide@0.447.0/dist/umd/lucide.min.js'
 ];
 
 // Install — cache app shell, activate immediately
