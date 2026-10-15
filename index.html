@@ -214,6 +214,107 @@ body.light-mode{
   /* ── Shadows lighter on white ── */
   --shadow:0 2px 8px rgba(0,0,0,.12);
   --shadow-lg:0 8px 24px rgba(0,0,0,.18);
+  /* ── Elements on navy/dark-nav backgrounds need white text in light mode ── */
+  /* These elements have background:var(--color-nav) or var(--navy) always    */
+  /* The original theme used white text on navy — restore that here.          */
+}
+
+/* Header & tab bar — navy background, white text */
+body.light-mode header,
+body.light-mode header .brand h1,
+body.light-mode header .hdr-pill .lbl {
+  color: #fff;
+}
+body.light-mode header .brand p {
+  color: rgba(255,255,255,.72);
+}
+body.light-mode header .brand h1 {
+  color: #fff;
+}
+body.light-mode .tab-bar button {
+  color: rgba(255,255,255,.6);
+}
+body.light-mode .tab-bar button.active {
+  color: #FFC629;
+  border-bottom-color: #FFC629;
+}
+body.light-mode .hdr-pill {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.25);
+}
+body.light-mode .hdr-pill .num {
+  color: #FFC629;
+}
+body.light-mode .hdr-pill .lbl {
+  color: rgba(255,255,255,.72);
+}
+
+/* Menu drawer — navy background, white text */
+body.light-mode .menu-drawer {
+  background: #1A3A5C;
+}
+body.light-mode .menu-item {
+  color: rgba(255,255,255,.80);
+}
+body.light-mode .menu-item:hover,
+body.light-mode .menu-item:active {
+  background: rgba(255,255,255,.10);
+}
+body.light-mode .menu-item.logout-item {
+  color: #F1948A;
+}
+body.light-mode .menu-app-version {
+  color: rgba(255,255,255,.5);
+}
+body.light-mode .menu-footer {
+  color: rgba(255,255,255,.4);
+  border-top-color: rgba(255,255,255,.10);
+}
+body.light-mode .menu-divider {
+  background: rgba(255,255,255,.10);
+}
+
+/* Modal headers — navy background */
+body.light-mode .modal-hdr,
+body.light-mode .fs-modal-hdr,
+body.light-mode .hub-overlay-hdr,
+body.light-mode .notes-header,
+body.light-mode .chat-topbar,
+body.light-mode .nexa-header,
+body.light-mode .nexa-input-bar,
+body.light-mode .chat-input-bar,
+body.light-mode .crew-picker-search {
+  color: #fff;
+}
+body.light-mode .modal-hdr h2,
+body.light-mode .fs-modal-hdr h2,
+body.light-mode .hub-overlay-hdr h2,
+body.light-mode .notes-header,
+body.light-mode .chat-topbar,
+body.light-mode .chat-topbar-name {
+  color: #fff;
+}
+body.light-mode .chat-topbar-sub,
+body.light-mode .chat-topbar-back {
+  color: rgba(255,255,255,.65);
+}
+
+/* Close/back buttons on navy headers */
+body.light-mode .modal-hdr button,
+body.light-mode .fs-modal-hdr button,
+body.light-mode .hub-overlay-hdr button,
+body.light-mode .notes-header button {
+  color: rgba(255,255,255,.75);
+}
+
+/* App loading screen */
+body.light-mode #app-loading {
+  color: #fff;
+}
+
+/* Nexa AI chat header text */
+body.light-mode .nexa-header * {
+  color: #fff;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
