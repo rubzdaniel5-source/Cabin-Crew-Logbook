@@ -142,6 +142,80 @@ if('serviceWorker' in navigator){
   --shadow-lg:0 8px 32px rgba(0,0,0,.55);
   --font:'Segoe UI',system-ui,-apple-system,sans-serif;
 }
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES — activated by body.light-mode
+   Original airline-blue theme. Dark Cockpit is the default.
+═══════════════════════════════════════════════════════════════ */
+body.light-mode{
+  /* ── Surfaces ── */
+  --color-app-bg:#F0F4F8;
+  --color-nav:#1A3A5C;
+  --color-header-secondary:#E8F0F7;
+  --color-card:#FFFFFF;
+  --color-card-elevated:#FFFFFF;
+  --color-input-bg:#FFFFFF;
+  --color-modal-bg:#FFFFFF;
+  --color-divider:#CBD5E0;
+
+  /* ── Text ── */
+  --color-text-primary:#1A2B3C;
+  --color-text-secondary:#4A6080;
+  --color-text-muted:#6B82A0;
+  --color-text-disabled:#94A3B8;
+
+  /* ── Accent & interactive ── */
+  --color-accent:#E6A800;
+  --color-accent-hover:#D49800;
+  --color-focus:#1A3A5C;
+  --color-link:#1A3A5C;
+
+  /* ── Borders ── */
+  --color-border:#CBD5E0;
+  --color-border-strong:#94A3B8;
+
+  /* ── Semantic states (adjusted for light) ── */
+  --color-success:#0D9E6E;
+  --color-success-bg:rgba(13,158,110,.10);
+  --color-warning:#C47F00;
+  --color-warning-bg:rgba(196,127,0,.10);
+  --color-error:#D92D38;
+  --color-error-bg:rgba(217,45,56,.10);
+  --color-info:#1A6BC4;
+  --color-info-bg:rgba(26,107,196,.10);
+  --color-purple-bg:rgba(109,40,217,.10);
+  --color-teal-bg:rgba(15,118,110,.10);
+
+  /* ── Semantic aliases ── */
+  --navy:#1A3A5C;
+  --navy2:#E8F0F7;
+  --sky:#1A6BC4;
+  --sky-light:#3B82C4;
+  --ice:#EBF0F7;
+  --ice2:#E8F0F7;
+  --gold:#E6A800;
+  --gold2:#D49800;
+  --white:#FFFFFF;
+  --card:#FFFFFF;
+  --muted:#6B82A0;
+  --muted2:#94A3B8;
+  --border:#CBD5E0;
+  --border2:#CBD5E0;
+  --green:#0D9E6E;
+  --green-bg:rgba(13,158,110,.10);
+  --danger:#D92D38;
+  --danger-bg:rgba(217,45,56,.10);
+  --orange:#C47F00;
+  --orange-bg:rgba(196,127,0,.10);
+  --purple:#7C3AED;
+  --purple-bg:rgba(109,40,217,.10);
+  --teal:#0D9E6E;
+  --teal-bg:rgba(15,118,110,.10);
+
+  /* ── Shadows lighter on white ── */
+  --shadow:0 2px 8px rgba(0,0,0,.12);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.18);
+}
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{scroll-behavior:smooth;overflow-x:hidden;width:100%}
 body{font-family:var(--font);background:var(--color-app-bg);color:var(--color-text-primary);min-height:100vh;padding-bottom:84px;font-size:15px;overflow-x:hidden;width:100%;position:relative}
@@ -3437,7 +3511,9 @@ function openSettings(){
   }
 }
 function toggleDarkMode(on){
-  document.body.classList.toggle('dark-mode', on);
+  // on=true → dark mode (remove light-mode class)
+  // on=false → light mode (add light-mode class)
+  document.body.classList.toggle('light-mode', !on);
   localStorage.setItem('ccl_dark_mode', on ? '1' : '0');
 }
 
@@ -7182,8 +7258,14 @@ async function onLoggedIn(){
   if(isOnline) loadPDPayments();
 
   // Restore dark mode preference
-  if(localStorage.getItem('ccl_dark_mode') === '1'){
-    document.body.classList.add('dark-mode');
+  // Default = dark mode (Dark Cockpit). Light mode = saved pref '0'.
+  const _savedTheme = localStorage.getItem('ccl_dark_mode');
+  if(_savedTheme === '0'){
+    document.body.classList.add('light-mode');
+    const t = document.getElementById('dark-mode-toggle');
+    if(t) t.checked = false;
+  } else {
+    // Dark mode is default — ensure checkbox is checked
     const t = document.getElementById('dark-mode-toggle');
     if(t) t.checked = true;
   }
