@@ -1278,6 +1278,31 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <input type="hidden" id="f-pax" value="0"/>
       </div>
 
+      <!-- ── RETURN-LEG CREW AUTOFILL BANNER ─── -->
+      <div id="autofill-banner" class="field full" style="display:none">
+        <div id="autofill-banner-inner" style="
+          background:rgba(255,198,41,.10);
+          border:1px solid rgba(255,198,41,.35);
+          border-radius:10px;
+          padding:10px 14px;
+          display:flex;
+          align-items:center;
+          gap:10px;
+          font-size:.82rem;
+        ">
+          <span style="font-size:1rem">✈</span>
+          <span id="autofill-msg" style="flex:1;color:var(--color-text-primary);font-weight:600"></span>
+          <button type="button" onclick="applyCrewAutofill()"
+            style="background:var(--color-accent);color:var(--color-nav);border:none;border-radius:7px;padding:5px 13px;font-size:.78rem;font-weight:800;cursor:pointer;font-family:var(--font);flex-shrink:0">
+            Yes, autofill
+          </button>
+          <button type="button" onclick="dismissCrewAutofill()"
+            style="background:none;border:none;color:var(--color-text-muted);font-size:1.1rem;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0">
+            ✕
+          </button>
+        </div>
+      </div>
+
       <div class="field">
         <label>Captain</label>
         <div class="combo-wrap">
@@ -7711,7 +7736,27 @@ function renderLog(){
     el.innerHTML=`<div class="empty"><div class="empty-icon">✈</div><h3>${q?'No results':'No flights logged yet'}</h3><p>${q?'Try different keywords.':'Tap ＋ to log your first flight.'}</p></div>`;
     return;
   }
-  el.innerHTML=data.map(e=>logItemHTML(e)).join('');
+  // Group by month — inject a centred month heading whenever the month changes
+  const MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+  let lastMonthKey = '';
+  const parts = [];
+  for(const e of data){
+    const dateStr = e.date || '';
+    const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
+    if(monthKey && monthKey !== lastMonthKey){
+      const [yr, mo] = monthKey.split('-');
+      const label = (MONTH_NAMES[parseInt(mo,10)-1] || monthKey) + ' ' + yr;
+      parts.push(
+        `<div style="text-align:center;font-size:.72rem;font-weight:800;text-transform:uppercase;`+
+        `letter-spacing:.12em;color:var(--color-text-muted);padding:16px 0 8px;`+
+        `border-top:1px solid var(--color-border);margin-top:2px">${label}</div>`
+      );
+      lastMonthKey = monthKey;
+    }
+    parts.push(logItemHTML(e));
+  }
+  el.innerHTML = parts.join('');
 }
 
 // ═══════════════════════════════════════════════
@@ -7922,6 +7967,7 @@ function clearForm(){
   if(scEl) scEl.value = '1';
   selectedCrew=[];
   renderCrewTags();
+  dismissCrewAutofill();
   clearBlockTime();
   clearSectorDetails();
   clearRouteFields();
@@ -7962,6 +8008,59 @@ function renderCrewTags(){
   input.disabled=selectedCrew.length>=MAX_CREW;
   input.placeholder=selectedCrew.length>=MAX_CREW?'Maximum reached':'Type name and tap to add…';
 }
+
+// ═══════════════════════════════════════════════
+// RETURN-LEG CREW AUTOFILL
+// ═══════════════════════════════════════════════
+const RETURN_LEG_MAP = {
+  'UR111':'UR110', 'UR431':'UR430', 'UR445':'UR444'
+};
+let _pendingAutofill = null; // { captain, fo, crew[] }
+
+function checkCrewAutofill(rawVal){
+  const fn = (rawVal||'').trim().toUpperCase();
+  const outbound = RETURN_LEG_MAP[fn];
+  if(!outbound){ dismissCrewAutofill(); return; }
+
+  // Don't autofill if crew fields already have content (edit mode)
+  const capVal = (document.getElementById('f-captain')?.value||'').trim();
+  const foVal  = (document.getElementById('f-fo')?.value||'').trim();
+  if(capVal || foVal || selectedCrew.length) { dismissCrewAutofill(); return; }
+
+  // Find most recent outbound flight in cache
+  const source = cache.flights.find(f =>
+    (f.flightNum||'').toUpperCase() === outbound
+  );
+  if(!source){ dismissCrewAutofill(); return; }
+
+  const crewList = source.crew ? source.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  _pendingAutofill = { captain: source.captain||'', fo: source.fo||'', crew: crewList };
+
+  const dateLabel = source.date ? ' on ' + formatDate(source.date) : '';
+  document.getElementById('autofill-msg').textContent =
+    `Crew from ${outbound}${dateLabel} found — autofill?`;
+  document.getElementById('autofill-banner').style.display = '';
+}
+
+function applyCrewAutofill(){
+  if(!_pendingAutofill) return;
+  const { captain, fo, crew } = _pendingAutofill;
+  if(captain) document.getElementById('f-captain').value = captain;
+  if(fo)      document.getElementById('f-fo').value = fo;
+  if(crew.length){
+    selectedCrew = [...crew];
+    renderCrewTags();
+  }
+  toast('✅ Crew autofilled from outbound leg');
+  dismissCrewAutofill();
+}
+
+function dismissCrewAutofill(){
+  _pendingAutofill = null;
+  const b = document.getElementById('autofill-banner');
+  if(b) b.style.display = 'none';
+}
+
 function crewKeydown(e){
   if(e.key==='Enter'||e.key===','){
     e.preventDefault();
@@ -8343,7 +8442,7 @@ function updateFlightNumFields(){
           style="text-transform:uppercase"
           oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
           onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-          onblur="delayClose('dd-flightnum')"/>
+          onblur="delayClose('dd-flightnum');checkCrewAutofill(this.value)"/>
         <div class="combo-dropdown" id="dd-flightnum"></div>
       </div>`;
   } else {
@@ -8358,7 +8457,7 @@ function updateFlightNumFields(){
               style="text-transform:uppercase"
               oninput="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
               onfocus="filterCombo('f-flightnum','dd-flightnum',getDB('flightNumbers'))"
-              onblur="delayClose('dd-flightnum')"/>
+              onblur="delayClose('dd-flightnum');checkCrewAutofill(this.value)"/>
             <div class="combo-dropdown" id="dd-flightnum"></div>
           </div>
         </div>
@@ -9110,9 +9209,13 @@ function exportCSV(){
   const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
 
   // Meta rows at top
+  const _totalBlkMins = data.reduce((a,f)=>a+parseBlockTime(f.blockTime||''),0);
+  const _blkH = Math.floor(_totalBlkMins/60), _blkM = _totalBlkMins % 60;
+  const _blkLabel = _totalBlkMins ? `${_blkH}h ${String(_blkM).padStart(2,'0')}m` : '—';
   const meta = [
     ['Exported by:', crewName],
     ['Export date:', today()],
+    ['Total Block Time:', _blkLabel],
     [],
     ['Date','Flight','Flight No.2','Route','DEP','ARR','Aircraft Reg','Aircraft Type','Flight Time','Flight Level','Position','Captain','First Officer','Crew','Pax','STD','STA','SOP/SEP Topic','First Aid Topic','Block Time','Delay (min)','Delay Reason','Flight Remarks','Status']
   ];
@@ -9138,9 +9241,13 @@ function exportPerDiemCSV(){
   const crewName = localStorage.getItem('ccl_crew_name') || document.getElementById('user-email-display').textContent || 'Crew';
   const safeName = crewName.replace(/[^a-zA-Z0-9]/g,'-');
 
+  const _pdNights = data.reduce((a,p)=>a+(parseInt(p.nights)||0),0);
+  const _pdAmt    = (_pdNights * PERDIEM_RATE).toFixed(2);
   const meta = [
     ['Exported by:', crewName],
     ['Export date:', today()],
+    ['Total Nights:', _pdNights],
+    ['Total Amount (USD):', `$${_pdAmt}`],
     [],
     ['Date','Flight Number','Nights','Amount (USD)','Notes']
   ];
@@ -9172,7 +9279,7 @@ function exportFlightsPDF(){
   const tbody = rows.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');
   document.getElementById('print-area').innerHTML = `
     <h2>✈ Crew Logbook — Flight Record</h2>
-    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Total flights: ${data.length}</div>
+    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Flights: ${data.length} &nbsp;|&nbsp; Block Time: ${(()=>{ const m=data.reduce((a,f)=>a+parseBlockTime(f.blockTime||''),0); return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'; })()}</div>
     <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
   setTimeout(()=>{ window.print(); }, 80);
 }
@@ -9189,7 +9296,7 @@ function exportPerDiemPDF(){
     <td>${escHtml(p.notes||'')}</td></tr>`).join('');
   document.getElementById('print-area').innerHTML = `
     <h2>✈ Crew Logbook — Per Diem Record</h2>
-    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Total: ${totalNights} nights = $${totalAmt.toFixed(2)}</div>
+    <div class="print-meta">Crew: <strong>${escHtml(crewName)}</strong> &nbsp;|&nbsp; Exported: ${today()} &nbsp;|&nbsp; Nights: <strong>${totalNights}</strong> &nbsp;|&nbsp; Amount Earned: <strong>$${totalAmt.toFixed(2)}</strong></div>
     <table><thead><tr><th>Date</th><th>Flight</th><th>Nights</th><th>Amount</th><th>Notes</th></tr></thead>
     <tbody>${rows}</tbody></table>`;
   setTimeout(()=>{ window.print(); }, 80);
