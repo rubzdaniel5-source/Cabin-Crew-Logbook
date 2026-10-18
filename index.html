@@ -8676,7 +8676,23 @@ function renderPerDiemTab(){
     listEl.innerHTML='<div class="empty"><div class="empty-icon">💰</div><h3>No per diem entries yet</h3><p>Log a layover above to start tracking.</p></div>';
     return;
   }
-  listEl.innerHTML=all.map(p=>`
+  const PD_MONTH_NAMES = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+  let pdLastMonthKey = '';
+  const pdParts = [];
+  for(const p of all){
+    const monthKey = (p.date||'').slice(0,7); // "YYYY-MM"
+    if(monthKey && monthKey !== pdLastMonthKey){
+      const [yr, mo] = monthKey.split('-');
+      const label = (PD_MONTH_NAMES[parseInt(mo,10)-1] || monthKey) + ' ' + yr;
+      pdParts.push(
+        `<div style="text-align:center;font-size:.72rem;font-weight:800;text-transform:uppercase;`+
+        `letter-spacing:.12em;color:var(--color-text-muted);padding:16px 0 8px;`+
+        `border-top:1px solid var(--color-border);margin-top:2px">${label}</div>`
+      );
+      pdLastMonthKey = monthKey;
+    }
+    pdParts.push(`
     <div class="pd-list-item" onclick="deletePerDiem('${p.id}')" style="cursor:pointer" title="Tap to delete">
       <div class="pd-li-left">
         <div class="pd-li-flight">${p.flightNum}</div>
@@ -8686,7 +8702,9 @@ function renderPerDiemTab(){
         <div class="pd-li-nights"><div class="n">${p.nights}</div><div class="l">nights</div></div>
         <div class="pd-li-amount">$${(p.nights*PERDIEM_RATE).toLocaleString()}</div>
       </div>
-    </div>`).join('');
+    </div>`);
+  }
+  listEl.innerHTML = pdParts.join('');
 }
 
 // ═══════════════════════════════════════════════
