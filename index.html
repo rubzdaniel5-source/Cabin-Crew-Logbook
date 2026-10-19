@@ -602,6 +602,62 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 
 @keyframes pulse{50%{opacity:.3}}
 
+/* ── MENU BADGE (unread contact messages) ──────────────────── */
+.menu-btn{position:relative}
+.menu-badge{
+  position:absolute;top:-3px;right:-3px;
+  width:10px;height:10px;border-radius:50%;
+  background:#e74c3c;border:2px solid var(--color-nav);
+  display:none;
+  animation:badge-pulse 1.4s ease-in-out infinite;
+}
+@keyframes badge-pulse{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.35);opacity:.7}
+}
+
+/* ── CONTACT ADMIN MODAL ───────────────────────────────────── */
+#contact-admin-modal{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+}
+#contact-admin-modal .cam-card{
+  background:var(--color-card);border-radius:var(--radius);
+  padding:22px 20px;width:100%;max-width:400px;
+  box-shadow:0 8px 32px rgba(0,0,0,.35);
+}
+#contact-admin-modal input,
+#contact-admin-modal textarea{
+  width:100%;border:1.5px solid var(--color-border);
+  border-radius:var(--radius-sm);padding:10px 11px;
+  font-size:.88rem;font-family:var(--font);
+  background:var(--color-input-bg);color:var(--color-text-primary);
+  margin-bottom:10px;box-sizing:border-box;
+}
+#contact-admin-modal textarea{resize:vertical;min-height:90px}
+#contact-admin-modal input:focus,
+#contact-admin-modal textarea:focus{
+  outline:none;border-color:var(--color-accent);
+  box-shadow:0 0 0 3px rgba(255,198,41,.12);
+}
+
+/* ── CONTACT MESSAGES OVERLAY (admin) ──────────────────────── */
+#contact-msgs-overlay{
+  position:fixed;inset:0;z-index:8900;
+  background:var(--color-app-bg);overflow-y:auto;
+}
+.cmsg-item{
+  background:var(--color-card);border-radius:var(--radius-sm);
+  padding:14px 16px;margin-bottom:10px;
+  border-left:3px solid transparent;transition:border-color .15s;
+}
+.cmsg-item.unread{border-left-color:#e74c3c}
+.cmsg-meta{font-size:.72rem;color:var(--muted);margin-top:4px}
+.cmsg-body{font-size:.82rem;color:var(--color-text-primary);margin-top:6px;line-height:1.55;white-space:pre-wrap}
+.cmsg-actions{display:flex;gap:8px;margin-top:10px}
+
 /* ── CREW HUB ────────────────────────────────────────────── */
 /* Hub section background — gradient header strip */
 #tab-hub{background:linear-gradient(180deg,var(--color-nav) 0px,var(--color-nav) 110px,var(--color-app-bg) 110px);min-height:100vh;padding-top:0}
@@ -1006,7 +1062,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <input type="email" id="signin-email" placeholder="Email address" autocomplete="email"/>
       <input type="password" id="signin-password" placeholder="Password" autocomplete="current-password"/>
       <button class="btn btn-primary" id="auth-signin-btn" onclick="doSignIn()">🔐 Sign In</button>
-      <p style="font-size:.75rem;color:var(--muted);margin-top:12px;text-align:center">Forgot password? Contact your admin.</p>
+      <p style="font-size:.75rem;color:var(--muted);margin-top:12px;text-align:center">Forgot password? <button onclick="openContactAdmin('login')" style="background:none;border:none;color:var(--sky);font-size:.75rem;cursor:pointer;padding:0;font-family:var(--font);text-decoration:underline">Contact Admin</button></p>
     </div>
 
     <!-- Sign Up form -->
@@ -1015,7 +1071,8 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <div id="signups-closed-msg" style="display:none;background:rgba(231,76,60,.08);border:1.5px solid #e74c3c;border-radius:10px;padding:12px 14px;margin-bottom:12px;text-align:center">
         <div style="font-size:1.2rem;margin-bottom:6px">🔒</div>
         <div style="font-weight:800;color:#c0392b;font-size:.88rem">Account Registration Closed</div>
-        <div style="font-size:.76rem;color:var(--muted);margin-top:4px;line-height:1.5" id="signups-closed-detail">New account registration is currently closed. Please contact your administrator.</div>
+        <div style="font-size:.76rem;color:var(--muted);margin-top:4px;line-height:1.5" id="signups-closed-detail">New account registration is currently closed.</div>
+        <button onclick="openContactAdmin('signup')" style="margin-top:10px;background:none;border:1.5px solid var(--sky);border-radius:8px;color:var(--sky);font-size:.78rem;font-weight:700;padding:7px 16px;cursor:pointer;font-family:var(--font)">✉ Contact Admin to Create Account</button>
       </div>
       <div id="signup-fields">
         <input type="text"     id="signup-name"      placeholder="Full name *"                   autocomplete="name"/>
@@ -1032,12 +1089,51 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   </div>
 </div>
 
+<!-- ── CONTACT ADMIN MODAL ───────────────────────────────── -->
+<div id="contact-admin-modal" style="display:none" onclick="if(event.target===this)closeContactAdmin()">
+  <div class="cam-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-weight:800;font-size:1rem;color:var(--color-text-primary)">✉ Contact Admin</div>
+      <button onclick="closeContactAdmin()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);line-height:1">×</button>
+    </div>
+    <!-- Success state -->
+    <div id="cam-success" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:2rem;margin-bottom:10px">✅</div>
+      <div style="font-weight:800;color:var(--color-text-primary);margin-bottom:6px">Message Sent!</div>
+      <div style="font-size:.82rem;color:var(--muted)">Admin will reach out to you.</div>
+      <button onclick="closeContactAdmin()" class="btn btn-primary" style="margin-top:16px;width:100%">Close</button>
+    </div>
+    <!-- Form state -->
+    <div id="cam-form">
+      <input type="text" id="cam-name" placeholder="Your full name *" autocomplete="name"/>
+      <input type="email" id="cam-email" placeholder="Your email address *" autocomplete="email"/>
+      <textarea id="cam-message" placeholder="Describe your issue or request *"></textarea>
+      <div id="cam-error" style="display:none;font-size:.78rem;color:#e74c3c;margin-bottom:10px;text-align:center"></div>
+      <button onclick="sendContactMessage()" class="btn btn-primary" id="cam-send-btn" style="width:100%">Send Message</button>
+      <button onclick="closeContactAdmin()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--muted);font-size:.82rem;cursor:pointer;font-family:var(--font)">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONTACT MESSAGES OVERLAY (admin) ──────────────────── -->
+<div id="contact-msgs-overlay" style="display:none">
+  <div style="position:sticky;top:0;z-index:10;background:var(--color-nav);padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--color-border)">
+    <button onclick="closeContactMsgsOverlay()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--color-text-primary);line-height:1;padding:0">←</button>
+    <div style="font-weight:800;font-size:1rem;color:var(--color-text-primary);flex:1">Contact Messages</div>
+    <span id="cmsg-unread-badge" style="display:none;background:#e74c3c;color:#fff;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:10px"></span>
+  </div>
+  <div style="padding:14px 14px 80px" id="cmsg-list">
+    <div style="text-align:center;color:var(--muted);padding:40px 0;font-size:.85rem">Loading…</div>
+  </div>
+</div>
+
 <!-- ── HEADER ─────────────────────────────────────────────── -->
 <header>
   <div class="hdr-top">
     <div class="brand" style="display:flex;align-items:center;gap:8px">
       <button class="menu-btn" onclick="openMenu()" aria-label="Menu">
         <span></span><span></span><span></span>
+        <span class="menu-badge" id="menu-badge"></span>
       </button>
       <div class="brand-icon">✈</div>
       <div>
@@ -1546,6 +1642,9 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     <span class="sync-badge" id="db-sync-badge"><span class="dot"></span>Synced</span>
   </div>
 
+  <!-- ── User Management section (admin only) ──────────────── -->
+  <div id="admin-section-users" style="display:none;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:4px 2px 8px;border-bottom:1px solid var(--color-border);margin-bottom:12px">User Management</div>
+
   <!-- Signup Control card (admin only) -->
   <div id="admin-signup-control" style="display:none;margin-bottom:14px">
     <div class="card" style="padding:16px">
@@ -1592,6 +1691,24 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       </div>
     </div>
   </div>
+
+  <!-- Contact Messages KPI card (admin only) -->
+  <div id="admin-contact-msgs-kpi" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openContactMsgsOverlay()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#e74c3c,#c0392b);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">✉</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Contact Messages</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="contact-msgs-kpi-sub">Loading…</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="contact-msgs-unread-dot" style="display:none;background:#e74c3c;color:#fff;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:10px"></span>
+        <span style="color:var(--muted);font-size:1.1rem">›</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Content section (admin only) ──────────────────────── -->
+  <div id="admin-section-content" style="display:none;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:4px 2px 8px;border-bottom:1px solid var(--color-border);margin-bottom:12px;margin-top:4px">Content</div>
 
   <!-- Announcements admin panel (admin only) -->
   <div class="card" id="db-ann-panel" style="display:none">
@@ -3021,6 +3138,7 @@ async function initAuth(){
   } else {
     document.getElementById('app-loading').style.display='none';
     document.getElementById('auth-screen').style.display='flex';
+    checkSignupsEnabled(); // lock/grey tab if signups closed
   }
 
   sb.auth.onAuthStateChange((event, session) => {
@@ -3107,6 +3225,19 @@ async function checkSignupsEnabled(){
     const fieldsEl = document.getElementById('signup-fields');
     if(closedEl) closedEl.style.display = enabled ? 'none' : 'block';
     if(fieldsEl) fieldsEl.style.display  = enabled ? 'block' : 'none';
+    // Grey/lock the Create Account tab when signups are closed
+    const tabBtn = document.getElementById('tab-signup');
+    if(tabBtn){
+      if(enabled){
+        tabBtn.style.opacity = '';
+        tabBtn.style.pointerEvents = '';
+        tabBtn.textContent = 'Create Account';
+      } else {
+        tabBtn.style.opacity = '0.45';
+        tabBtn.style.pointerEvents = 'none';
+        tabBtn.textContent = '🔒 Create Account';
+      }
+    }
   }catch{ /* allow signup if check fails */ }
 }
 
@@ -5408,6 +5539,180 @@ async function toggleSignups(){
 }
 
 // ═══════════════════════════════════════════════
+// CONTACT ADMIN MODAL
+// ═══════════════════════════════════════════════
+function openContactAdmin(source){
+  const modal = document.getElementById('contact-admin-modal');
+  if(!modal) return;
+  // Reset form
+  document.getElementById('cam-name').value = '';
+  document.getElementById('cam-email').value = '';
+  document.getElementById('cam-message').value = '';
+  document.getElementById('cam-error').style.display = 'none';
+  document.getElementById('cam-error').textContent = '';
+  document.getElementById('cam-form').style.display = 'block';
+  document.getElementById('cam-success').style.display = 'none';
+  document.getElementById('cam-send-btn').disabled = false;
+  document.getElementById('cam-send-btn').textContent = 'Send Message';
+  modal.style.display = 'flex';
+}
+
+function closeContactAdmin(){
+  const modal = document.getElementById('contact-admin-modal');
+  if(modal) modal.style.display = 'none';
+}
+
+async function sendContactMessage(){
+  // Rate limiting: one message per session
+  if(sessionStorage.getItem('ccl_contact_sent')){
+    document.getElementById('cam-error').textContent = 'You have already sent a message this session. Admin will reach out to you.';
+    document.getElementById('cam-error').style.display = 'block';
+    return;
+  }
+  const name    = document.getElementById('cam-name').value.trim();
+  const email   = document.getElementById('cam-email').value.trim();
+  const message = document.getElementById('cam-message').value.trim();
+  const errEl   = document.getElementById('cam-error');
+  errEl.style.display = 'none';
+  if(!name){ errEl.textContent='Please enter your name.'; errEl.style.display='block'; return; }
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent='Please enter a valid email address.'; errEl.style.display='block'; return; }
+  if(!message){ errEl.textContent='Please enter a message.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('cam-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { error } = await sb.from('contact_messages').insert({ name, email, message });
+  if(error){
+    errEl.textContent = 'Failed to send: ' + error.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Send Message';
+    return;
+  }
+  // Mark session as having sent
+  sessionStorage.setItem('ccl_contact_sent', '1');
+  document.getElementById('cam-form').style.display = 'none';
+  document.getElementById('cam-success').style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════
+// CONTACT MESSAGES (admin)
+// ═══════════════════════════════════════════════
+let _contactMsgs = [];
+
+async function loadContactMessages(){
+  if(!isAdmin) return;
+  const { data, error } = await sb.from('contact_messages')
+    .select('*').order('created_at', { ascending: false });
+  if(!error && data){ _contactMsgs = data; }
+  updateMenuBadge();
+  updateContactMsgsKPI();
+}
+
+function updateMenuBadge(){
+  if(!isAdmin) return;
+  const badge = document.getElementById('menu-badge');
+  if(!badge) return;
+  const unread = _contactMsgs.filter(m => !m.is_read).length;
+  if(unread > 0){
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function updateContactMsgsKPI(){
+  const subEl = document.getElementById('contact-msgs-kpi-sub');
+  const dotEl = document.getElementById('contact-msgs-unread-dot');
+  const total  = _contactMsgs.length;
+  const unread = _contactMsgs.filter(m => !m.is_read).length;
+  if(subEl){
+    subEl.textContent = total === 0
+      ? 'No messages yet'
+      : `${total} message${total>1?'s':''} · ${unread} unread`;
+  }
+  if(dotEl){
+    if(unread > 0){
+      dotEl.style.display = 'inline-block';
+      dotEl.textContent   = unread + ' new';
+    } else {
+      dotEl.style.display = 'none';
+    }
+  }
+}
+
+function openContactMsgsOverlay(){
+  const overlay = document.getElementById('contact-msgs-overlay');
+  if(overlay) overlay.style.display = 'block';
+  renderContactMessages();
+}
+
+function closeContactMsgsOverlay(){
+  const overlay = document.getElementById('contact-msgs-overlay');
+  if(overlay) overlay.style.display = 'none';
+}
+
+function renderContactMessages(){
+  const listEl  = document.getElementById('cmsg-list');
+  const badgeEl = document.getElementById('cmsg-unread-badge');
+  if(!listEl) return;
+  const unread = _contactMsgs.filter(m => !m.is_read).length;
+  if(badgeEl){
+    badgeEl.style.display = unread > 0 ? 'inline-block' : 'none';
+    badgeEl.textContent   = unread + ' unread';
+  }
+  if(!_contactMsgs.length){
+    listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:.85rem">No contact messages yet.</div>';
+    return;
+  }
+  listEl.innerHTML = _contactMsgs.map(m => {
+    const date = new Date(m.created_at).toLocaleString();
+    return `<div class="cmsg-item${m.is_read?'':' unread'}" id="cmsg-${m.id}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <span style="font-weight:800;font-size:.88rem;color:var(--color-text-primary)">${escHtml(m.name)}</span>
+          ${m.is_read?'':'<span style="margin-left:6px;font-size:.68rem;background:#e74c3c;color:#fff;padding:1px 6px;border-radius:8px;font-weight:700">NEW</span>'}
+        </div>
+        <span class="cmsg-meta">${date}</span>
+      </div>
+      <div class="cmsg-meta">${escHtml(m.email)}</div>
+      <div class="cmsg-body">${escHtml(m.message)}</div>
+      <div class="cmsg-actions">
+        ${m.is_read?'':`<button onclick="markMsgRead('${m.id}')" class="btn btn-sm" style="font-size:.75rem">Mark Read</button>`}
+        <button onclick="deleteContactMsg('${m.id}')" class="btn btn-sm btn-danger" style="font-size:.75rem">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(str){
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+async function markMsgRead(id){
+  const { error } = await sb.from('contact_messages').update({ is_read: true }).eq('id', id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  const msg = _contactMsgs.find(m => m.id === id);
+  if(msg) msg.is_read = true;
+  renderContactMessages();
+  updateMenuBadge();
+  updateContactMsgsKPI();
+}
+
+async function deleteContactMsg(id){
+  if(!confirm('Delete this message? This cannot be undone.')) return;
+  const { error } = await sb.from('contact_messages').delete().eq('id', id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  _contactMsgs = _contactMsgs.filter(m => m.id !== id);
+  renderContactMessages();
+  updateMenuBadge();
+  updateContactMsgsKPI();
+}
+
+// ═══════════════════════════════════════════════
 // PHONE NUMBER PROMPT (existing users)
 // ═══════════════════════════════════════════════
 function checkShowPhonePrompt(profile){
@@ -7373,6 +7678,8 @@ async function onLoggedIn(){
 
   // If admin, load user list for management panel
   if(isAdmin) loadAdminUsers();
+  // If admin, load contact messages so badge shows immediately
+  if(isAdmin) loadContactMessages();
 
   // Load Nexa API key from Supabase (shared, admin-configured)
   await loadNexaKey();
@@ -8948,26 +9255,38 @@ async function deletePDPayment(id, month){
 // DATABASE MANAGER (shared / cloud-synced)
 // ═══════════════════════════════════════════════
 function renderDB(){
+  const adminVis = isAdmin ? 'block' : 'none';
+
+  // Section group labels
+  const secUsers   = document.getElementById('admin-section-users');
+  const secContent = document.getElementById('admin-section-content');
+  if(secUsers)   secUsers.style.display   = adminVis;
+  if(secContent) secContent.style.display = adminVis;
+
   // Show app reviews card for admins
   const reviewsKPI = document.getElementById('admin-reviews-kpi');
-  if(reviewsKPI) reviewsKPI.style.display = isAdmin ? 'block' : 'none';
+  if(reviewsKPI) reviewsKPI.style.display = adminVis;
 
   // Show signup control card for admins
   const signupCtrl = document.getElementById('admin-signup-control');
-  if(signupCtrl){ signupCtrl.style.display = isAdmin ? 'block' : 'none'; if(isAdmin) loadSignupStatus(); }
+  if(signupCtrl){ signupCtrl.style.display = adminVis; if(isAdmin) loadSignupStatus(); }
 
   // Show users management KPI card for admins
   const usersKPI = document.getElementById('admin-users-kpi');
-  if(usersKPI) usersKPI.style.display = isAdmin ? 'block' : 'none';
+  if(usersKPI) usersKPI.style.display = adminVis;
+
+  // Show contact messages KPI card for admins
+  const contactKPI = document.getElementById('admin-contact-msgs-kpi');
+  if(contactKPI){ contactKPI.style.display = adminVis; if(isAdmin) loadContactMessages(); }
 
   // Show announcements panel for admins only
   const annPanel = document.getElementById('db-ann-panel');
-  if(annPanel) annPanel.style.display = isAdmin ? 'block' : 'none';
+  if(annPanel) annPanel.style.display = adminVis;
   if(isAdmin) renderDBAnnList();
 
   // Show manuals panel for admins only
   const manPanel = document.getElementById('db-manuals-panel');
-  if(manPanel) manPanel.style.display = isAdmin ? 'block' : 'none';
+  if(manPanel) manPanel.style.display = adminVis;
   if(isAdmin) renderDBManualsList();
 
   const bar=document.getElementById('db-tab-bar');
