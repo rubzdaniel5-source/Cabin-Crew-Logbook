@@ -7799,7 +7799,8 @@ async function onLoggedIn(){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('auth-screen').style.display='none';
 
-  // Fetch profile — include blocked, has_reviewed, and email flags
+  // ── Step 1: profile fetch (unavoidable — needed for blocked check + role) ──
+  // This is the only network call that must complete before anything renders.
   const { data: profile } = await sb.from('profiles')
     .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email')
     .eq('id', currentUser.id).single();
@@ -7807,104 +7808,107 @@ async function onLoggedIn(){
   // ── BLOCKED CHECK — must happen before anything else ──
   if(profile?.blocked === true){
     showBlockedScreen();
-    return; // stop all further login processing
-  }
-
-  // Write email to profiles (backfills for existing users, updates if changed)
-  if(currentUser.email && (!profile?.email || profile.email !== currentUser.email)){
-    sb.from('profiles').update({ email: currentUser.email }).eq('id', currentUser.id).then(()=>{});
+    return;
   }
 
   // ── Check-in agent: show stripped agent interface ──────
   if(profile?.role === 'check_in_agent'){
-    // Load shared DB first so flight numbers are available
     await loadSharedData();
     showAgentScreen(profile);
-    return; // stop normal app init
+    return;
   }
 
+  // ── Step 2: apply profile to UI (synchronous — no network) ────────────────
   const displayName = profile?.full_name || localStorage.getItem('ccl_user_name') || currentUser.email.split('@')[0];
   isAdmin = profile?.is_admin === true;
 
   document.getElementById('user-email-display').textContent = displayName;
   document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
-  // Cache crew name + position for CSV exports
   if(profile?.crew_name) localStorage.setItem('ccl_crew_name', profile.crew_name);
   if(profile?.position)  localStorage.setItem('ccl_position', profile.position);
+  if(profile?.role)      localStorage.setItem('ccl_role', profile.role);
 
-  // Admin Panel menu item (admin only)
   const adminMenuBtn = document.getElementById('menu-admin-btn');
   if(adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
 
-  // Load and cache user role
-  if(profile?.role) localStorage.setItem('ccl_role', profile.role);
-
-  // Gold avatar for admin
   if(isAdmin){
     const pill = document.getElementById('user-pill');
     if(pill) pill.title = 'Admin · My Profile';
     document.getElementById('user-avatar').style.background = 'var(--gold)';
   }
 
-  // Prompt crew to link their name if not done yet
-  checkCrewNameLinked(profile);
-
-  // Load app version
-  loadAppVersion();
-
-  // Log activity (one record per day — non-blocking)
-  logActivity();
-
-  // If admin, load user list for management panel
-  if(isAdmin) loadAdminUsers();
-  // If admin, load contact messages so badge shows immediately
-  if(isAdmin) loadContactMessages();
-
-  // Load Nexa API key from Supabase (shared, admin-configured)
-  await loadNexaKey();
-
-  // Pre-load manuals metadata (so offline list is ready)
-  loadManualsMetadata();
-
-  // Pre-load Nexa chunk cache for instant search
-  preloadNexaChunks();
-
-  // Sync notes on login so they're current on all devices
-  if(isOnline) syncNotes();
-
-  // Load per diem payment records
-  if(isOnline) loadPDPayments();
-
-  // Restore dark mode preference
-  // Default = dark mode (Dark Cockpit). Light mode = saved pref '0'.
+  // Restore dark mode preference (synchronous localStorage read)
   const _savedTheme = localStorage.getItem('ccl_dark_mode');
   if(_savedTheme === '0'){
     document.body.classList.add('light-mode');
     const t = document.getElementById('dark-mode-toggle');
     if(t) t.checked = false;
   } else {
-    // Dark mode is default — ensure checkbox is checked
     const t = document.getElementById('dark-mode-toggle');
     if(t) t.checked = true;
   }
 
-  await refreshAllData();
+  // ── Step 3: render dashboard immediately from local IDB ───────────────────
+  // This makes the UI visible and usable with zero additional network calls.
+  cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+  cache.perDiem = (await idbAll('per_diem')).filter(p=>!p._deleted).sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Restore shared dropdown data from last-known-good localStorage snapshot
+  try{
+    const cachedShared = JSON.parse(localStorage.getItem('ccl_shared_cache')||'null');
+    if(cachedShared) cache.shared = cachedShared;
+  }catch{}
+
+  updateHeaderCount();
+  updatePendingBadge();
+
+  // Initialise form fields and render
   document.getElementById('f-date').valueAsDate = new Date();
   document.getElementById('pd-date').valueAsDate = new Date();
   buildRouteFields();
   buildMinuteOptions();
   updateFlightNumFields();
   renderCrewTags();
-  renderDash();
+  renderDash();  // ← dashboard is now visible at this point
 
-  // Check if review prompt should be shown (after data is loaded)
+  // ── Step 4: fire all cloud operations in the background ───────────────────
+  // None of these block the UI. Each updates the relevant cache + re-renders
+  // its section when it completes.
+  checkCrewNameLinked(profile);
+  checkShowPhonePrompt(profile);
   setTimeout(()=> checkShowReview(profile), 2000);
 
-  // Show phone number prompt for existing users without phone
-  checkShowPhonePrompt(profile);
+  // Non-blocking fire-and-forget operations
+  loadAppVersion();
+  logActivity();
+  if(isAdmin){ loadAdminUsers(); loadContactMessages(); }
 
-  // Full sync every 60s (covers background tab + cross-device refresh)
+  // Write email to profiles (backfill — fire and forget)
+  if(currentUser.email && (!profile?.email || profile.email !== currentUser.email)){
+    sb.from('profiles').update({ email: currentUser.email }).eq('id', currentUser.id).then(()=>{});
+  }
+
+  if(isOnline){
+    // Run these in parallel — none need to wait for the others
+    Promise.all([
+      loadNexaKey(),           // app_config: single row
+      syncNotes(),             // notes sync
+      loadPDPayments(),        // per diem payments
+    ]).catch(()=>{});
+
+    // Full sync (push + pull flights/perDiem + shared data)
+    // Runs after the parallel batch above so it doesn't race loadNexaKey
+    refreshAllData();          // intentionally NOT awaited — updates UI when done
+  } else {
+    // Offline path: try to load Nexa key from last cached value
+    loadNexaKey().catch(()=>{});
+  }
+
+  loadManualsMetadata();    // fire and forget regardless of online state
+  preloadNexaChunks();      // fire and forget
+
+  // Full sync every 60s
   setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
 }
 
@@ -7912,7 +7916,9 @@ async function onLoggedIn(){
 // DATA LOADING (from Supabase)
 // ═══════════════════════════════════════════════
 async function refreshAllData(){
-  // Always load from local IndexedDB first so the UI is instant and works offline
+  // Load from IDB first so the cache is current before any cloud calls.
+  // When called from onLoggedIn, the dashboard is already rendered from IDB;
+  // this path re-renders after sync completes to show any new records.
   cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
   cache.perDiem = (await idbAll('per_diem')).filter(p=>!p._deleted).sort((a,b)=>b.date.localeCompare(a.date));
   updateHeaderCount();
@@ -7920,17 +7926,21 @@ async function refreshAllData(){
 
   if(isOnline){
     setSyncBadge(true);
-    await syncToCloud();
-    await loadAllSharedFromCloud();
+    await syncToCloud();          // push + pull flights/perDiem
+    await loadAllSharedFromCloud(); // shared dropdown data
     setSyncBadge(false);
   } else {
-    // Offline: shared dropdown data falls back to last-cached snapshot in localStorage, if any
+    // Offline: shared dropdown data from last-cached localStorage snapshot
     try{
       const cached = JSON.parse(localStorage.getItem('ccl_shared_cache')||'null');
       if(cached) cache.shared = cached;
     }catch{}
   }
   updateHeaderCount();
+  // Re-render visible tabs after sync so new/updated records appear
+  renderDash();
+  if(document.getElementById('tab-log')?.classList.contains('active')) renderLog();
+  if(document.getElementById('tab-perdiem')?.classList.contains('active')) renderPerDiemTab();
 }
 
 function setSyncBadge(syncing){
