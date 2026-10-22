@@ -3356,9 +3356,10 @@ async function initAuth(){
       // Clear user-specific localStorage keys
       ['ccl_crew_name','ccl_position','ccl_user_name',
        'ccl_ann_cache','ccl_manuals_meta','ccl_shared_cache',
-       'ccl_chat_read'].forEach(k=>{
+       'ccl_chat_read','ccl_pd_payments_cache'].forEach(k=>{
         try{ localStorage.removeItem(k); }catch{}
       });
+      cache.pdPayments = [];
 
       // Reset header UI
       document.getElementById('user-email-display').textContent = '';
@@ -7860,6 +7861,14 @@ async function onLoggedIn(){
     if(cachedShared) cache.shared = cachedShared;
   }catch{}
 
+  // Restore per diem payments from localStorage so the "Amount Due" KPI is
+  // correct before the cloud fetch completes. Without this, cache.pdPayments
+  // is [] when renderDash() runs, making every month appear fully unpaid.
+  try{
+    const cachedPayments = JSON.parse(localStorage.getItem('ccl_pd_payments_cache')||'null');
+    if(Array.isArray(cachedPayments)) cache.pdPayments = cachedPayments;
+  }catch{}
+
   updateHeaderCount();
   updatePendingBadge();
 
@@ -7875,9 +7884,15 @@ async function onLoggedIn(){
   // ── Step 4: fire all cloud operations in the background ───────────────────
   // None of these block the UI. Each updates the relevant cache + re-renders
   // its section when it completes.
-  checkCrewNameLinked(profile);
-  checkShowPhonePrompt(profile);
-  setTimeout(()=> checkShowReview(profile), 2000);
+
+  // Only show these prompts when we have a real profile from the server.
+  // If profile is null (offline / timed-out getSession) we skip them entirely
+  // so the banner and review card don't appear erroneously.
+  if(profile){
+    checkCrewNameLinked(profile);
+    checkShowPhonePrompt(profile);
+    setTimeout(()=> checkShowReview(profile), 2000);
+  }
 
   // Non-blocking fire-and-forget operations
   loadAppVersion();
@@ -7894,7 +7909,7 @@ async function onLoggedIn(){
     Promise.all([
       loadNexaKey(),           // app_config: single row
       syncNotes(),             // notes sync
-      loadPDPayments(),        // per diem payments
+      loadPDPayments().then(()=>{ renderDash(); }),  // re-render after payments arrive
     ]).catch(()=>{});
 
     // Full sync (push + pull flights/perDiem + shared data)
@@ -9226,7 +9241,12 @@ async function loadPDPayments(){
     const { data, error } = await sb.from('per_diem_payments')
       .select('*').eq('user_id', currentUser.id)
       .order('date_paid', {ascending:false});
-    if(!error) cache.pdPayments = data || [];
+    if(!error){
+      cache.pdPayments = data || [];
+      // Persist so the dashboard shows correct "Amount Due" on next cold start
+      // before the cloud fetch returns.
+      try{ localStorage.setItem('ccl_pd_payments_cache', JSON.stringify(cache.pdPayments)); }catch{}
+    }
   }catch(e){ console.warn('loadPDPayments error:', e); }
 }
 
