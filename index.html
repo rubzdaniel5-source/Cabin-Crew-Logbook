@@ -753,6 +753,74 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .hub-fs-overlay{display:none;position:fixed;inset:0;background:var(--color-app-bg);z-index:500;flex-direction:column}
 .hub-fs-overlay.open{display:flex}
 .hub-overlay-hdr{background:var(--color-nav);color:var(--color-text-primary);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:1px solid var(--color-border)}
+/* ── GUESTORA styles ─────────────────────────────────────────────────── */
+/* Main overlay — full-screen, sits above everything */
+#guestora-overlay{display:none;position:fixed;inset:0;background:var(--color-app-bg);z-index:600;flex-direction:column;overflow:hidden}
+#guestora-overlay.open{display:flex}
+/* Views inside the overlay — only one visible at a time */
+.gs-view{display:none;flex-direction:column;flex:1;overflow:hidden}
+.gs-view.active{display:flex}
+/* Header bar shared by all views */
+.gs-hdr{background:var(--color-nav);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:1px solid var(--color-border)}
+.gs-hdr-title{font-size:.95rem;font-weight:800;color:var(--color-text-primary);flex:1}
+.gs-hdr-sub{font-size:.72rem;color:var(--color-text-muted)}
+.gs-back-btn{background:none;border:none;color:var(--color-accent);font-size:.85rem;font-weight:700;cursor:pointer;padding:4px 2px;display:flex;align-items:center;gap:4px}
+/* Scrollable body inside each view */
+.gs-body{flex:1;overflow-y:auto;padding:16px}
+/* Sector / cabin list items */
+.gs-list-item{background:var(--color-card);border:1px solid var(--color-border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s,transform .1s;display:flex;flex-direction:column;gap:3px}
+.gs-list-item:hover,.gs-list-item:active{background:var(--color-card-elevated);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.gs-list-label{font-size:.88rem;font-weight:800;color:var(--color-text-primary)}
+.gs-list-sub{font-size:.72rem;color:var(--color-text-muted)}
+/* ── Seat map ── */
+.gs-seatmap-wrap{padding:16px 12px 32px}
+.gs-seatmap-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.gs-legend-item{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--color-text-muted)}
+.gs-legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.gs-cabin-label{font-size:.78rem;font-weight:800;color:var(--color-text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+/* Row wrapper: label on left, then column groups */
+.gs-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.gs-row-num{font-size:.7rem;color:var(--color-text-muted);width:18px;text-align:center;flex-shrink:0}
+.gs-col-group{display:flex;gap:4px}
+.gs-aisle{width:12px;flex-shrink:0}
+/* Seat tile */
+.gs-seat{width:38px;height:38px;border-radius:8px;border:1.5px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;cursor:pointer;transition:transform .1s,box-shadow .12s;color:#fff;flex-shrink:0;user-select:none}
+.gs-seat:active{transform:scale(.93)}
+.gs-seat.empty{background:rgba(255,255,255,.08)}
+.gs-seat.has-order{background:#c97c0a}   /* amber  — order taken    */
+.gs-seat.served{background:#1a7a45}      /* green  — served         */
+.gs-seat.special{background:#b8292a}     /* red    — special req    */
+/* ── Order sheet (slide-up panel) ── */
+.gs-order-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--color-card);border-radius:16px 16px 0 0;z-index:650;transform:translateY(100%);transition:transform .28s cubic-bezier(.25,.8,.25,1);max-height:75vh;overflow-y:auto;padding:0 0 32px}
+.gs-order-sheet.open{transform:translateY(0)}
+.gs-sheet-drag{width:36px;height:4px;background:var(--color-border);border-radius:2px;margin:10px auto 14px}
+.gs-sheet-hdr{padding:0 16px 12px;border-bottom:1px solid var(--color-border)}
+.gs-sheet-seat{font-size:1.1rem;font-weight:900;color:var(--color-text-primary)}
+.gs-sheet-body{padding:16px}
+.gs-category-row{display:flex;gap:8px;margin-bottom:16px}
+.gs-cat-btn{flex:1;padding:10px 4px;border-radius:10px;border:1.5px solid var(--color-border);background:none;color:var(--color-text-primary);font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s}
+.gs-cat-btn.selected{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
+.gs-note-label{font-size:.75rem;color:var(--color-text-muted);margin-bottom:6px}
+.gs-note-input{width:100%;background:var(--color-input-bg);border:1px solid var(--color-border);border-radius:10px;color:var(--color-text-primary);font-size:.82rem;padding:10px 12px;resize:none;box-sizing:border-box;min-height:72px}
+.gs-note-count{font-size:.66rem;color:var(--color-text-muted);text-align:right;margin-top:3px}
+.gs-save-btn{width:100%;padding:13px;background:var(--color-accent);color:#fff;border:none;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer;margin-top:16px}
+.gs-save-btn:disabled{opacity:.4;cursor:default}
+/* View-order mode (when tapping an existing order) */
+.gs-order-actions{display:flex;gap:8px;margin-top:14px}
+.gs-order-act-btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--color-border);background:none;color:var(--color-text-primary);font-size:.8rem;font-weight:700;cursor:pointer}
+.gs-order-act-btn.danger{border-color:#b8292a;color:#b8292a}
+.gs-order-act-btn.primary{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
+/* Order sheet backdrop */
+.gs-sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:640}
+.gs-sheet-backdrop.open{display:block}
+/* Empty / error states */
+.gs-empty{padding:40px 16px;text-align:center;color:var(--color-text-muted);font-size:.85rem}
+.gs-empty-icon{font-size:2rem;margin-bottom:10px}
+/* Order status pill inside order sheet */
+.gs-status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:800;margin-bottom:8px}
+.gs-status-pill.pending{background:rgba(201,124,10,.25);color:#c97c0a}
+.gs-status-pill.served{background:rgba(26,122,69,.25);color:#1a7a45}
+.gs-status-pill.special{background:rgba(184,41,42,.25);color:#b8292a}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -2942,6 +3010,83 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════════════
+     GUESTORA — Business-Class Service Order Pad
+     Phase 1 (offline-first, seat numbers only, server sync PENDING)
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="guestora-overlay">
+
+  <!-- ── VIEW 1: Sector Picker ────────────────────────────────────────── -->
+  <div class="gs-view active" id="gs-view-sector">
+    <div class="gs-hdr">
+      <button class="gs-back-btn" onclick="closeGuestoraOverlay()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Hub
+      </button>
+      <span class="gs-hdr-title">GUESTORA</span>
+    </div>
+    <div class="gs-body">
+      <p style="font-size:.78rem;color:var(--color-text-muted);margin:0 0 14px">Select a sector to start the service order pad.</p>
+      <div id="gs-sector-list"></div>
+    </div>
+  </div>
+
+  <!-- ── VIEW 2: Cabin Picker ─────────────────────────────────────────── -->
+  <div class="gs-view" id="gs-view-cabin">
+    <div class="gs-hdr">
+      <button class="gs-back-btn" onclick="gsShowView('sector')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Sectors
+      </button>
+      <div>
+        <div class="gs-hdr-title">Select Cabin</div>
+        <div class="gs-hdr-sub" id="gs-cabin-hdr-sub"></div>
+      </div>
+    </div>
+    <div class="gs-body">
+      <div id="gs-cabin-list"></div>
+    </div>
+  </div>
+
+  <!-- ── VIEW 3: Seat Map ──────────────────────────────────────────────── -->
+  <div class="gs-view" id="gs-view-seatmap">
+    <div class="gs-hdr">
+      <button class="gs-back-btn" onclick="gsShowView('cabin')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Cabins
+      </button>
+      <div>
+        <div class="gs-hdr-title" id="gs-seatmap-title">Seat Map</div>
+        <div class="gs-hdr-sub" id="gs-seatmap-sub"></div>
+      </div>
+    </div>
+    <!-- Legend -->
+    <div style="padding:10px 16px 0;border-bottom:1px solid var(--color-border)">
+      <div class="gs-seatmap-legend">
+        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2)"></div> Empty</div>
+        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#c97c0a"></div> Order taken</div>
+        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#1a7a45"></div> Served</div>
+        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#b8292a"></div> Special req</div>
+      </div>
+    </div>
+    <div class="gs-body gs-seatmap-wrap" id="gs-seatmap-body" style="padding:12px"></div>
+  </div>
+
+  <!-- ── Order sheet (slide-up) and backdrop ──────────────────────────── -->
+  <div class="gs-sheet-backdrop" id="gs-sheet-backdrop" onclick="gsCloseOrderSheet()"></div>
+  <div class="gs-order-sheet" id="gs-order-sheet">
+    <div class="gs-sheet-drag"></div>
+    <div class="gs-sheet-hdr">
+      <div class="gs-sheet-seat" id="gs-sheet-seat-label">Seat –</div>
+      <div id="gs-status-pill-wrap"></div>
+    </div>
+    <div class="gs-sheet-body" id="gs-sheet-body">
+      <!-- populated by gsOpenOrderSheet() -->
+    </div>
+  </div>
+
+</div>
+<!-- ── end GUESTORA overlay ─────────────────────────────────────────────── -->
 
 <script>
 // ═══════════════════════════════════════════════
@@ -2956,7 +3101,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // OFFLINE STORAGE (IndexedDB) — local mirror for flights & per_diem
 // ═══════════════════════════════════════════════
 const IDB_NAME = 'ccl_offline_db';
-const IDB_VERSION = 1;
+const IDB_VERSION = 2;
 let idb = null;
 let isOnline = navigator.onLine;
 let isSyncing = false;
@@ -2969,6 +3114,21 @@ function openIDB(){
       if(!db.objectStoreNames.contains('flights')) db.createObjectStore('flights',{keyPath:'id'});
       if(!db.objectStoreNames.contains('per_diem')) db.createObjectStore('per_diem',{keyPath:'id'});
       if(!db.objectStoreNames.contains('meta')) db.createObjectStore('meta',{keyPath:'key'});
+      // ── GUESTORA v2 stores (additive — never clears existing data) ──────────
+      if(e.oldVersion < 2){
+        // guestora_packages: one per (flightNum + date) combination
+        const pkgStore = db.createObjectStore('guestora_packages',{keyPath:'id'});
+        pkgStore.createIndex('by_flight',['flightNum','date'],{unique:false});
+        // guestora_orders: individual seat orders within a package
+        const ordStore = db.createObjectStore('guestora_orders',{keyPath:'id'});
+        ordStore.createIndex('by_package','packageId',{unique:false});
+        ordStore.createIndex('by_seat',['packageId','seatNum'],{unique:false});
+        ordStore.createIndex('by_status','status',{unique:false});
+        // guestora_outbox: durable sync queue — survives app restarts
+        const outStore = db.createObjectStore('guestora_outbox',{keyPath:'operationId'});
+        outStore.createIndex('by_package','packageId',{unique:false});
+        outStore.createIndex('by_status','status',{unique:false});
+      }
     };
     req.onsuccess = (e)=>resolve(e.target.result);
     req.onerror = (e)=>reject(e.target.error);
@@ -3000,6 +3160,509 @@ function idbDelete(store, id){
 }
 function uuid(){
   return 'tmp-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+}
+
+// ── GUESTORA helpers ─────────────────────────────────────────────────────────
+
+/** Stable UUID v4 via Web Crypto — used for all GUESTORA operation IDs */
+function guestoraUUID(){
+  return crypto.randomUUID();
+}
+
+/**
+ * Atomic dual-store write: persists one order + its outbox entry in a single
+ * IDB transaction so the two records are never out of sync.
+ */
+function guestoraAtomicWrite(order, outboxEntry){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(['guestora_orders','guestora_outbox'],'readwrite');
+    tx.objectStore('guestora_orders').put(order);
+    tx.objectStore('guestora_outbox').put(outboxEntry);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror   = ()=>reject(tx.error);
+    tx.onabort   = ()=>reject(tx.error);
+  });
+}
+
+/** Read all orders for a package (by packageId index) */
+function guestoraGetOrdersByPackage(packageId){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction('guestora_orders','readonly');
+    const idx = tx.objectStore('guestora_orders').index('by_package');
+    const req = idx.getAll(IDBKeyRange.only(packageId));
+    req.onsuccess = ()=>resolve(req.result||[]);
+    req.onerror   = ()=>reject(req.error);
+  });
+}
+
+/** Read or create a package record for a given (flightNum, date) pair */
+function guestoraGetOrCreatePackage(flightNum, date, actype){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction('guestora_packages','readwrite');
+    const store = tx.objectStore('guestora_packages');
+    const idx = store.index('by_flight');
+    const req = idx.getAll(IDBKeyRange.only([flightNum, date]));
+    req.onsuccess = ()=>{
+      const existing = req.result && req.result[0];
+      if(existing){ resolve(existing); return; }
+      const pkg = {
+        id: guestoraUUID(),
+        flightNum, date, actype,
+        createdAt: new Date().toISOString(),
+        syncStatus: 'local'  // PENDING server sync
+      };
+      const putReq = store.put(pkg);
+      putReq.onsuccess = ()=>resolve(pkg);
+      putReq.onerror   = ()=>reject(putReq.error);
+    };
+    req.onerror = ()=>reject(req.error);
+  });
+}
+
+/** Update a single field on an existing order (e.g. status → 'served') */
+function guestoraUpdateOrder(orderId, patch){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction('guestora_orders','readwrite');
+    const store = tx.objectStore('guestora_orders');
+    const getReq = store.get(orderId);
+    getReq.onsuccess = ()=>{
+      if(!getReq.result){ reject(new Error('order not found')); return; }
+      const updated = Object.assign({}, getReq.result, patch, {updatedAt: new Date().toISOString()});
+      store.put(updated);
+      tx.oncomplete = ()=>resolve(updated);
+      tx.onerror    = ()=>reject(tx.error);
+    };
+    getReq.onerror = ()=>reject(getReq.error);
+  });
+}
+
+/** Delete an order and queue an outbox delete operation */
+function guestoraDeleteOrder(orderId, packageId){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(['guestora_orders','guestora_outbox'],'readwrite');
+    tx.objectStore('guestora_orders').delete(orderId);
+    tx.objectStore('guestora_outbox').put({
+      operationId: guestoraUUID(),
+      type: 'DELETE_ORDER',
+      orderId,
+      packageId,
+      status: 'pending',  // PENDING: server sync not yet implemented
+      attempts: 0,
+      createdAt: new Date().toISOString()
+    });
+    tx.oncomplete = ()=>resolve();
+    tx.onerror    = ()=>reject(tx.error);
+    tx.onabort    = ()=>reject(tx.error);
+  });
+}
+
+// ── GUESTORA seat configurations ────────────────────────────────────────────
+// These are Phase 1 defaults. Admin Panel will allow editing in a later phase.
+// actype strings must match what crew enter in their flight records.
+
+const GUESTORA_SEAT_CONFIGS = {
+  // ── A330-800 ─────────────────────────────────────────────────────────────
+  'A330-800': {
+    cabins: [
+      {
+        id: 'business',
+        label: 'Business Class',
+        layout: '1-2-1',
+        // Rows rendered bottom-first (row 1 at bottom = crew face aft)
+        rows: [1,2,3,4,5],
+        // Seat letters per row
+        seats: ['A','E','G','K'],
+        // Visual column groups: [ [left singles], [centre pair], [right singles] ]
+        columns: [['A'],['E','G'],['K']],
+        seatCount: 20   // 5 rows × 4 seats
+      },
+      {
+        id: 'premium_economy',
+        label: 'Premium Economy',
+        layout: '2-3-2',
+        rows: [9,10,11,12],
+        seats: ['A','C','D','E','G','H','K'],
+        columns: [['A','C'],['D','E','G'],['H','K']],
+        seatCount: 28   // 4 rows × 7 seats
+      }
+    ]
+  },
+  // ── CRJ900 ────────────────────────────────────────────────────────────────
+  'CRJ900': {
+    cabins: [
+      {
+        id: 'business',
+        label: 'Business Class',
+        layout: '1-2',
+        rows: [1,2,3,4],
+        seats: ['A','D','F'],
+        columns: [['A'],['D','F']],
+        seatCount: 12   // 4 rows × 3 seats
+      }
+    ]
+  },
+  // ── Boeing 737 ────────────────────────────────────────────────────────────
+  'B737': {
+    cabins: [
+      {
+        id: 'business',
+        label: 'Business Class',
+        layout: '2-2',
+        rows: [1,2,3,4],
+        seats: ['A','B','E','F'],
+        columns: [['A','B'],['E','F']],
+        seatCount: 16   // 4 rows × 4 seats
+      }
+    ]
+  }
+};
+
+/**
+ * Resolve seat config for an aircraft type string.
+ * Tries exact match, then normalised variants (strip spaces/dashes).
+ * Returns null if no config found — caller should show "unknown aircraft" UI.
+ */
+function guestoraResolveSeatConfig(actype){
+  if(!actype) return null;
+  if(GUESTORA_SEAT_CONFIGS[actype]) return GUESTORA_SEAT_CONFIGS[actype];
+  // Normalise: uppercase, strip spaces
+  const norm = actype.toUpperCase().replace(/[\s-]/g,'');
+  for(const key of Object.keys(GUESTORA_SEAT_CONFIGS)){
+    if(key.toUpperCase().replace(/[\s-]/g,'') === norm) return GUESTORA_SEAT_CONFIGS[key];
+  }
+  return null;
+}
+
+// ── GUESTORA sync stub ───────────────────────────────────────────────────────
+// Server-side contract is PENDING (Supabase tables not yet created).
+// This function reads pending outbox entries but does NOT send them anywhere.
+// Replace with real implementation when server contract is defined.
+async function guestoraSyncOutbox(){
+  // PENDING: implement when Supabase tables are ready
+  // Required tables (not yet created):
+  //   guestora_service_packages(id, flight_number, date, actype, created_by, created_at)
+  //   guestora_service_orders(id, package_id, seat_num, category, note, status,
+  //                           operation_id UNIQUE, created_by, created_at, updated_at)
+  // RLS: any authenticated user whose profile.flights contains (flight_number, date)
+  //      can read/write orders for that package.
+  // Idempotency: operation_id unique constraint — safe to retry.
+  console.log('[GUESTORA] sync stub called — server contract PENDING');
+  return { synced: 0, pending: 0, failed: 0 };
+}
+
+// ── GUESTORA UI state ────────────────────────────────────────────────────────
+let _gs = {
+  pkg:        null,   // current guestora_packages record
+  cabin:      null,   // selected cabin config object
+  orders:     [],     // guestora_orders for current pkg
+  editOrder:  null,   // order being edited / viewed in sheet
+  sheetMode:  null,   // 'new' | 'view'
+  selectedSeat: null, // seat number string (e.g. '2G')
+  selectedCat:  null, // 'Meal' | 'Drink' | 'Special Request'
+};
+
+// ── Open / close overlay ─────────────────────────────────────────────────────
+async function openGuestoraOverlay(){
+  gsShowView('sector');
+  await gsLoadSectorList();
+  document.getElementById('guestora-overlay').classList.add('open');
+}
+
+function closeGuestoraOverlay(){
+  document.getElementById('guestora-overlay').classList.remove('open');
+  gsCloseOrderSheet();
+}
+
+// ── View navigation ───────────────────────────────────────────────────────────
+function gsShowView(viewName){
+  document.querySelectorAll('.gs-view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('gs-view-'+viewName).classList.add('active');
+}
+
+// ── Sector Picker ─────────────────────────────────────────────────────────────
+async function gsLoadSectorList(){
+  const container = document.getElementById('gs-sector-list');
+  container.innerHTML = '<div class="gs-empty">Loading…</div>';
+  try {
+    // Pull today's flights from IDB logbook
+    const allFlights = await idbAll('flights');
+    const todayStr   = new Date().toISOString().slice(0,10);   // YYYY-MM-DD
+    // Show flights from today ±1 day (duty can span midnight)
+    const window1d   = 86400000;
+    const relevant   = allFlights.filter(f=>{
+      if(!f.date) return false;
+      const diff = Math.abs(new Date(f.date).getTime() - Date.now());
+      return diff < window1d * 2;
+    }).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+
+    if(!relevant.length){
+      container.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">✈️</div>No flights found for today.<br><span style="font-size:.72rem">Log a flight first to start a service session.</span></div>`;
+      return;
+    }
+    container.innerHTML = '';
+    relevant.forEach(f=>{
+      const sectorId = (f.flightNum||f.flight_number||f.id) + '/' + f.date;
+      const actype   = f.actype || f.aircraft_type || '—';
+      const cfg      = guestoraResolveSeatConfig(actype);
+      const cabinHint = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
+      const div = document.createElement('div');
+      div.className = 'gs-list-item';
+      div.innerHTML = `
+        <div class="gs-list-label">${escHtml(f.flightNum||f.flight_number||'—')}  ·  ${escHtml(f.date||'')}</div>
+        <div class="gs-list-sub">${escHtml(actype)}  ·  ${escHtml(cabinHint)}</div>
+      `;
+      div.onclick = ()=>gsSelectSector(f);
+      container.appendChild(div);
+    });
+  } catch(err){
+    container.innerHTML = `<div class="gs-empty">Error loading flights: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function gsSelectSector(flight){
+  const flightNum = flight.flightNum || flight.flight_number || String(flight.id);
+  const date      = flight.date;
+  const actype    = flight.actype || flight.aircraft_type || '';
+  // Get-or-create the package record
+  _gs.pkg = await guestoraGetOrCreatePackage(flightNum, date, actype);
+  // Load orders for this package
+  _gs.orders = await guestoraGetOrdersByPackage(_gs.pkg.id);
+  // Populate cabin picker header
+  document.getElementById('gs-cabin-hdr-sub').textContent = `${flightNum}  ·  ${date}`;
+  // Populate cabin list
+  const cfg = guestoraResolveSeatConfig(actype);
+  const cabinList = document.getElementById('gs-cabin-list');
+  if(!cfg){
+    cabinList.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">⚠️</div>No seat configuration found for <strong>${escHtml(actype)}</strong>.<br><span style="font-size:.72rem">Contact admin to add this aircraft type.</span></div>`;
+  } else {
+    cabinList.innerHTML = '';
+    cfg.cabins.forEach(cabin=>{
+      const orderCount = _gs.orders.filter(o=>o.cabin===cabin.id).length;
+      const div = document.createElement('div');
+      div.className = 'gs-list-item';
+      div.innerHTML = `
+        <div class="gs-list-label">${escHtml(cabin.label)}</div>
+        <div class="gs-list-sub">Layout: ${escHtml(cabin.layout)}  ·  ${cabin.seatCount} seats${orderCount?' · <strong style="color:#c97c0a">'+orderCount+' order'+(orderCount!==1?'s':'')+'</strong>':''}</div>
+      `;
+      div.onclick = ()=>gsSelectCabin(cabin, cfg);
+      cabinList.appendChild(div);
+    });
+  }
+  gsShowView('cabin');
+}
+
+// ── Cabin Picker ──────────────────────────────────────────────────────────────
+function gsSelectCabin(cabin, cfg){
+  _gs.cabin = cabin;
+  document.getElementById('gs-seatmap-title').textContent = cabin.label;
+  document.getElementById('gs-seatmap-sub').textContent   = _gs.pkg.flightNum + '  ·  ' + _gs.pkg.date;
+  gsRenderSeatMap(cabin);
+  gsShowView('seatmap');
+}
+
+// ── Seat Map renderer ─────────────────────────────────────────────────────────
+function gsRenderSeatMap(cabin){
+  const body = document.getElementById('gs-seatmap-body');
+  body.innerHTML = '';
+  // Build order lookup: seatNum → order
+  const seatOrderMap = {};
+  _gs.orders.filter(o=>o.cabin===cabin.id).forEach(o=>{ seatOrderMap[o.seatNum] = o; });
+
+  // Rows rendered bottom-first (row 1 at bottom, crew face aft)
+  const rowsBottomFirst = [...cabin.rows].reverse();
+  rowsBottomFirst.forEach(rowNum=>{
+    const rowEl = document.createElement('div');
+    rowEl.className = 'gs-row';
+    // Row number label
+    const numEl = document.createElement('div');
+    numEl.className = 'gs-row-num';
+    numEl.textContent = rowNum;
+    rowEl.appendChild(numEl);
+    // Column groups separated by aisles
+    cabin.columns.forEach((group, gi)=>{
+      if(gi > 0){
+        const aisle = document.createElement('div');
+        aisle.className = 'gs-aisle';
+        rowEl.appendChild(aisle);
+      }
+      const groupEl = document.createElement('div');
+      groupEl.className = 'gs-col-group';
+      group.forEach(letter=>{
+        const seatNum = String(rowNum)+letter;
+        const order   = seatOrderMap[seatNum];
+        const seatEl  = document.createElement('div');
+        seatEl.className = 'gs-seat';
+        seatEl.textContent = letter;
+        seatEl.dataset.seat = seatNum;
+        if(order){
+          if(order.status==='served')         seatEl.classList.add('served');
+          else if(order.category==='Special Request') seatEl.classList.add('special');
+          else                                seatEl.classList.add('has-order');
+        } else {
+          seatEl.classList.add('empty');
+        }
+        seatEl.onclick = ()=>gsOpenOrderSheet(seatNum, order||null);
+        groupEl.appendChild(seatEl);
+      });
+      rowEl.appendChild(groupEl);
+    });
+    body.appendChild(rowEl);
+  });
+}
+
+// ── Order Sheet ───────────────────────────────────────────────────────────────
+function gsOpenOrderSheet(seatNum, existingOrder){
+  _gs.selectedSeat  = seatNum;
+  _gs.editOrder     = existingOrder;
+  _gs.sheetMode     = existingOrder ? 'view' : 'new';
+  _gs.selectedCat   = existingOrder ? existingOrder.category : null;
+
+  document.getElementById('gs-sheet-seat-label').textContent = 'Seat ' + seatNum;
+  const pillWrap = document.getElementById('gs-status-pill-wrap');
+  if(existingOrder){
+    const cls = existingOrder.status==='served'?'served':(existingOrder.category==='Special Request'?'special':'pending');
+    const lbl = existingOrder.status==='served'?'Served':(existingOrder.category==='Special Request'?'Special Request':'Order taken');
+    pillWrap.innerHTML = `<span class="gs-status-pill ${cls}">${lbl}</span>`;
+  } else {
+    pillWrap.innerHTML = '';
+  }
+  gsRenderSheetBody(existingOrder);
+  document.getElementById('gs-sheet-backdrop').classList.add('open');
+  document.getElementById('gs-order-sheet').classList.add('open');
+}
+
+function gsRenderSheetBody(existingOrder){
+  const body = document.getElementById('gs-sheet-body');
+  if(existingOrder && _gs.sheetMode==='view'){
+    // View + action mode
+    body.innerHTML = `
+      <div style="font-size:.82rem;color:var(--color-text-muted);margin-bottom:6px">Category</div>
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary);margin-bottom:12px">${escHtml(existingOrder.category||'—')}</div>
+      ${existingOrder.note?`<div style="font-size:.82rem;color:var(--color-text-muted);margin-bottom:4px">Note</div><div style="font-size:.85rem;color:var(--color-text-primary);margin-bottom:14px;white-space:pre-wrap">${escHtml(existingOrder.note)}</div>`:''}
+      <div class="gs-order-actions">
+        <button class="gs-order-act-btn" onclick="gsEditOrder()">Edit</button>
+        ${existingOrder.status!=='served'?`<button class="gs-order-act-btn primary" onclick="gsMarkServed('${existingOrder.id}')">Mark Served</button>`:''}
+        <button class="gs-order-act-btn danger" onclick="gsConfirmDelete('${existingOrder.id}')">Delete</button>
+      </div>
+    `;
+  } else {
+    // New / edit mode
+    const cats = ['Meal','Drink','Special Request'];
+    const catBtns = cats.map(c=>`<button class="gs-cat-btn${_gs.selectedCat===c?' selected':''}" onclick="gsSelectCat('${c}')">${c}</button>`).join('');
+    const noteVal = existingOrder ? escHtml(existingOrder.note||'') : '';
+    body.innerHTML = `
+      <div class="gs-note-label" style="margin-bottom:8px;font-weight:700;color:var(--color-text-primary)">Category</div>
+      <div class="gs-category-row">${catBtns}</div>
+      <div class="gs-note-label">Note <span style="font-weight:400">(optional)</span></div>
+      <textarea class="gs-note-input" id="gs-note-inp" maxlength="120" placeholder="e.g. No nuts, extra hot, window preference…" oninput="gsUpdateNoteCount(this)">${noteVal}</textarea>
+      <div class="gs-note-count" id="gs-note-count">${noteVal.length}/120</div>
+      <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()" ${_gs.selectedCat?'':'disabled'}>Save Order</button>
+    `;
+  }
+}
+
+function gsSelectCat(cat){
+  _gs.selectedCat = cat;
+  document.querySelectorAll('.gs-cat-btn').forEach(b=>b.classList.toggle('selected', b.textContent===cat));
+  const saveBtn = document.getElementById('gs-save-btn');
+  if(saveBtn) saveBtn.disabled = false;
+}
+
+function gsUpdateNoteCount(el){
+  const cnt = document.getElementById('gs-note-count');
+  if(cnt) cnt.textContent = el.value.length + '/120';
+}
+
+async function gsSaveOrder(){
+  if(!_gs.selectedCat){ toast('Please select a category'); return; }
+  const note = (document.getElementById('gs-note-inp')?.value||'').slice(0,120);
+  const now  = new Date().toISOString();
+  const saveBtn = document.getElementById('gs-save-btn');
+  if(saveBtn) saveBtn.disabled = true;
+  try {
+    if(_gs.editOrder && _gs.sheetMode==='edit'){
+      // Update existing order
+      const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
+        category: _gs.selectedCat, note, updatedAt: now
+      });
+      // Refresh orders array
+      const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
+      if(idx!==-1) _gs.orders[idx] = updated;
+      toast('✅ Order updated');
+    } else {
+      // New order + outbox entry
+      const order = {
+        id:        guestoraUUID(),
+        packageId: _gs.pkg.id,
+        cabin:     _gs.cabin.id,
+        seatNum:   _gs.selectedSeat,
+        category:  _gs.selectedCat,
+        note,
+        status:    'pending',   // PENDING server sync
+        createdAt: now,
+        updatedAt: now
+      };
+      const outboxEntry = {
+        operationId: guestoraUUID(),
+        type:       'CREATE_ORDER',
+        packageId:  _gs.pkg.id,
+        payload:    order,
+        status:     'pending',  // PENDING: server sync not implemented
+        attempts:   0,
+        createdAt:  now,
+        dependencies: []
+      };
+      await guestoraAtomicWrite(order, outboxEntry);
+      _gs.orders.push(order);
+      toast('✅ Order saved');
+    }
+    gsCloseOrderSheet();
+    gsRenderSeatMap(_gs.cabin);
+  } catch(err){
+    toast('⚠ Could not save order: ' + err.message);
+    if(saveBtn) saveBtn.disabled = false;
+  }
+}
+
+function gsEditOrder(){
+  _gs.sheetMode = 'edit';
+  gsRenderSheetBody(_gs.editOrder);
+}
+
+async function gsMarkServed(orderId){
+  try {
+    const updated = await guestoraUpdateOrder(orderId, { status: 'served' });
+    const idx = _gs.orders.findIndex(o=>o.id===orderId);
+    if(idx!==-1) _gs.orders[idx] = updated;
+    toast('✅ Marked as served');
+    gsCloseOrderSheet();
+    gsRenderSeatMap(_gs.cabin);
+  } catch(err){ toast('⚠ ' + err.message); }
+}
+
+async function gsConfirmDelete(orderId){
+  if(!confirm('Delete this order?')) return;
+  try {
+    await guestoraDeleteOrder(orderId, _gs.pkg.id);
+    _gs.orders = _gs.orders.filter(o=>o.id!==orderId);
+    toast('🗑 Order deleted');
+    gsCloseOrderSheet();
+    gsRenderSeatMap(_gs.cabin);
+  } catch(err){ toast('⚠ ' + err.message); }
+}
+
+function gsCloseOrderSheet(){
+  document.getElementById('gs-order-sheet').classList.remove('open');
+  document.getElementById('gs-sheet-backdrop').classList.remove('open');
+  _gs.editOrder    = null;
+  _gs.sheetMode    = null;
+  _gs.selectedSeat = null;
+  _gs.selectedCat  = null;
+}
+
+// ── Utility: HTML-escape ──────────────────────────────────────────────────────
+function escHtml(str){
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function setOnlineBadge(){
@@ -6680,6 +7343,8 @@ const _hubIcon = {
   iqsms:         `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
   notices:       `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><polygon points="12 15 17 22 7 22"/></svg>`,
   paxfeedback:   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="9" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="15" y1="10" x2="15" y2="10"/></svg>`,
+  // GUESTORA — service order pad (seat + category + note)
+  guestora:      `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17 14v7M14 17.5h7"/></svg>`,
 };
 
 const HUB_CARDS = [
@@ -6693,6 +7358,7 @@ const HUB_CARDS = [
   { id:'iqsms',         icon:_hubIcon.iqsms,         title:'IQSMS',                 sub:'Report safety concerns',               roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
   { id:'notices',       icon:_hubIcon.notices,       title:'Cabin Notices',         sub:'Operational notices & bulletins',      roles:['all'], action:openNoticesOverlay },
   { id:'pax-feedback',  icon:_hubIcon.paxfeedback,   title:'Passenger Feedback',    sub:'Experience reports & ratings',         roles:['all'], action:openPaxFeedbackOverlay },
+  { id:'guestora',      icon:_hubIcon.guestora,      title:'GUESTORA',              sub:'Business-class order pad · Seat orders', roles:['all'], action:openGuestoraOverlay },
 ];
 
 function getUserRole(){
