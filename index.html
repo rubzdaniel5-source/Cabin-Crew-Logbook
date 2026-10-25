@@ -1570,6 +1570,20 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         </div>
       </div>
 
+      <!-- SFP field — shown only for A330-800 flights -->
+      <div class="field full" id="sfp-field-wrap" style="display:none">
+        <label>Senior Flight Purser (SFP)
+          <span style="font-size:.7rem;color:var(--muted);font-weight:400"> — A330-800 only</span>
+        </label>
+        <div class="combo-wrap">
+          <input type="text" id="f-sfp" placeholder="Name of the SFP for this flight" autocomplete="off"
+            oninput="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
+            onfocus="filterCombo('f-sfp','dd-sfp',getDB('crewNames'))"
+            onblur="delayClose('dd-sfp')"/>
+          <div class="combo-dropdown" id="dd-sfp"></div>
+        </div>
+      </div>
+
       <div class="field full">
         <label>Crew Members <span style="font-weight:400;text-transform:none;letter-spacing:0">(max 10)</span></label>
         <div class="crew-tags" id="crew-tags"></div>
@@ -9107,6 +9121,7 @@ async function saveEntry(){
     flightNum2:(g('f-flightnum2')||'').toUpperCase()||null,
     dep:_route.dep, arr:_route.arr, fullRoute:_route.route,
     reg:g('f-reg').toUpperCase(), actype:g('f-actype').toUpperCase(),
+    sfp:g('f-sfp')||'',
     sectorsData:  _sectors,
     flightTime:   getPrimaryFlightTime(),
     flightLevel:  getPrimaryFlightLevel(),
@@ -9157,7 +9172,7 @@ async function saveEntry(){
 }
 
 function clearForm(){
-  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo',
+  ['f-date','f-flightnum','f-reg','f-actype','f-position','f-captain','f-fo','f-sfp',
    'f-crew-input','f-std','f-sta','f-pax','f-safety','f-firstaid','f-blocktime','f-delay','f-delayreason','f-status','f-remarks']
     .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   // Reset sector count to 1
