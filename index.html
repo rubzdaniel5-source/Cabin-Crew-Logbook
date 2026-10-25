@@ -3928,7 +3928,6 @@ function flightToRow(f, forInsert = true){
     dep:f.dep, arr:f.arr,
     full_route:f.fullRoute||'',
     reg:f.reg, actype:f.actype,
-    sfp:f.sfp||null,
     position:f.position, captain:f.captain, fo:f.fo, crew:f.crew,
     pax:f.pax ? parseInt(f.pax) : null,
     std:f.std, sta:f.sta,
@@ -7499,9 +7498,9 @@ const HUB_CARDS = [
   { id:'announcements', icon:_hubIcon.announcements, title:'Onboard Announcements', sub:'Pre-Flight · Inflight · After Landing · Special', roles:['all'], action:()=>{ openMenuSection('announcements'); } },
   { id:'nexa',          icon:_hubIcon.nexa,          title:'Nexa Crew AI',          sub:'AI assistant · Manuals & Logbook',     roles:['all'], action:()=>{ openNexa(); } },
   { id:'manifest',      icon:_hubIcon.manifest,      title:'Passenger Manifest',    sub:'View or upload flight manifest',        roles:['admin','ops_manager'], action:openManifestOverlay },
-  { id:'purser-report', icon:_hubIcon.purserreport,  title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',       roles:['admin','senior_purser','purser'], action:openPFROverlay },
+  { id:'purser-report', icon:_hubIcon.purserreport,  title:'Purser Flight Report',  sub:'UGD-CAB-F-010 · Draft & Submit',       roles:['admin','purser'], action:openPFROverlay },
   { id:'manuals',       icon:_hubIcon.manuals,       title:'Manuals',               sub:'Cabin crew & operations manuals',      roles:['all'], action:()=>{ loadManualsForCrew(); document.getElementById('manuals-overlay').classList.add('open'); closeMenu(); } },
-  { id:'cabin-log',     icon:_hubIcon.cabinlog,      title:'Cabin Log',             sub:'Record cabin defects',                 roles:['admin','senior_purser','purser'], action:openCabinLogOverlay },
+  { id:'cabin-log',     icon:_hubIcon.cabinlog,      title:'Cabin Log',             sub:'Record cabin defects',                 roles:['admin','purser'], action:openCabinLogOverlay },
   { id:'chat',          icon:_hubIcon.chat,          title:'Crew Chat',             sub:'Group & private messaging',            roles:['all'], action:()=>{ openChat(); } },
   { id:'iqsms',         icon:_hubIcon.iqsms,         title:'IQSMS',                 sub:'Report safety concerns',               roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
   { id:'notices',       icon:_hubIcon.notices,       title:'Cabin Notices',         sub:'Operational notices & bulletins',      roles:['all'], action:openNoticesOverlay },
@@ -8238,7 +8237,7 @@ async function openCabinLogOverlay(){
   } else {
     _clogId   = null;
     _clogData = { date:new Date().toISOString().slice(0,10), flight_number:'', ac_type:'', ac_reg:'',
-      dep:'', arr:'', sfp:localStorage.getItem('ccl_crew_name')||'',
+      dep:'', arr:'',
       faults:[{fault:'',action:''}], captain:'', station:'' };
     document.getElementById('clog-status-badge').textContent = 'New';
   }
@@ -8308,7 +8307,6 @@ function renderCabinLogForm(){
       ${clogCombo('A/C Reg','clog-ac_reg',d.ac_reg,'acRegs','5X-CRN')}
       ${clogCombo('From (DEP)','clog-dep',d.dep,'routes','EBB')}
       ${clogCombo('To (ARR)','clog-arr',d.arr,'routes','NBO')}
-      ${clogCombo('SFP / SCCM','clog-sfp',d.sfp,'crew','SFP or SCCM name')}
       ${clogCombo('Captain','clog-captain',d.captain,'captains','Captain name')}
     </div>
     <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:8px">Cabin Defects</div>
@@ -8799,7 +8797,6 @@ function rowToFlight(r){
     dep:r.dep, arr:r.arr,
     fullRoute:r.full_route || (r.dep && r.arr ? `${r.dep} → ${r.arr}` : ''),
     reg:r.reg, actype:r.actype,
-    sfp:r.sfp||'',
     sectorsData,
     flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
@@ -9133,7 +9130,6 @@ function showDetail(id){
     ['Route', e.fullRoute || [e.dep,e.arr].filter(Boolean).join(' → ') || '–'],
     ['Aircraft Reg',e.reg||'–'],['Aircraft Type',e.actype||'–'],
     ['Position',e.position||'–'],['Captain',e.captain||'–'],['First Officer',e.fo||'–'],
-    ...(e.sfp ? [['Senior Flight Purser',e.sfp]] : []),
     ['Crew',e.crew||'–'],['Pax',e.pax||'–'],
     ['STD',e.std||'–'],['STA',e.sta||'–'],['Safety Topic',e.safety||'–'],['First Aid Topic',e.firstAid||'–'],
   ];
@@ -9209,7 +9205,6 @@ function editEntry(id){
       selectedCrew = e.crew ? e.crew.split(',').map(s=>s.trim()).filter(Boolean) : [];
       renderCrewTags();
 
-      // ── SFP field visibility ─────────────────────────────────
     });
   });
 }
@@ -9271,19 +9266,13 @@ async function saveEntry(){
 
   if(editingFlightId){
     flightObj.id = editingFlightId;
-    // ── D5 fix: preserve fields not present in the flight form ───────────────
-    // Read the existing record from IDB and merge fields that the form does not
-    // expose (sfp, user_id, and any future server-assigned columns). Without
-    // this, editing a flight would silently clear sfp on the next cloud push.
+    // Preserve server-assigned fields not present in the flight form (user_id etc.)
     try{
       const existing = (await idbAll('flights')).find(r=>String(r.id)===String(editingFlightId));
       if(existing){
-        // Carry over fields absent from the form; form fields always win.
-        if(existing.sfp    !== undefined && flightObj.sfp    === undefined) flightObj.sfp    = existing.sfp;
         if(existing.user_id!== undefined && flightObj.user_id=== undefined) flightObj.user_id= existing.user_id;
       }
-    }catch(_){/* non-fatal — missing sfp is better than a broken save */}
-    // ─────────────────────────────────────────────────────────────────────────
+    }catch(_){/* non-fatal */}
     await idbPut('flights', flightObj);
     const idx = cache.flights.findIndex(f=>String(f.id)===String(editingFlightId));
     if(idx>-1) cache.flights[idx] = flightObj; else cache.flights.unshift(flightObj);
