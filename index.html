@@ -7358,7 +7358,7 @@ const HUB_CARDS = [
   { id:'iqsms',         icon:_hubIcon.iqsms,         title:'IQSMS',                 sub:'Report safety concerns',               roles:['all'], action:()=>{ window.open('https://ugd.asqs.net','_blank'); } },
   { id:'notices',       icon:_hubIcon.notices,       title:'Cabin Notices',         sub:'Operational notices & bulletins',      roles:['all'], action:openNoticesOverlay },
   { id:'pax-feedback',  icon:_hubIcon.paxfeedback,   title:'Passenger Feedback',    sub:'Experience reports & ratings',         roles:['all'], action:openPaxFeedbackOverlay },
-  { id:'guestora',      icon:_hubIcon.guestora,      title:'GUESTORA',              sub:'Business-class order pad · Seat orders', roles:['all'], action:openGuestoraOverlay },
+  { id:'guestora',      icon:_hubIcon.guestora,      title:'GUESTORA',              sub:'Business-class order pad · Seat orders', roles:['admin'], action:openGuestoraOverlay },
 ];
 
 function getUserRole(){
