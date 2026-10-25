@@ -773,54 +773,90 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .gs-list-label{font-size:.88rem;font-weight:800;color:var(--color-text-primary)}
 .gs-list-sub{font-size:.72rem;color:var(--color-text-muted)}
 /* ── Seat map ── */
-.gs-seatmap-wrap{padding:16px 12px 32px}
-.gs-seatmap-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.gs-legend-item{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--color-text-muted)}
-.gs-legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
-.gs-cabin-label{font-size:.78rem;font-weight:800;color:var(--color-text-muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
-/* Row wrapper: label on left, then column groups */
-.gs-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.gs-row-num{font-size:.7rem;color:var(--color-text-muted);width:18px;text-align:center;flex-shrink:0}
-.gs-col-group{display:flex;gap:4px}
-.gs-aisle{width:12px;flex-shrink:0}
-/* Seat tile */
-.gs-seat{width:38px;height:38px;border-radius:8px;border:1.5px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;cursor:pointer;transition:transform .1s,box-shadow .12s;color:#fff;flex-shrink:0;user-select:none}
-.gs-seat:active{transform:scale(.93)}
-.gs-seat.empty{background:rgba(255,255,255,.08)}
-.gs-seat.has-order{background:#c97c0a}   /* amber  — order taken    */
-.gs-seat.served{background:#1a7a45}      /* green  — served         */
-.gs-seat.special{background:#b8292a}     /* red    — special req    */
+/* ── Seat map layout ── */
+.gs-seatmap-wrap{padding:0}
+.gs-seatmap-legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--color-border)}
+.gs-legend-item{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)}
+.gs-legend-dot{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+/* Aircraft fuselage wrapper */
+.gs-fuselage{display:flex;flex-direction:column;align-items:center;padding:16px 8px 32px;gap:0;background:linear-gradient(180deg,rgba(255,255,255,.03) 0%,transparent 100%)}
+/* Nose indicator at top */
+.gs-nose{width:48px;height:24px;border-radius:50% 50% 0 0 / 100% 100% 0 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-bottom:none;margin-bottom:4px;flex-shrink:0}
+/* Fuselage walls */
+.gs-cabin-tube{display:flex;flex-direction:column;width:100%;max-width:420px;background:rgba(255,255,255,.02);border-left:3px solid rgba(255,255,255,.08);border-right:3px solid rgba(255,255,255,.08);padding:8px 0 8px}
+.gs-cabin-label-strip{text-align:center;font-size:.65rem;font-weight:900;letter-spacing:.12em;color:rgba(255,255,255,.25);text-transform:uppercase;padding:4px 0 8px}
+/* Each seat row */
+.gs-row{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:8px;padding:0 8px}
+.gs-row-num{font-size:.68rem;font-weight:700;color:rgba(255,255,255,.3);width:22px;text-align:center;flex-shrink:0}
+.gs-col-group{display:flex;gap:6px}
+/* Aisle — dashed centre line suggestion */
+.gs-aisle{width:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.gs-aisle-line{width:1px;height:100%;background:repeating-linear-gradient(to bottom,rgba(255,255,255,.12) 0,rgba(255,255,255,.12) 4px,transparent 4px,transparent 8px);min-height:56px}
+/* ── Seat tile — aircraft seat icon ── */
+.gs-seat{
+  width:54px;height:62px;border-radius:10px 10px 6px 6px;
+  border:1.5px solid rgba(255,255,255,.15);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding-bottom:5px;gap:2px;
+  cursor:pointer;transition:transform .12s,box-shadow .15s,border-color .15s;
+  color:#fff;flex-shrink:0;user-select:none;position:relative;overflow:hidden;
+  background:rgba(255,255,255,.07);
+}
+/* Headrest bump at top of seat */
+.gs-seat::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:14px;border-radius:0 0 6px 6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-top:none}
+.gs-seat-num{font-size:.72rem;font-weight:900;line-height:1;z-index:1;margin-top:2px}
+.gs-seat-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25);z-index:1}
+.gs-seat:active{transform:scale(.92)}
+.gs-seat.empty{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.gs-seat.empty:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.gs-seat.has-order{background:rgba(201,124,10,.35);border-color:#c97c0a;box-shadow:0 0 10px rgba(201,124,10,.3)}
+.gs-seat.has-order .gs-seat-dot{background:#f5a623}
+.gs-seat.served{background:rgba(26,122,69,.35);border-color:#1a7a45;box-shadow:0 0 10px rgba(26,122,69,.25)}
+.gs-seat.served .gs-seat-dot{background:#2ecc71}
+.gs-seat.special{background:rgba(184,41,42,.35);border-color:#b8292a;box-shadow:0 0 10px rgba(184,41,42,.3)}
+.gs-seat.special .gs-seat-dot{background:#ff6b6b}
 /* ── Order sheet (slide-up panel) ── */
-.gs-order-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--color-card);border-radius:16px 16px 0 0;z-index:650;transform:translateY(100%);transition:transform .28s cubic-bezier(.25,.8,.25,1);max-height:75vh;overflow-y:auto;padding:0 0 32px}
+.gs-order-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--color-card);border-radius:20px 20px 0 0;z-index:650;transform:translateY(100%);transition:transform .28s cubic-bezier(.25,.8,.25,1);max-height:82vh;overflow-y:auto;padding:0 0 36px;box-shadow:0 -8px 32px rgba(0,0,0,.5)}
 .gs-order-sheet.open{transform:translateY(0)}
-.gs-sheet-drag{width:36px;height:4px;background:var(--color-border);border-radius:2px;margin:10px auto 14px}
-.gs-sheet-hdr{padding:0 16px 12px;border-bottom:1px solid var(--color-border)}
-.gs-sheet-seat{font-size:1.1rem;font-weight:900;color:var(--color-text-primary)}
-.gs-sheet-body{padding:16px}
-.gs-category-row{display:flex;gap:8px;margin-bottom:16px}
-.gs-cat-btn{flex:1;padding:10px 4px;border-radius:10px;border:1.5px solid var(--color-border);background:none;color:var(--color-text-primary);font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s}
-.gs-cat-btn.selected{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
-.gs-note-label{font-size:.75rem;color:var(--color-text-muted);margin-bottom:6px}
-.gs-note-input{width:100%;background:var(--color-input-bg);border:1px solid var(--color-border);border-radius:10px;color:var(--color-text-primary);font-size:.82rem;padding:10px 12px;resize:none;box-sizing:border-box;min-height:72px}
-.gs-note-count{font-size:.66rem;color:var(--color-text-muted);text-align:right;margin-top:3px}
-.gs-save-btn{width:100%;padding:13px;background:var(--color-accent);color:#fff;border:none;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer;margin-top:16px}
-.gs-save-btn:disabled{opacity:.4;cursor:default}
-/* View-order mode (when tapping an existing order) */
-.gs-order-actions{display:flex;gap:8px;margin-top:14px}
-.gs-order-act-btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--color-border);background:none;color:var(--color-text-primary);font-size:.8rem;font-weight:700;cursor:pointer}
+.gs-sheet-drag{width:40px;height:4px;background:var(--color-border);border-radius:2px;margin:12px auto 16px}
+.gs-sheet-hdr{padding:0 18px 14px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between}
+.gs-sheet-seat{font-size:1.2rem;font-weight:900;color:var(--color-text-primary)}
+.gs-sheet-body{padding:18px}
+/* ── Per-category section ── */
+.gs-cat-section{border:1.5px solid var(--color-border);border-radius:14px;margin-bottom:14px;overflow:hidden;transition:border-color .2s}
+.gs-cat-section.has-content{border-color:var(--color-accent)}
+.gs-cat-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:rgba(255,255,255,.03);user-select:none}
+.gs-cat-icon{font-size:1.2rem;flex-shrink:0}
+.gs-cat-title{font-size:.88rem;font-weight:800;color:var(--color-text-primary);flex:1}
+.gs-cat-chevron{font-size:.8rem;color:var(--color-text-muted);transition:transform .2s;flex-shrink:0}
+.gs-cat-section.open .gs-cat-chevron{transform:rotate(180deg)}
+.gs-cat-body{display:none;padding:0 14px 14px;border-top:1px solid var(--color-border)}
+.gs-cat-section.open .gs-cat-body{display:block}
+.gs-cat-textarea{width:100%;background:var(--color-input-bg);border:1px solid var(--color-border);border-radius:10px;color:var(--color-text-primary);font-size:.83rem;padding:10px 12px;resize:none;box-sizing:border-box;min-height:68px;margin-top:12px;font-family:var(--font)}
+.gs-cat-count{font-size:.66rem;color:var(--color-text-muted);text-align:right;margin-top:3px}
+.gs-save-btn{width:100%;padding:14px;background:var(--color-accent);color:#fff;border:none;border-radius:14px;font-size:.92rem;font-weight:800;cursor:pointer;margin-top:6px;letter-spacing:.02em}
+.gs-save-btn:disabled{opacity:.35;cursor:default}
+/* View mode order display */
+.gs-view-cat-block{background:rgba(255,255,255,.04);border:1px solid var(--color-border);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.gs-view-cat-label{font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.gs-view-cat-text{font-size:.85rem;color:var(--color-text-primary);white-space:pre-wrap}
+.gs-order-actions{display:flex;gap:8px;margin-top:16px}
+.gs-order-act-btn{flex:1;padding:11px;border-radius:12px;border:1.5px solid var(--color-border);background:none;color:var(--color-text-primary);font-size:.82rem;font-weight:700;cursor:pointer}
 .gs-order-act-btn.danger{border-color:#b8292a;color:#b8292a}
 .gs-order-act-btn.primary{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
 /* Order sheet backdrop */
-.gs-sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:640}
+.gs-sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:640;backdrop-filter:blur(2px)}
 .gs-sheet-backdrop.open{display:block}
 /* Empty / error states */
 .gs-empty{padding:40px 16px;text-align:center;color:var(--color-text-muted);font-size:.85rem}
 .gs-empty-icon{font-size:2rem;margin-bottom:10px}
-/* Order status pill inside order sheet */
-.gs-status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:800;margin-bottom:8px}
+/* Status pill */
+.gs-status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:800}
 .gs-status-pill.pending{background:rgba(201,124,10,.25);color:#c97c0a}
 .gs-status-pill.served{background:rgba(26,122,69,.25);color:#1a7a45}
 .gs-status-pill.special{background:rgba(184,41,42,.25);color:#b8292a}
+/* Served check mark on seat */
+.gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -3061,15 +3097,14 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       </div>
     </div>
     <!-- Legend -->
-    <div style="padding:10px 16px 0;border-bottom:1px solid var(--color-border)">
-      <div class="gs-seatmap-legend">
-        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2)"></div> Empty</div>
-        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#c97c0a"></div> Order taken</div>
-        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#1a7a45"></div> Served</div>
-        <div class="gs-legend-item"><div class="gs-legend-dot" style="background:#b8292a"></div> Special req</div>
-      </div>
+    <div class="gs-seatmap-legend">
+      <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2)"></div>Empty</div>
+      <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(201,124,10,.35);border:1.5px solid #c97c0a"></div>Order</div>
+      <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(26,122,69,.35);border:1.5px solid #1a7a45"></div>Served</div>
+      <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(184,41,42,.35);border:1.5px solid #b8292a"></div>Special</div>
     </div>
-    <div class="gs-body gs-seatmap-wrap" id="gs-seatmap-body" style="padding:12px"></div>
+    <!-- Seat map scrollable body — fuselage rendered by JS -->
+    <div class="gs-body" id="gs-seatmap-body" style="padding:0;overflow-y:auto"></div>
   </div>
 
   <!-- ── Order sheet (slide-up) and backdrop ──────────────────────────── -->
@@ -3464,26 +3499,58 @@ function gsSelectCabin(cabin, cfg){
 function gsRenderSeatMap(cabin){
   const body = document.getElementById('gs-seatmap-body');
   body.innerHTML = '';
-  // Build order lookup: seatNum → order
+
+  // Order lookup: seatNum → order
   const seatOrderMap = {};
   _gs.orders.filter(o=>o.cabin===cabin.id).forEach(o=>{ seatOrderMap[o.seatNum] = o; });
 
-  // Rows rendered bottom-first (row 1 at bottom, crew face aft)
+  // Fuselage wrapper
+  const fuselage = document.createElement('div');
+  fuselage.className = 'gs-fuselage';
+
+  // Nose nub
+  const nose = document.createElement('div');
+  nose.className = 'gs-nose';
+  fuselage.appendChild(nose);
+
+  // Cabin tube
+  const tube = document.createElement('div');
+  tube.className = 'gs-cabin-tube';
+
+  // Cabin label
+  const lbl = document.createElement('div');
+  lbl.className = 'gs-cabin-label-strip';
+  lbl.textContent = '▲  FRONT  ▲';
+  tube.appendChild(lbl);
+
+  // Image from the reference: left side = K (window), right side = A (window)
+  // columns array is [['K'], ['E','G'], ['A']] for 1-2-1
+  // We must render columns RIGHT-TO-LEFT as seen on screen so A is on the right.
+  // Strategy: reverse the columns array for display only.
+  const displayCols = [...cabin.columns].reverse();
+
+  // Rows bottom-first (row 1 at bottom — crew face aft)
   const rowsBottomFirst = [...cabin.rows].reverse();
+
   rowsBottomFirst.forEach(rowNum=>{
     const rowEl = document.createElement('div');
     rowEl.className = 'gs-row';
-    // Row number label
+
+    // Row number on the left
     const numEl = document.createElement('div');
     numEl.className = 'gs-row-num';
     numEl.textContent = rowNum;
     rowEl.appendChild(numEl);
-    // Column groups separated by aisles
-    cabin.columns.forEach((group, gi)=>{
+
+    // Seat groups with aisles — using displayCols (reversed)
+    displayCols.forEach((group, gi)=>{
       if(gi > 0){
-        const aisle = document.createElement('div');
-        aisle.className = 'gs-aisle';
-        rowEl.appendChild(aisle);
+        const aisleEl = document.createElement('div');
+        aisleEl.className = 'gs-aisle';
+        const aisleInner = document.createElement('div');
+        aisleInner.className = 'gs-aisle-line';
+        aisleEl.appendChild(aisleInner);
+        rowEl.appendChild(aisleEl);
       }
       const groupEl = document.createElement('div');
       groupEl.className = 'gs-col-group';
@@ -3492,124 +3559,206 @@ function gsRenderSeatMap(cabin){
         const order   = seatOrderMap[seatNum];
         const seatEl  = document.createElement('div');
         seatEl.className = 'gs-seat';
-        seatEl.textContent = letter;
         seatEl.dataset.seat = seatNum;
+
+        // Seat number label + status dot
+        const numSpan = document.createElement('div');
+        numSpan.className = 'gs-seat-num';
+        numSpan.textContent = seatNum;
+
+        const dot = document.createElement('div');
+        dot.className = 'gs-seat-dot';
+
+        seatEl.appendChild(numSpan);
+        seatEl.appendChild(dot);
+
+        // Colour state
         if(order){
-          if(order.status==='served')         seatEl.classList.add('served');
-          else if(order.category==='Special Request') seatEl.classList.add('special');
-          else                                seatEl.classList.add('has-order');
+          const hasSpecial = order.specialNote && order.specialNote.trim();
+          const hasServed  = order.status === 'served';
+          if(hasServed)        seatEl.classList.add('served');
+          else if(hasSpecial)  seatEl.classList.add('special');
+          else                 seatEl.classList.add('has-order');
         } else {
           seatEl.classList.add('empty');
         }
+
         seatEl.onclick = ()=>gsOpenOrderSheet(seatNum, order||null);
         groupEl.appendChild(seatEl);
       });
       rowEl.appendChild(groupEl);
     });
-    body.appendChild(rowEl);
+
+    // Row number on the right too (mirror)
+    const numElR = document.createElement('div');
+    numElR.className = 'gs-row-num';
+    numElR.textContent = rowNum;
+    rowEl.appendChild(numElR);
+
+    tube.appendChild(rowEl);
   });
+
+  // Tail label
+  const tail = document.createElement('div');
+  tail.className = 'gs-cabin-label-strip';
+  tail.textContent = '▼  REAR  ▼';
+  tube.appendChild(tail);
+
+  fuselage.appendChild(tube);
+  body.appendChild(fuselage);
 }
 
 // ── Order Sheet ───────────────────────────────────────────────────────────────
+// Order structure (v2): one order per seat, with three independent note fields:
+//   mealNote, drinkNote, specialNote  (each up to 120 chars, all optional)
+// Seat tile colour priority: served > special (specialNote filled) > has-order (any note)
+
 function gsOpenOrderSheet(seatNum, existingOrder){
-  _gs.selectedSeat  = seatNum;
-  _gs.editOrder     = existingOrder;
-  _gs.sheetMode     = existingOrder ? 'view' : 'new';
-  _gs.selectedCat   = existingOrder ? existingOrder.category : null;
+  _gs.selectedSeat = seatNum;
+  _gs.editOrder    = existingOrder;
+  _gs.sheetMode    = existingOrder ? 'view' : 'new';
 
   document.getElementById('gs-sheet-seat-label').textContent = 'Seat ' + seatNum;
+
   const pillWrap = document.getElementById('gs-status-pill-wrap');
   if(existingOrder){
-    const cls = existingOrder.status==='served'?'served':(existingOrder.category==='Special Request'?'special':'pending');
-    const lbl = existingOrder.status==='served'?'Served':(existingOrder.category==='Special Request'?'Special Request':'Order taken');
+    const cls = existingOrder.status==='served' ? 'served'
+              : (existingOrder.specialNote?.trim() ? 'special' : 'pending');
+    const lbl = existingOrder.status==='served' ? 'Served'
+              : (existingOrder.specialNote?.trim() ? 'Special req' : 'Order taken');
     pillWrap.innerHTML = `<span class="gs-status-pill ${cls}">${lbl}</span>`;
   } else {
     pillWrap.innerHTML = '';
   }
+
   gsRenderSheetBody(existingOrder);
   document.getElementById('gs-sheet-backdrop').classList.add('open');
   document.getElementById('gs-order-sheet').classList.add('open');
 }
 
+// Category config — emoji, title, field name, placeholder
+const GS_CATS = [
+  { key:'mealNote',    icon:'🍽️', title:'Meal',            ph:'e.g. Chicken, vegetarian, no nuts, halal…' },
+  { key:'drinkNote',   icon:'🥤', title:'Drink',           ph:'e.g. Orange juice, still water, red wine…' },
+  { key:'specialNote', icon:'⭐', title:'Special Request', ph:'e.g. Allergy alert, anniversary cake, extra blanket…' },
+];
+
 function gsRenderSheetBody(existingOrder){
   const body = document.getElementById('gs-sheet-body');
+
   if(existingOrder && _gs.sheetMode==='view'){
-    // View + action mode
+    // ── View mode ──
+    const cats = GS_CATS.filter(c=>existingOrder[c.key]?.trim());
+    let catHtml = '';
+    if(cats.length){
+      catHtml = cats.map(c=>`
+        <div class="gs-view-cat-block">
+          <div class="gs-view-cat-label">${c.icon} ${escHtml(c.title)}</div>
+          <div class="gs-view-cat-text">${escHtml(existingOrder[c.key])}</div>
+        </div>
+      `).join('');
+    } else {
+      catHtml = '<div style="color:var(--color-text-muted);font-size:.82rem;margin-bottom:12px">No details recorded.</div>';
+    }
     body.innerHTML = `
-      <div style="font-size:.82rem;color:var(--color-text-muted);margin-bottom:6px">Category</div>
-      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary);margin-bottom:12px">${escHtml(existingOrder.category||'—')}</div>
-      ${existingOrder.note?`<div style="font-size:.82rem;color:var(--color-text-muted);margin-bottom:4px">Note</div><div style="font-size:.85rem;color:var(--color-text-primary);margin-bottom:14px;white-space:pre-wrap">${escHtml(existingOrder.note)}</div>`:''}
+      ${catHtml}
       <div class="gs-order-actions">
         <button class="gs-order-act-btn" onclick="gsEditOrder()">Edit</button>
-        ${existingOrder.status!=='served'?`<button class="gs-order-act-btn primary" onclick="gsMarkServed('${existingOrder.id}')">Mark Served</button>`:''}
+        ${existingOrder.status!=='served'
+          ? `<button class="gs-order-act-btn primary" onclick="gsMarkServed('${existingOrder.id}')">Mark Served</button>`
+          : ''}
         <button class="gs-order-act-btn danger" onclick="gsConfirmDelete('${existingOrder.id}')">Delete</button>
       </div>
     `;
+
   } else {
-    // New / edit mode
-    const cats = ['Meal','Drink','Special Request'];
-    const catBtns = cats.map(c=>`<button class="gs-cat-btn${_gs.selectedCat===c?' selected':''}" onclick="gsSelectCat('${c}')">${c}</button>`).join('');
-    const noteVal = existingOrder ? escHtml(existingOrder.note||'') : '';
+    // ── New / Edit mode — three expandable category sections ──
+    const vals = existingOrder || {};
+    // Auto-open sections that already have content
+    const sectionsHtml = GS_CATS.map((c,i)=>{
+      const val     = escHtml(vals[c.key]||'');
+      const hasVal  = !!(vals[c.key]?.trim());
+      const openCls = (hasVal || i===0) ? ' open' : '';
+      const hasCls  = hasVal ? ' has-content' : '';
+      return `
+        <div class="gs-cat-section${openCls}${hasCls}" id="gs-cat-sec-${c.key}">
+          <div class="gs-cat-header" onclick="gsToggleCatSection('${c.key}')">
+            <span class="gs-cat-icon">${c.icon}</span>
+            <span class="gs-cat-title">${c.title}</span>
+            <span class="gs-cat-chevron">▼</span>
+          </div>
+          <div class="gs-cat-body">
+            <textarea class="gs-cat-textarea" id="gs-inp-${c.key}" maxlength="120"
+              placeholder="${c.ph}"
+              oninput="gsOnCatInput('${c.key}',this)">${val}</textarea>
+            <div class="gs-cat-count" id="gs-cnt-${c.key}">${val.length}/120</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     body.innerHTML = `
-      <div class="gs-note-label" style="margin-bottom:8px;font-weight:700;color:var(--color-text-primary)">Category</div>
-      <div class="gs-category-row">${catBtns}</div>
-      <div class="gs-note-label">Note <span style="font-weight:400">(optional)</span></div>
-      <textarea class="gs-note-input" id="gs-note-inp" maxlength="120" placeholder="e.g. No nuts, extra hot, window preference…" oninput="gsUpdateNoteCount(this)">${noteVal}</textarea>
-      <div class="gs-note-count" id="gs-note-count">${noteVal.length}/120</div>
-      <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()" ${_gs.selectedCat?'':'disabled'}>Save Order</button>
+      <p style="font-size:.75rem;color:var(--color-text-muted);margin:0 0 14px">Fill in any category that applies — you can use all three.</p>
+      ${sectionsHtml}
+      <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()">Save Order</button>
     `;
   }
 }
 
-function gsSelectCat(cat){
-  _gs.selectedCat = cat;
-  document.querySelectorAll('.gs-cat-btn').forEach(b=>b.classList.toggle('selected', b.textContent===cat));
-  const saveBtn = document.getElementById('gs-save-btn');
-  if(saveBtn) saveBtn.disabled = false;
+function gsToggleCatSection(key){
+  const sec = document.getElementById('gs-cat-sec-'+key);
+  if(sec) sec.classList.toggle('open');
 }
 
-function gsUpdateNoteCount(el){
-  const cnt = document.getElementById('gs-note-count');
-  if(cnt) cnt.textContent = el.value.length + '/120';
+function gsOnCatInput(key, el){
+  const cnt = document.getElementById('gs-cnt-'+key);
+  if(cnt) cnt.textContent = el.value.length+'/120';
+  // Highlight section border if content present
+  const sec = document.getElementById('gs-cat-sec-'+key);
+  if(sec) sec.classList.toggle('has-content', el.value.trim().length>0);
 }
 
 async function gsSaveOrder(){
-  if(!_gs.selectedCat){ toast('Please select a category'); return; }
-  const note = (document.getElementById('gs-note-inp')?.value||'').slice(0,120);
-  const now  = new Date().toISOString();
+  const mealNote    = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,120).trim();
+  const drinkNote   = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,120).trim();
+  const specialNote = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,120).trim();
+
+  if(!mealNote && !drinkNote && !specialNote){
+    toast('Add at least one order detail before saving.');
+    return;
+  }
+
+  const now     = new Date().toISOString();
   const saveBtn = document.getElementById('gs-save-btn');
   if(saveBtn) saveBtn.disabled = true;
+
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
-      // Update existing order
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        category: _gs.selectedCat, note, updatedAt: now
+        mealNote, drinkNote, specialNote, updatedAt: now
       });
-      // Refresh orders array
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
       toast('✅ Order updated');
     } else {
-      // New order + outbox entry
       const order = {
-        id:        guestoraUUID(),
-        packageId: _gs.pkg.id,
-        cabin:     _gs.cabin.id,
-        seatNum:   _gs.selectedSeat,
-        category:  _gs.selectedCat,
-        note,
-        status:    'pending',   // PENDING server sync
-        createdAt: now,
-        updatedAt: now
+        id:          guestoraUUID(),
+        packageId:   _gs.pkg.id,
+        cabin:       _gs.cabin.id,
+        seatNum:     _gs.selectedSeat,
+        mealNote, drinkNote, specialNote,
+        status:      'pending',
+        createdAt:   now,
+        updatedAt:   now
       };
       const outboxEntry = {
-        operationId: guestoraUUID(),
-        type:       'CREATE_ORDER',
-        packageId:  _gs.pkg.id,
-        payload:    order,
-        status:     'pending',  // PENDING: server sync not implemented
-        attempts:   0,
-        createdAt:  now,
+        operationId:  guestoraUUID(),
+        type:         'CREATE_ORDER',
+        packageId:    _gs.pkg.id,
+        payload:      order,
+        status:       'pending',  // PENDING: server sync not implemented
+        attempts:     0,
+        createdAt:    now,
         dependencies: []
       };
       await guestoraAtomicWrite(order, outboxEntry);
@@ -3619,7 +3768,7 @@ async function gsSaveOrder(){
     gsCloseOrderSheet();
     gsRenderSeatMap(_gs.cabin);
   } catch(err){
-    toast('⚠ Could not save order: ' + err.message);
+    toast('⚠ Could not save: ' + err.message);
     if(saveBtn) saveBtn.disabled = false;
   }
 }
@@ -3657,7 +3806,6 @@ function gsCloseOrderSheet(){
   _gs.editOrder    = null;
   _gs.sheetMode    = null;
   _gs.selectedSeat = null;
-  _gs.selectedCat  = null;
 }
 
 // ── Utility: HTML-escape ──────────────────────────────────────────────────────
