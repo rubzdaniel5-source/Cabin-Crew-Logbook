@@ -1965,6 +1965,103 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   <div class="db-tabs" id="db-tab-bar"></div>
   <div id="db-panels"></div>
 
+  <!-- ── GUESTORA Settings section (admin only) ────────────────────────── -->
+  <div id="admin-section-guestora" style="display:none;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:4px 2px 8px;border-bottom:1px solid var(--color-border);margin-bottom:12px;margin-top:16px">GUESTORA Settings</div>
+
+  <div id="admin-guestora-card" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openGuestoraAdminOverlay()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--gold),#7a5c00);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17 14v7M14 17.5h7"/></svg>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">GUESTORA Settings</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px" id="guestora-admin-kpi-sub">Aircraft configs · Menu manager</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     GUESTORA ADMIN OVERLAY
+     Full-screen overlay for Aircraft Config + Menu management (admin only)
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="guestora-admin-overlay" style="display:none;position:fixed;inset:0;background:var(--color-app-bg);z-index:700;flex-direction:column;overflow:hidden">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--color-nav);border-bottom:1px solid var(--color-border);flex-shrink:0">
+    <button onclick="closeGuestoraAdminOverlay()" style="background:none;border:none;color:var(--color-text-primary);font-size:1.4rem;cursor:pointer;padding:4px;line-height:1">‹</button>
+    <div>
+      <div style="font-size:1rem;font-weight:800;color:var(--color-text-primary)">GUESTORA Settings</div>
+      <div style="font-size:.7rem;color:var(--muted)">Aircraft configurations &amp; menu management</div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div style="display:flex;background:var(--color-header-secondary);border-bottom:1px solid var(--color-border);flex-shrink:0">
+    <button id="ga-tab-aircraft" onclick="gaShowTab('aircraft')" class="ga-tab ga-tab-active" style="flex:1;padding:12px 8px;border:none;background:none;font-size:.82rem;font-weight:700;cursor:pointer;color:var(--color-accent);border-bottom:2px solid var(--color-accent)">✈ Aircraft</button>
+    <button id="ga-tab-menu" onclick="gaShowTab('menu')" class="ga-tab" style="flex:1;padding:12px 8px;border:none;background:none;font-size:.82rem;font-weight:700;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent">🍽 Menu</button>
+  </div>
+
+  <!-- Scrollable content -->
+  <div style="flex:1;overflow-y:auto;padding:16px">
+
+    <!-- ── Aircraft tab ─────────────────────────────────────────────────── -->
+    <div id="ga-panel-aircraft">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:.75rem;color:var(--muted)">Define seat layouts per aircraft type.</div>
+        <button onclick="gaOpenAircraftEditor(null)" class="btn btn-primary btn-sm" style="font-size:.78rem;padding:8px 14px">+ Add Aircraft</button>
+      </div>
+
+      <div id="ga-aircraft-list">
+        <div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Menu tab ─────────────────────────────────────────────────────── -->
+    <div id="ga-panel-menu" style="display:none">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:.82rem;font-weight:700;color:var(--color-text-primary)" id="ga-menu-active-name">Active Menu</div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="ga-menu-active-date"></div>
+        </div>
+        <button onclick="gaPublishNewMenuVersion()" class="btn btn-primary btn-sm" style="font-size:.78rem;padding:8px 14px">Publish New Version</button>
+      </div>
+
+      <!-- Menu category tree -->
+      <div id="ga-menu-tree">
+        <div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">Loading…</div>
+      </div>
+
+    </div>
+
+  </div><!-- /scrollable content -->
+
+</div><!-- /guestora-admin-overlay -->
+
+<!-- ── Aircraft editor modal (slides in over the admin overlay) ───────────── -->
+<div id="ga-aircraft-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 16px 32px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)" id="ga-aircraft-modal-title">Add Aircraft</div>
+      <button onclick="gaCloseAircraftModal()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer">×</button>
+    </div>
+    <div id="ga-aircraft-modal-body"></div>
+  </div>
+</div>
+
+<!-- ── Menu item editor modal ─────────────────────────────────────────────── -->
+<div id="ga-item-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 16px 32px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)" id="ga-item-modal-title">Add Item</div>
+      <button onclick="gaCloseItemModal()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer">×</button>
+    </div>
+    <div id="ga-item-modal-body"></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -3136,7 +3233,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // OFFLINE STORAGE (IndexedDB) — local mirror for flights & per_diem
 // ═══════════════════════════════════════════════
 const IDB_NAME = 'ccl_offline_db';
-const IDB_VERSION = 2;
+const IDB_VERSION = 3;
 let idb = null;
 let isOnline = navigator.onLine;
 let isSyncing = false;
@@ -3163,6 +3260,15 @@ function openIDB(){
         const outStore = db.createObjectStore('guestora_outbox',{keyPath:'operationId'});
         outStore.createIndex('by_package','packageId',{unique:false});
         outStore.createIndex('by_status','status',{unique:false});
+      }
+      // ── GUESTORA v3 stores: admin-editable configs ───────────────────────
+      if(e.oldVersion < 3){
+        // guestora_aircraft_configs: admin-defined seat layouts per actype
+        const acStore = db.createObjectStore('guestora_aircraft_configs',{keyPath:'id'});
+        acStore.createIndex('by_actype','actype',{unique:true});
+        // guestora_menus: versioned menu snapshots (meals + drinks)
+        const mnStore = db.createObjectStore('guestora_menus',{keyPath:'id'});
+        mnStore.createIndex('by_active','isActive',{unique:false});
       }
     };
     req.onsuccess = (e)=>resolve(e.target.result);
@@ -3385,7 +3491,686 @@ function guestoraResolveSeatConfig(actype){
   return null;
 }
 
-// ── GUESTORA sync stub ───────────────────────────────────────────────────────
+/**
+ * IDB-first seat config resolver.
+ * Checks guestora_aircraft_configs store first; falls back to hardcoded constants.
+ */
+async function guestoraResolveSeatConfigAsync(actype){
+  if(!actype) return null;
+  try {
+    const all = await idbAll('guestora_aircraft_configs');
+    const norm = actype.toUpperCase().replace(/[\s-]/g,'');
+    const found = all.find(r =>
+      r.actype.toUpperCase().replace(/[\s-]/g,'') === norm ||
+      (r.aliases||[]).some(a => a.toUpperCase().replace(/[\s-]/g,'') === norm)
+    );
+    if(found) return found; // shape: { id, actype, aliases, cabins, ... }
+  } catch(e){ /* fall through to hardcoded */ }
+  // Fallback to hardcoded constants (wrap in same shape)
+  const hc = guestoraResolveSeatConfig(actype);
+  return hc;
+}
+
+// ── GUESTORA seed data ───────────────────────────────────────────────────────
+
+/**
+ * Seed guestora_aircraft_configs from hardcoded GUESTORA_SEAT_CONFIGS
+ * if the store is empty. Called once after IDB opens.
+ */
+async function guestoraSeedAircraftConfigs(){
+  try {
+    const existing = await idbAll('guestora_aircraft_configs');
+    if(existing.length > 0) return; // already seeded
+    for(const [actype, cfg] of Object.entries(GUESTORA_SEAT_CONFIGS)){
+      await idbPut('guestora_aircraft_configs', {
+        id:        guestoraUUID(),
+        actype,
+        aliases:   [],
+        cabins:    cfg.cabins,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'seed'
+      });
+    }
+  } catch(e){ console.warn('[GUESTORA] seed aircraft configs failed:', e); }
+}
+
+/** Default starter menu seeded on first install. Admin can edit/extend. */
+const GUESTORA_DEFAULT_MENU = {
+  id:          null, // set at seed time
+  name:        'Default Menu',
+  publishedAt: null,
+  isActive:    true,
+  categories: [
+    {
+      id: 'meals', label: 'Meals', icon: 'utensils',
+      subcategories: [
+        {
+          id: 'starters', label: 'Starters', items: [
+            { id: null, name: 'Smoked Salmon', description: 'With capers and crème fraîche', allergens: ['fish','dairy'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Caesar Salad', description: 'Romaine, parmesan, house dressing', allergens: ['gluten','dairy','eggs'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'mains', label: 'Main Course', items: [
+            { id: null, name: 'Grilled Beef Tenderloin', description: 'Truffle jus, seasonal vegetables', allergens: ['gluten'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Pan-Seared Sea Bass', description: 'Lemon beurre blanc, asparagus', allergens: ['fish','dairy'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'Vegetable Wellington', description: 'Mushroom duxelles, puff pastry', allergens: ['gluten'], dietary: ['vegetarian'], isSpecialMeal: false, available: true, sortOrder: 3 },
+            { id: null, name: 'VGML — Vegan Meal', description: 'Pre-ordered special meal', allergens: [], dietary: ['vegan'], isSpecialMeal: true, available: true, sortOrder: 4 },
+            { id: null, name: 'HNML — Hindu Meal', description: 'Pre-ordered special meal', allergens: [], dietary: ['hindu'], isSpecialMeal: true, available: true, sortOrder: 5 },
+            { id: null, name: 'KSML — Kosher Meal', description: 'Pre-ordered special meal', allergens: [], dietary: ['kosher'], isSpecialMeal: true, available: true, sortOrder: 6 },
+          ]
+        },
+        {
+          id: 'desserts', label: 'Desserts & Cheese', items: [
+            { id: null, name: 'Chocolate Fondant', description: 'Vanilla ice cream', allergens: ['gluten','dairy','eggs'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Cheese Selection', description: 'Three local cheeses, crackers', allergens: ['dairy','gluten'], dietary: ['vegetarian'], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'Fruit Platter', description: 'Seasonal fresh fruit', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 3 },
+          ]
+        }
+      ]
+    },
+    {
+      id: 'beverages', label: 'Beverages', icon: 'wine',
+      subcategories: [
+        {
+          id: 'champagne', label: 'Champagne & Sparkling', items: [
+            { id: null, name: 'Moët & Chandon Brut Impérial', description: '', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Veuve Clicquot Yellow Label', description: '', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'wines_red', label: 'Red Wine', items: [
+            { id: null, name: 'Château Margaux', description: 'Bordeaux, France', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Malbec Reserva', description: 'Mendoza, Argentina', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'wines_white', label: 'White Wine', items: [
+            { id: null, name: 'Sancerre Blanc', description: 'Loire Valley, France', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Cloudy Bay Sauvignon Blanc', description: 'Marlborough, NZ', allergens: ['sulphites'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'spirits_whiskey', label: 'Whiskey & Bourbon', items: [
+            { id: null, name: 'Johnnie Walker Black Label', description: '12-year blended Scotch', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Glenfiddich 15', description: 'Single malt Scotch', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: "Jack Daniel's", description: 'Tennessee Whiskey', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 3 },
+          ]
+        },
+        {
+          id: 'spirits_gin', label: 'Gin', items: [
+            { id: null, name: "Hendrick's Gin", description: '', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Tanqueray No. Ten', description: '', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'spirits_other', label: 'Other Spirits', items: [
+            { id: null, name: 'Grey Goose Vodka', description: '', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Bacardi Carta Blanca Rum', description: '', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'Courvoisier VSOP Cognac', description: '', allergens: [], dietary: [], isSpecialMeal: false, available: true, sortOrder: 3 },
+          ]
+        },
+        {
+          id: 'beers', label: 'Beer', items: [
+            { id: null, name: 'Nile Special Lager', description: 'Uganda Breweries', allergens: ['gluten'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Heineken', description: '', allergens: ['gluten'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+          ]
+        },
+        {
+          id: 'juices', label: 'Juices', items: [
+            { id: null, name: 'Orange Juice', description: 'Freshly squeezed', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Apple Juice', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'Mango Juice', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 3 },
+            { id: null, name: 'Tomato Juice', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 4 },
+          ]
+        },
+        {
+          id: 'hot', label: 'Tea & Coffee', items: [
+            { id: null, name: 'Coffee — Black', description: 'Freshly brewed', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Coffee — With Milk', description: '', allergens: ['dairy'], dietary: [], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'English Breakfast Tea', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 3 },
+            { id: null, name: 'Green Tea', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 4 },
+            { id: null, name: 'Chamomile Tea', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 5 },
+          ]
+        },
+        {
+          id: 'soft', label: 'Soft Drinks & Water', items: [
+            { id: null, name: 'Still Water', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 1 },
+            { id: null, name: 'Sparkling Water', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 2 },
+            { id: null, name: 'Cola', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 3 },
+            { id: null, name: 'Diet Cola', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 4 },
+            { id: null, name: 'Lemonade', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 5 },
+            { id: null, name: 'Ginger Ale', description: '', allergens: [], dietary: ['vegan'], isSpecialMeal: false, available: true, sortOrder: 6 },
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+async function guestoraSeedMenu(){
+  try {
+    const existing = await idbAll('guestora_menus');
+    if(existing.length > 0) return;
+    const menuId = guestoraUUID();
+    const menu = JSON.parse(JSON.stringify(GUESTORA_DEFAULT_MENU));
+    menu.id          = menuId;
+    menu.publishedAt = new Date().toISOString();
+    // Assign stable IDs to every item
+    menu.categories.forEach(cat =>
+      cat.subcategories.forEach(sub =>
+        sub.items.forEach(item => { item.id = guestoraUUID(); })
+      )
+    );
+    await idbPut('guestora_menus', menu);
+  } catch(e){ console.warn('[GUESTORA] seed menu failed:', e); }
+}
+
+/** Get the currently active menu (returns null if none seeded yet) */
+async function guestoraGetActiveMenu(){
+  try {
+    const all = await idbAll('guestora_menus');
+    return all.find(m => m.isActive) || all[all.length-1] || null;
+  } catch(e){ return null; }
+}
+
+// ── GUESTORA Admin Panel ─────────────────────────────────────────────────────
+
+const ALLERGEN_OPTIONS = ['gluten','dairy','eggs','fish','shellfish','nuts','peanuts','soy','sesame','sulphites','celery','mustard','lupin'];
+const DIETARY_OPTIONS  = ['vegan','vegetarian','halal','kosher','hindu','gluten-free','dairy-free','nut-free'];
+
+function openGuestoraAdminOverlay(){
+  const el = document.getElementById('guestora-admin-overlay');
+  if(!el) return;
+  el.style.display = 'flex';
+  gaShowTab('aircraft');
+}
+function closeGuestoraAdminOverlay(){
+  const el = document.getElementById('guestora-admin-overlay');
+  if(el) el.style.display = 'none';
+}
+
+function gaShowTab(tab){
+  document.getElementById('ga-panel-aircraft').style.display = tab==='aircraft' ? 'block' : 'none';
+  document.getElementById('ga-panel-menu').style.display     = tab==='menu'     ? 'block' : 'none';
+  document.getElementById('ga-tab-aircraft').style.color        = tab==='aircraft' ? 'var(--color-accent)' : 'var(--muted)';
+  document.getElementById('ga-tab-aircraft').style.borderBottomColor = tab==='aircraft' ? 'var(--color-accent)' : 'transparent';
+  document.getElementById('ga-tab-menu').style.color        = tab==='menu' ? 'var(--color-accent)' : 'var(--muted)';
+  document.getElementById('ga-tab-menu').style.borderBottomColor = tab==='menu' ? 'var(--color-accent)' : 'transparent';
+  if(tab==='aircraft') gaRenderAircraftList();
+  if(tab==='menu')     gaRenderMenuTree();
+}
+
+async function guestoraUpdateAdminKPI(){
+  try {
+    const [aircraft, menus] = await Promise.all([
+      idbAll('guestora_aircraft_configs'),
+      idbAll('guestora_menus')
+    ]);
+    const active = menus.find(m=>m.isActive);
+    const sub = document.getElementById('guestora-admin-kpi-sub');
+    if(sub) sub.textContent = `${aircraft.length} aircraft · ${active ? active.name : 'No active menu'}`;
+  } catch(e){}
+}
+
+// ── Aircraft tab ──────────────────────────────────────────────────────────────
+
+async function gaRenderAircraftList(){
+  const container = document.getElementById('ga-aircraft-list');
+  if(!container) return;
+  try {
+    const configs = await idbAll('guestora_aircraft_configs');
+    if(!configs.length){
+      container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">No aircraft configured yet.<br>Tap "+ Add Aircraft" to get started.</div>';
+      return;
+    }
+    configs.sort((a,b)=>a.actype.localeCompare(b.actype));
+    container.innerHTML = configs.map(cfg => {
+      const totalSeats = (cfg.cabins||[]).reduce((s,c)=>s+(c.seatCount||0),0);
+      const cabinLabels = (cfg.cabins||[]).map(c=>c.label).join(', ');
+      return `
+      <div class="card" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--color-card-elevated);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">✈</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.9rem;font-weight:800;color:var(--color-text-primary)">${cfg.actype}</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cabinLabels} · ${totalSeats} seats</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button onclick="gaOpenAircraftEditor('${cfg.id}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">Edit</button>
+            <button onclick="gaDeleteAircraft('${cfg.id}','${cfg.actype}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px;color:var(--color-error);border-color:var(--color-error)">Delete</button>
+          </div>
+        </div>
+        ${(cfg.aliases||[]).length ? `<div style="font-size:.7rem;color:var(--muted);margin-top:8px">Aliases: ${cfg.aliases.join(', ')}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e){
+    container.innerHTML = `<div style="color:var(--color-error);padding:16px">${e.message}</div>`;
+  }
+}
+
+async function gaOpenAircraftEditor(configId){
+  const modal = document.getElementById('ga-aircraft-modal');
+  const title = document.getElementById('ga-aircraft-modal-title');
+  const body  = document.getElementById('ga-aircraft-modal-body');
+  modal.style.display = 'flex';
+
+  let cfg = null;
+  if(configId){
+    const all = await idbAll('guestora_aircraft_configs');
+    cfg = all.find(r=>r.id===configId) || null;
+  }
+  title.textContent = cfg ? `Edit ${cfg.actype}` : 'Add Aircraft';
+
+  // Build cabin rows HTML
+  const cabins = cfg ? JSON.parse(JSON.stringify(cfg.cabins)) : [];
+  function cabinHtml(cabin, idx){
+    return `
+    <div class="ga-cabin-row" data-cabin-idx="${idx}" style="border:1px solid var(--color-border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--color-card)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">Cabin ${idx+1}</div>
+        <button type="button" onclick="gaRemoveCabinRow(${idx})" style="background:none;border:none;color:var(--color-error);cursor:pointer;font-size:.75rem">✕ Remove</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Cabin ID</label>
+          <input class="ga-cabin-id" type="text" value="${cabin.id||''}" placeholder="e.g. business"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Label</label>
+          <input class="ga-cabin-label" type="text" value="${cabin.label||''}" placeholder="Business Class"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Layout</label>
+          <input class="ga-cabin-layout" type="text" value="${cabin.layout||''}" placeholder="1-2-1"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+        </div>
+        <div>
+          <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Rows (comma-separated)</label>
+          <input class="ga-cabin-rows" type="text" value="${(cabin.rows||[]).join(',')}" placeholder="1,2,3,4,5"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+        </div>
+      </div>
+      <div style="margin-bottom:4px">
+        <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">
+          Column groups — each group is comma-separated letters; groups separated by |
+          <span style="color:var(--color-text-muted)">(stored right→left; renderer reverses for display)</span>
+        </label>
+        <input class="ga-cabin-cols" type="text" value="${(cabin.columns||[]).map(g=>g.join(',')).join('|')}" placeholder="C,A|K,L"
+          style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"
+          oninput="gaUpdateSeatPreview(${idx})"/>
+      </div>
+      <!-- Live seat-map preview -->
+      <div style="margin-top:10px">
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:6px">Live preview (display order — left is screen-left):</div>
+        <div class="ga-seat-preview" id="ga-preview-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--color-app-bg);border-radius:8px;min-height:36px"></div>
+      </div>
+    </div>`;
+  }
+
+  // Store working cabins in a module-level variable for add/remove
+  _gaEditCabins = cabins.length ? cabins : [];
+  _gaEditConfigId = configId;
+
+  function renderCabinRows(){
+    const wrap = document.getElementById('ga-cabins-wrap');
+    if(!wrap) return;
+    wrap.innerHTML = _gaEditCabins.map((c,i)=>cabinHtml(c,i)).join('');
+    _gaEditCabins.forEach((_,i)=>gaUpdateSeatPreview(i));
+  }
+
+  body.innerHTML = `
+    <div style="margin-bottom:12px">
+      <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Aircraft Type</label>
+      <input id="ga-actype-input" type="text" value="${cfg?.actype||''}" placeholder="e.g. A330-800"
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.88rem;box-sizing:border-box"/>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Aliases (comma-separated, optional)</label>
+      <input id="ga-aliases-input" type="text" value="${(cfg?.aliases||[]).join(', ')}" placeholder="e.g. A330, 330-800"
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">Cabins</div>
+      <button type="button" onclick="gaAddCabinRow()" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">+ Add Cabin</button>
+    </div>
+    <div id="ga-cabins-wrap"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="gaSaveAircraftConfig()" class="btn btn-primary" style="flex:1">Save</button>
+      <button onclick="gaCloseAircraftModal()" class="btn" style="flex:1">Cancel</button>
+    </div>`;
+  renderCabinRows();
+}
+
+let _gaEditCabins = [];
+let _gaEditConfigId = null;
+
+function gaAddCabinRow(){
+  _gaEditCabins.push({ id:'', label:'', layout:'', rows:[], columns:[], seatCount:0 });
+  _gaRefreshCabinWrap();
+}
+function gaRemoveCabinRow(idx){
+  _gaEditCabins.splice(idx,1);
+  _gaRefreshCabinWrap();
+}
+function _gaRefreshCabinWrap(){
+  // Re-read current values before refresh
+  _gaReadCabinsFromDOM();
+  const wrap = document.getElementById('ga-cabins-wrap');
+  if(!wrap) return;
+  function cabinHtmlInner(cabin, idx){
+    return `
+    <div class="ga-cabin-row" data-cabin-idx="${idx}" style="border:1px solid var(--color-border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--color-card)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.8rem;font-weight:700;color:var(--color-text-primary)">Cabin ${idx+1}</div>
+        <button type="button" onclick="gaRemoveCabinRow(${idx})" style="background:none;border:none;color:var(--color-error);cursor:pointer;font-size:.75rem">✕ Remove</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Cabin ID</label>
+          <input class="ga-cabin-id" type="text" value="${cabin.id||''}" placeholder="e.g. business"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/></div>
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Label</label>
+          <input class="ga-cabin-label" type="text" value="${cabin.label||''}" placeholder="Business Class"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/></div>
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Layout</label>
+          <input class="ga-cabin-layout" type="text" value="${cabin.layout||''}" placeholder="1-2-1"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/></div>
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Rows (comma-separated)</label>
+          <input class="ga-cabin-rows" type="text" value="${(cabin.rows||[]).join(',')}" placeholder="1,2,3,4,5"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/></div>
+      </div>
+      <div style="margin-bottom:4px">
+        <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">
+          Column groups (letters comma-separated, groups separated by |) — stored right→left
+        </label>
+        <input class="ga-cabin-cols" type="text" value="${(cabin.columns||[]).map(g=>g.join(',')).join('|')}" placeholder="C,A|K,L"
+          style="width:100%;padding:8px 10px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"
+          oninput="gaUpdateSeatPreview(${idx})"/>
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:6px">Live preview:</div>
+        <div class="ga-seat-preview" id="ga-preview-${idx}" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--color-app-bg);border-radius:8px;min-height:36px"></div>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML = _gaEditCabins.map((c,i)=>cabinHtmlInner(c,i)).join('');
+  _gaEditCabins.forEach((_,i)=>gaUpdateSeatPreview(i));
+}
+
+function gaUpdateSeatPreview(cabinIdx){
+  const preview = document.getElementById(`ga-preview-${cabinIdx}`);
+  if(!preview) return;
+  const colInputs = document.querySelectorAll(`[data-cabin-idx="${cabinIdx}"] .ga-cabin-cols`);
+  const rowInputs = document.querySelectorAll(`[data-cabin-idx="${cabinIdx}"] .ga-cabin-rows`);
+  if(!colInputs.length) return;
+  const colStr = colInputs[0].value.trim();
+  const rowStr = rowInputs[0].value.trim();
+  if(!colStr){ preview.innerHTML = '<span style="color:var(--muted);font-size:.7rem">Enter column groups above</span>'; return; }
+
+  const groups  = colStr.split('|').map(g=>g.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
+  const rows    = rowStr ? rowStr.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n)) : [1];
+  const displayGroups = [...groups].reverse(); // renderer reverses groups
+
+  preview.innerHTML = rows.map(r=>{
+    const rowHtml = displayGroups.map((g,gi)=>{
+      const sep = gi>0 ? '<span style="width:8px;display:inline-block"></span>' : '';
+      return sep + g.map(l=>`<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border-radius:5px;background:var(--color-card-elevated);border:1px solid var(--color-border);font-size:.65rem;font-weight:700;color:var(--color-text-primary)">${r}${l}</span>`).join('');
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:2px;margin-bottom:3px">${rowHtml}</div>`;
+  }).join('');
+}
+
+function _gaReadCabinsFromDOM(){
+  document.querySelectorAll('.ga-cabin-row').forEach((row,i)=>{
+    if(!_gaEditCabins[i]) return;
+    const id     = row.querySelector('.ga-cabin-id')?.value.trim()    || '';
+    const label  = row.querySelector('.ga-cabin-label')?.value.trim() || '';
+    const layout = row.querySelector('.ga-cabin-layout')?.value.trim()|| '';
+    const rowsRaw= row.querySelector('.ga-cabin-rows')?.value.trim()  || '';
+    const colsRaw= row.querySelector('.ga-cabin-cols')?.value.trim()  || '';
+    const rows   = rowsRaw ? rowsRaw.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n)) : [];
+    const columns= colsRaw ? colsRaw.split('|').map(g=>g.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)) : [];
+    // Derive all seat letters from columns (flatten, dedupe, preserve order)
+    const seen = new Set(); const seats = [];
+    columns.forEach(g=>g.forEach(l=>{ if(!seen.has(l)){ seen.add(l); seats.push(l); } }));
+    const seatCount = rows.length * seats.length;
+    _gaEditCabins[i] = { id, label, layout, rows, seats, columns, seatCount };
+  });
+}
+
+async function gaSaveAircraftConfig(){
+  _gaReadCabinsFromDOM();
+  const actype  = document.getElementById('ga-actype-input')?.value.trim();
+  const aliasesRaw = document.getElementById('ga-aliases-input')?.value.trim();
+  if(!actype){ alert('Aircraft type is required'); return; }
+  if(!_gaEditCabins.length){ alert('Add at least one cabin'); return; }
+
+  const aliases = aliasesRaw ? aliasesRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const record = {
+    id:        _gaEditConfigId || guestoraUUID(),
+    actype,
+    aliases,
+    cabins:    _gaEditCabins,
+    updatedAt: new Date().toISOString(),
+    updatedBy: window._currentUser?.id || 'admin'
+  };
+  try {
+    await idbPut('guestora_aircraft_configs', record);
+    gaCloseAircraftModal();
+    gaRenderAircraftList();
+    guestoraUpdateAdminKPI();
+    toast?.('Aircraft config saved');
+  } catch(e){ alert('Save failed: '+e.message); }
+}
+
+async function gaDeleteAircraft(id, actype){
+  if(!confirm(`Delete ${actype}? This cannot be undone.`)) return;
+  try {
+    await idbDelete('guestora_aircraft_configs', id);
+    gaRenderAircraftList();
+    guestoraUpdateAdminKPI();
+    toast?.('Aircraft deleted');
+  } catch(e){ alert('Delete failed: '+e.message); }
+}
+
+function gaCloseAircraftModal(){
+  const modal = document.getElementById('ga-aircraft-modal');
+  if(modal) modal.style.display = 'none';
+  _gaEditCabins = [];
+  _gaEditConfigId = null;
+}
+
+// ── Menu tab ──────────────────────────────────────────────────────────────────
+
+let _gaWorkingMenu = null; // in-memory copy of the menu being edited
+
+async function gaRenderMenuTree(){
+  const tree = document.getElementById('ga-menu-tree');
+  const nameEl = document.getElementById('ga-menu-active-name');
+  const dateEl = document.getElementById('ga-menu-active-date');
+  if(!tree) return;
+  try {
+    const menu = await guestoraGetActiveMenu();
+    if(!menu){ tree.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">No menu found.</div>'; return; }
+    _gaWorkingMenu = JSON.parse(JSON.stringify(menu));
+    if(nameEl) nameEl.textContent = menu.name;
+    if(dateEl) dateEl.textContent = menu.publishedAt ? 'Published ' + new Date(menu.publishedAt).toLocaleDateString() : 'Draft';
+    _gaRenderMenuTreeHTML();
+  } catch(e){
+    tree.innerHTML = `<div style="color:var(--color-error);padding:16px">${e.message}</div>`;
+  }
+}
+
+function _gaRenderMenuTreeHTML(){
+  const tree = document.getElementById('ga-menu-tree');
+  if(!tree || !_gaWorkingMenu) return;
+  tree.innerHTML = _gaWorkingMenu.categories.map((cat, ci) => `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--color-card-elevated);border-radius:10px;margin-bottom:6px">
+        <div style="font-size:.88rem;font-weight:800;color:var(--color-text-primary)">${cat.label}</div>
+      </div>
+      ${cat.subcategories.map((sub, si) => `
+        <div style="margin-left:12px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--color-card);border:1px solid var(--color-border);border-radius:8px;margin-bottom:4px">
+            <div>
+              <span style="font-size:.82rem;font-weight:700;color:var(--color-text-primary)">${sub.label}</span>
+              <span style="font-size:.7rem;color:var(--muted);margin-left:8px">${sub.items.length} items</span>
+            </div>
+            <button onclick="gaOpenItemModal(${ci},${si},null)" class="btn btn-sm" style="font-size:.72rem;padding:5px 10px">+ Item</button>
+          </div>
+          ${sub.items.map((item, ii) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin:3px 0 3px 8px;background:var(--color-app-bg);border-radius:7px;border:1px solid var(--color-border)">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:.82rem;font-weight:600;color:${item.available ? 'var(--color-text-primary)' : 'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                  ${item.isSpecialMeal ? '<span style="font-size:.65rem;background:var(--color-warning);color:#000;padding:1px 5px;border-radius:4px;margin-right:4px">SSR</span>' : ''}${item.name}
+                </div>
+                ${item.allergens?.length ? `<div style="font-size:.68rem;color:var(--color-warning);margin-top:1px">⚠ ${item.allergens.join(', ')}</div>` : ''}
+                ${item.dietary?.length ? `<div style="font-size:.68rem;color:var(--color-success);margin-top:1px">✓ ${item.dietary.join(', ')}</div>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button onclick="gaToggleItemAvailability(${ci},${si},${ii})" class="btn btn-sm" style="font-size:.7rem;padding:4px 8px;color:${item.available ? 'var(--color-success)' : 'var(--muted)'}">${item.available ? '● On' : '○ Off'}</button>
+                <button onclick="gaOpenItemModal(${ci},${si},${ii})" class="btn btn-sm" style="font-size:.7rem;padding:4px 8px">Edit</button>
+                <button onclick="gaDeleteItem(${ci},${si},${ii})" class="btn btn-sm" style="font-size:.7rem;padding:4px 8px;color:var(--color-error)">✕</button>
+              </div>
+            </div>`).join('')}
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function gaToggleItemAvailability(ci, si, ii){
+  if(!_gaWorkingMenu) return;
+  const item = _gaWorkingMenu.categories[ci].subcategories[si].items[ii];
+  item.available = !item.available;
+  _gaRenderMenuTreeHTML();
+}
+
+function gaDeleteItem(ci, si, ii){
+  if(!_gaWorkingMenu) return;
+  const item = _gaWorkingMenu.categories[ci].subcategories[si].items[ii];
+  if(!confirm(`Delete "${item.name}"?`)) return;
+  _gaWorkingMenu.categories[ci].subcategories[si].items.splice(ii,1);
+  _gaRenderMenuTreeHTML();
+}
+
+function gaOpenItemModal(ci, si, ii){
+  const modal = document.getElementById('ga-item-modal');
+  const title = document.getElementById('ga-item-modal-title');
+  const body  = document.getElementById('ga-item-modal-body');
+  modal.style.display = 'flex';
+  const isEdit = ii !== null && ii !== undefined;
+  const item = isEdit
+    ? JSON.parse(JSON.stringify(_gaWorkingMenu.categories[ci].subcategories[si].items[ii]))
+    : { id:null, name:'', description:'', allergens:[], dietary:[], isSpecialMeal:false, available:true, sortOrder:0 };
+
+  title.textContent = isEdit ? 'Edit Item' : 'Add Item';
+
+  const allergenChecks = ALLERGEN_OPTIONS.map(a =>
+    `<label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--color-text-secondary);margin-bottom:4px">
+      <input type="checkbox" class="ga-allergen-cb" value="${a}" ${item.allergens?.includes(a)?'checked':''} style="accent-color:var(--color-warning)"/> ${a}
+    </label>`).join('');
+
+  const dietaryChecks = DIETARY_OPTIONS.map(d =>
+    `<label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--color-text-secondary);margin-bottom:4px">
+      <input type="checkbox" class="ga-dietary-cb" value="${d}" ${item.dietary?.includes(d)?'checked':''} style="accent-color:var(--color-success)"/> ${d}
+    </label>`).join('');
+
+  body.innerHTML = `
+    <div style="margin-bottom:10px">
+      <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Item Name *</label>
+      <input id="ga-item-name" type="text" value="${item.name||''}" placeholder="e.g. Grilled Beef Tenderloin"
+        style="width:100%;padding:9px 11px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.88rem;box-sizing:border-box"/>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">Description</label>
+      <input id="ga-item-desc" type="text" value="${item.description||''}" placeholder="Short description"
+        style="width:100%;padding:9px 11px;border:1.5px solid var(--color-border);border-radius:8px;background:var(--color-input-bg);color:var(--color-text-primary);font-size:.82rem;box-sizing:border-box"/>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--color-text-secondary);cursor:pointer">
+        <input type="checkbox" id="ga-item-ssr" ${item.isSpecialMeal?'checked':''} style="accent-color:var(--color-warning);width:16px;height:16px"/> Special meal (SSR/preorder)
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--color-text-secondary);cursor:pointer">
+        <input type="checkbox" id="ga-item-avail" ${item.available?'checked':''} style="accent-color:var(--color-success);width:16px;height:16px"/> Available
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--color-warning);margin-bottom:6px">⚠ Allergens</div>
+        ${allergenChecks}
+      </div>
+      <div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--color-success);margin-bottom:6px">✓ Dietary</div>
+        ${dietaryChecks}
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="gaSaveItem(${ci},${si},${isEdit?ii:'null'},'${item.id||''}')" class="btn btn-primary" style="flex:1">Save</button>
+      <button onclick="gaCloseItemModal()" class="btn" style="flex:1">Cancel</button>
+    </div>`;
+}
+
+function gaSaveItem(ci, si, ii, existingId){
+  const name    = document.getElementById('ga-item-name')?.value.trim();
+  if(!name){ alert('Item name is required'); return; }
+  const desc    = document.getElementById('ga-item-desc')?.value.trim()||'';
+  const isSsr   = document.getElementById('ga-item-ssr')?.checked||false;
+  const isAvail = document.getElementById('ga-item-avail')?.checked||true;
+  const allergens = [...document.querySelectorAll('.ga-allergen-cb:checked')].map(c=>c.value);
+  const dietary   = [...document.querySelectorAll('.ga-dietary-cb:checked')].map(c=>c.value);
+
+  const item = {
+    id:           existingId || guestoraUUID(),
+    name, description:desc,
+    allergens, dietary,
+    isSpecialMeal: isSsr,
+    available:     isAvail,
+    sortOrder:     ii !== null ? _gaWorkingMenu.categories[ci].subcategories[si].items[ii]?.sortOrder||0 : _gaWorkingMenu.categories[ci].subcategories[si].items.length
+  };
+
+  if(ii !== null && ii !== undefined){
+    _gaWorkingMenu.categories[ci].subcategories[si].items[ii] = item;
+  } else {
+    _gaWorkingMenu.categories[ci].subcategories[si].items.push(item);
+  }
+  gaCloseItemModal();
+  _gaRenderMenuTreeHTML();
+}
+
+function gaCloseItemModal(){
+  const modal = document.getElementById('ga-item-modal');
+  if(modal) modal.style.display = 'none';
+}
+
+async function gaPublishNewMenuVersion(){
+  if(!_gaWorkingMenu) return;
+  const name = prompt('Name this menu version:', _gaWorkingMenu.name || 'Updated Menu');
+  if(!name) return;
+  try {
+    // Deactivate all existing menus
+    const all = await idbAll('guestora_menus');
+    for(const m of all){
+      if(m.isActive){ m.isActive = false; await idbPut('guestora_menus', m); }
+    }
+    // Publish as a new version
+    const newMenu = JSON.parse(JSON.stringify(_gaWorkingMenu));
+    newMenu.id          = guestoraUUID();
+    newMenu.name        = name;
+    newMenu.publishedAt = new Date().toISOString();
+    newMenu.isActive    = true;
+    await idbPut('guestora_menus', newMenu);
+    _gaWorkingMenu = newMenu;
+    guestoraUpdateAdminKPI();
+    const dateEl = document.getElementById('ga-menu-active-date');
+    const nameEl = document.getElementById('ga-menu-active-name');
+    if(nameEl) nameEl.textContent = newMenu.name;
+    if(dateEl) dateEl.textContent = 'Published ' + new Date(newMenu.publishedAt).toLocaleDateString();
+    toast?.('Menu published ✓');
+  } catch(e){ alert('Publish failed: '+e.message); }
+}
+
+// ── GUESTORA sync stub
 // Server-side contract is PENDING (Supabase tables not yet created).
 // This function reads pending outbox entries but does NOT send them anywhere.
 // Replace with real implementation when server contract is defined.
@@ -4035,6 +4820,9 @@ async function initAuth(){
   // Open IDB first — this is purely local and must not depend on the network.
   try{
     idb = await openIDB();
+    // Seed GUESTORA config stores on first install (no-ops if already seeded)
+    await guestoraSeedAircraftConfigs();
+    await guestoraSeedMenu();
   }catch(idbErr){
     console.error('IndexedDB failed to open:', idbErr);
     // Show a clear error rather than hanging on the loading screen.
@@ -10331,6 +11119,13 @@ function renderDB(){
   const manPanel = document.getElementById('db-manuals-panel');
   if(manPanel) manPanel.style.display = adminVis;
   if(isAdmin) renderDBManualsList();
+
+  // Show GUESTORA settings section for admins
+  const secGuestora = document.getElementById('admin-section-guestora');
+  const guestoraCard = document.getElementById('admin-guestora-card');
+  if(secGuestora)  secGuestora.style.display  = adminVis;
+  if(guestoraCard) guestoraCard.style.display = adminVis;
+  if(isAdmin) guestoraUpdateAdminKPI();
 
   const bar=document.getElementById('db-tab-bar');
   bar.innerHTML=Object.entries(DB_SCHEMA).map(([k,s])=>
