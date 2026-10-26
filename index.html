@@ -3297,6 +3297,10 @@ function guestoraDeleteOrder(orderId, packageId){
 
 const GUESTORA_SEAT_CONFIGS = {
   // ── A330-800 ─────────────────────────────────────────────────────────────
+  // Business (1-2-1): screen renders left→right as K | G D | A
+  //   Renderer reverses columns for display, so store right→left: A | D G | K
+  // Premium Economy (2-3-2): screen renders left→right as K H | G E D | C A
+  //   Renderer reverses, so store right→left: A C | D E G | H K
   'A330-800': {
     cabins: [
       {
@@ -3305,10 +3309,10 @@ const GUESTORA_SEAT_CONFIGS = {
         layout: '1-2-1',
         // Rows rendered bottom-first (row 1 at bottom = crew face aft)
         rows: [1,2,3,4,5],
-        // Seat letters per row
-        seats: ['A','E','G','K'],
-        // Visual column groups: [ [left singles], [centre pair], [right singles] ]
-        columns: [['A'],['E','G'],['K']],
+        // Seat letters per row (right→left storage; renderer reverses to A=right, K=left)
+        seats: ['A','D','G','K'],
+        // columns stored right→left so reversed display = K | G D | A
+        columns: [['A'],['D','G'],['K']],
         seatCount: 20   // 5 rows × 4 seats
       },
       {
@@ -3316,6 +3320,7 @@ const GUESTORA_SEAT_CONFIGS = {
         label: 'Premium Economy',
         layout: '2-3-2',
         rows: [9,10,11,12],
+        // columns stored right→left so reversed display = K H | G E D | C A
         seats: ['A','C','D','E','G','H','K'],
         columns: [['A','C'],['D','E','G'],['H','K']],
         seatCount: 28   // 4 rows × 7 seats
@@ -3323,6 +3328,8 @@ const GUESTORA_SEAT_CONFIGS = {
     ]
   },
   // ── CRJ900 ────────────────────────────────────────────────────────────────
+  // Business (1-2): screen renders left→right as F D | A
+  //   Renderer reverses, so store right→left: A | D F  → display: F D | A ✓
   'CRJ900': {
     cabins: [
       {
@@ -3331,12 +3338,15 @@ const GUESTORA_SEAT_CONFIGS = {
         layout: '1-2',
         rows: [1,2,3,4],
         seats: ['A','D','F'],
+        // stored right→left: reversed display = F D | A (window left, pair right)
         columns: [['A'],['D','F']],
         seatCount: 12   // 4 rows × 3 seats
       }
     ]
   },
   // ── Boeing 737 ────────────────────────────────────────────────────────────
+  // Business (2-2): screen renders left→right as K L | C A
+  //   Renderer reverses, so store right→left: A C | L K
   'B737': {
     cabins: [
       {
@@ -3344,8 +3354,9 @@ const GUESTORA_SEAT_CONFIGS = {
         label: 'Business Class',
         layout: '2-2',
         rows: [1,2,3,4],
-        seats: ['A','B','E','F'],
-        columns: [['A','B'],['E','F']],
+        seats: ['A','C','L','K'],
+        // stored right→left: reversed display = K L | C A
+        columns: [['A','C'],['L','K']],
         seatCount: 16   // 4 rows × 4 seats
       }
     ]
