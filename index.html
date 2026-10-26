@@ -857,6 +857,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .gs-status-pill.special{background:rgba(184,41,42,.25);color:#b8292a}
 /* Served check mark on seat */
 .gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
+.gs-seat-allergen{position:absolute;top:2px;right:4px;font-size:.55rem;color:var(--color-warning);z-index:2;line-height:1}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -4161,6 +4162,7 @@ async function gaPublishNewMenuVersion(){
     newMenu.isActive    = true;
     await idbPut('guestora_menus', newMenu);
     _gaWorkingMenu = newMenu;
+    if(window._gs) _gs.activeMenu = null; // invalidate order-sheet menu cache
     guestoraUpdateAdminKPI();
     const dateEl = document.getElementById('ga-menu-active-date');
     const nameEl = document.getElementById('ga-menu-active-name');
@@ -4189,13 +4191,14 @@ async function guestoraSyncOutbox(){
 
 // ── GUESTORA UI state ────────────────────────────────────────────────────────
 let _gs = {
-  pkg:        null,   // current guestora_packages record
-  cabin:      null,   // selected cabin config object
-  orders:     [],     // guestora_orders for current pkg
-  editOrder:  null,   // order being edited / viewed in sheet
-  sheetMode:  null,   // 'new' | 'view'
-  selectedSeat: null, // seat number string (e.g. '2G')
-  selectedCat:  null, // 'Meal' | 'Drink' | 'Special Request'
+  pkg:         null,  // current guestora_packages record
+  cabin:       null,  // selected cabin config object
+  orders:      [],    // guestora_orders for current pkg
+  editOrder:   null,  // order being edited / viewed in sheet
+  sheetMode:   null,  // 'new' | 'view' | 'edit'
+  selectedSeat:null,  // seat number string (e.g. '2G')
+  selectedCat: null,  // 'Meal' | 'Drink' | 'Special Request'
+  activeMenu:  null,  // cached active menu (invalidated on publish)
 };
 
 // ── Open / close overlay ─────────────────────────────────────────────────────
@@ -4208,6 +4211,7 @@ async function openGuestoraOverlay(){
 function closeGuestoraOverlay(){
   document.getElementById('guestora-overlay').classList.remove('open');
   gsCloseOrderSheet();
+  _gs.activeMenu = null; // reset so next open fetches fresh menu
 }
 
 // ── View navigation ───────────────────────────────────────────────────────────
@@ -4237,10 +4241,17 @@ async function gsLoadSectorList(){
       return;
     }
     container.innerHTML = '';
+    // Resolve seat configs in parallel (IDB-first) for cabin hints
+    const cfgMap = {};
+    await Promise.all(relevant.map(async f=>{
+      const actype = f.actype || f.aircraft_type || '';
+      if(actype && !cfgMap[actype]){
+        cfgMap[actype] = await guestoraResolveSeatConfigAsync(actype);
+      }
+    }));
     relevant.forEach(f=>{
-      const sectorId = (f.flightNum||f.flight_number||f.id) + '/' + f.date;
-      const actype   = f.actype || f.aircraft_type || '—';
-      const cfg      = guestoraResolveSeatConfig(actype);
+      const actype    = f.actype || f.aircraft_type || '—';
+      const cfg       = cfgMap[actype];
       const cabinHint = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
       const div = document.createElement('div');
       div.className = 'gs-list-item';
@@ -4266,8 +4277,8 @@ async function gsSelectSector(flight){
   _gs.orders = await guestoraGetOrdersByPackage(_gs.pkg.id);
   // Populate cabin picker header
   document.getElementById('gs-cabin-hdr-sub').textContent = `${flightNum}  ·  ${date}`;
-  // Populate cabin list
-  const cfg = guestoraResolveSeatConfig(actype);
+  // Populate cabin list (IDB-first config resolution)
+  const cfg = await guestoraResolveSeatConfigAsync(actype);
   const cabinList = document.getElementById('gs-cabin-list');
   if(!cfg){
     cabinList.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">⚠️</div>No seat configuration found for <strong>${escHtml(actype)}</strong>.<br><span style="font-size:.72rem">Contact admin to add this aircraft type.</span></div>`;
@@ -4376,11 +4387,19 @@ function gsRenderSeatMap(cabin){
 
         // Colour state
         if(order){
-          const hasSpecial = order.specialNote && order.specialNote.trim();
-          const hasServed  = order.status === 'served';
+          const hasAllergen = (order.selections||[]).some(s=>s.allergens?.length);
+          const hasSpecial  = hasAllergen || (order.specialNote && order.specialNote.trim());
+          const hasServed   = order.status === 'served';
           if(hasServed)        seatEl.classList.add('served');
           else if(hasSpecial)  seatEl.classList.add('special');
           else                 seatEl.classList.add('has-order');
+          // Allergen indicator dot
+          if(hasAllergen && !hasServed){
+            const adot = document.createElement('div');
+            adot.className = 'gs-seat-allergen';
+            adot.textContent = '⚠';
+            seatEl.appendChild(adot);
+          }
         } else {
           seatEl.classList.add('empty');
         }
@@ -4411,11 +4430,15 @@ function gsRenderSeatMap(cabin){
 }
 
 // ── Order Sheet ───────────────────────────────────────────────────────────────
-// Order structure (v2): one order per seat, with three independent note fields:
-//   mealNote, drinkNote, specialNote  (each up to 120 chars, all optional)
-// Seat tile colour priority: served > special (specialNote filled) > has-order (any note)
+// Order structure (v3): one order per seat.
+//   selections[]  — array of {id, name, catId, subId, allergens[], dietary[]} from active menu
+//   mealNote      — free-text fallback / supplement for meals (120 chars)
+//   drinkNote     — free-text fallback / supplement for drinks (120 chars)
+//   specialNote   — freeform allergy alert / special request (120 chars)
+// Backward compatible: v2 orders (mealNote/drinkNote only, no selections) still render correctly.
+// Seat tile colour priority: served > allergen-in-selections > special (specialNote) > has-order
 
-function gsOpenOrderSheet(seatNum, existingOrder){
+async function gsOpenOrderSheet(seatNum, existingOrder){
   _gs.selectedSeat = seatNum;
   _gs.editOrder    = existingOrder;
   _gs.sheetMode    = existingOrder ? 'view' : 'new';
@@ -4424,13 +4447,19 @@ function gsOpenOrderSheet(seatNum, existingOrder){
 
   const pillWrap = document.getElementById('gs-status-pill-wrap');
   if(existingOrder){
+    const hasAllergen = (existingOrder.selections||[]).some(s=>s.allergens?.length);
     const cls = existingOrder.status==='served' ? 'served'
-              : (existingOrder.specialNote?.trim() ? 'special' : 'pending');
+              : (hasAllergen || existingOrder.specialNote?.trim() ? 'special' : 'pending');
     const lbl = existingOrder.status==='served' ? 'Served'
-              : (existingOrder.specialNote?.trim() ? 'Special req' : 'Order taken');
+              : (hasAllergen ? '⚠ Allergen' : existingOrder.specialNote?.trim() ? 'Special req' : 'Order taken');
     pillWrap.innerHTML = `<span class="gs-status-pill ${cls}">${lbl}</span>`;
   } else {
     pillWrap.innerHTML = '';
+  }
+
+  // Load active menu into state (cached on _gs to avoid re-fetching on every render)
+  if(!_gs.activeMenu){
+    try { _gs.activeMenu = await guestoraGetActiveMenu(); } catch(e){ _gs.activeMenu = null; }
   }
 
   gsRenderSheetBody(existingOrder);
@@ -4438,73 +4467,201 @@ function gsOpenOrderSheet(seatNum, existingOrder){
   document.getElementById('gs-order-sheet').classList.add('open');
 }
 
-// Category config — emoji, title, field name, placeholder
-const GS_CATS = [
-  { key:'mealNote',    icon:'🍽️', title:'Meal',            ph:'e.g. Chicken, vegetarian, no nuts, halal…' },
-  { key:'drinkNote',   icon:'🥤', title:'Drink',           ph:'e.g. Orange juice, still water, red wine…' },
-  { key:'specialNote', icon:'⭐', title:'Special Request', ph:'e.g. Allergy alert, anniversary cake, extra blanket…' },
-];
-
 function gsRenderSheetBody(existingOrder){
   const body = document.getElementById('gs-sheet-body');
+  const menu = _gs.activeMenu;
 
   if(existingOrder && _gs.sheetMode==='view'){
     // ── View mode ──
-    const cats = GS_CATS.filter(c=>existingOrder[c.key]?.trim());
-    let catHtml = '';
-    if(cats.length){
-      catHtml = cats.map(c=>`
+    const selections = existingOrder.selections || [];
+    const hasAllergen = selections.some(s=>s.allergens?.length);
+
+    // Selections grouped by category
+    let selHtml = '';
+    if(selections.length){
+      // Group by catId
+      const byCat = {};
+      selections.forEach(s=>{
+        if(!byCat[s.catId]) byCat[s.catId] = { label: s.catLabel||s.catId, items:[] };
+        byCat[s.catId].items.push(s);
+      });
+      selHtml = Object.values(byCat).map(cat=>`
         <div class="gs-view-cat-block">
-          <div class="gs-view-cat-label">${c.icon} ${escHtml(c.title)}</div>
-          <div class="gs-view-cat-text">${escHtml(existingOrder[c.key])}</div>
-        </div>
-      `).join('');
-    } else {
-      catHtml = '<div style="color:var(--color-text-muted);font-size:.82rem;margin-bottom:12px">No details recorded.</div>';
+          <div class="gs-view-cat-label">${escHtml(cat.label)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">
+            ${cat.items.map(s=>`
+              <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:20px;background:var(--color-card-elevated);border:1px solid var(--color-border);font-size:.78rem;color:var(--color-text-primary)">
+                ${escHtml(s.name)}
+                ${s.allergens?.length ? `<span style="font-size:.65rem;color:var(--color-warning)">⚠</span>` : ''}
+                ${s.dietary?.length ? `<span style="font-size:.65rem;color:var(--color-success)">✓</span>` : ''}
+              </span>`).join('')}
+          </div>
+          ${cat.items.flatMap(s=>s.allergens||[]).length ? `<div style="font-size:.7rem;color:var(--color-warning);margin-top:5px">⚠ Contains: ${[...new Set(cat.items.flatMap(s=>s.allergens||[]))].join(', ')}</div>` : ''}
+        </div>`).join('');
     }
+
+    // Legacy free-text fallback
+    const legacyHtml = [
+      existingOrder.mealNote?.trim()    ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🍽️ Meal note</div><div class="gs-view-cat-text">${escHtml(existingOrder.mealNote)}</div></div>` : '',
+      existingOrder.drinkNote?.trim()   ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🥤 Drink note</div><div class="gs-view-cat-text">${escHtml(existingOrder.drinkNote)}</div></div>` : '',
+      existingOrder.specialNote?.trim() ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">⭐ Special request</div><div class="gs-view-cat-text">${escHtml(existingOrder.specialNote)}</div></div>` : ''
+    ].join('');
+
+    const empty = !selections.length && !existingOrder.mealNote?.trim() && !existingOrder.drinkNote?.trim() && !existingOrder.specialNote?.trim();
+
     body.innerHTML = `
-      ${catHtml}
+      ${hasAllergen ? `<div style="background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin-bottom:12px">⚠ Allergen alert — verify with passenger before service</div>` : ''}
+      ${empty ? '<div style="color:var(--color-text-muted);font-size:.82rem;margin-bottom:12px">No details recorded.</div>' : (selHtml + legacyHtml)}
       <div class="gs-order-actions">
         <button class="gs-order-act-btn" onclick="gsEditOrder()">Edit</button>
         ${existingOrder.status!=='served'
           ? `<button class="gs-order-act-btn primary" onclick="gsMarkServed('${existingOrder.id}')">Mark Served</button>`
           : ''}
         <button class="gs-order-act-btn danger" onclick="gsConfirmDelete('${existingOrder.id}')">Delete</button>
-      </div>
-    `;
+      </div>`;
 
   } else {
-    // ── New / Edit mode — three expandable category sections ──
+    // ── New / Edit mode ──
     const vals = existingOrder || {};
-    // Auto-open sections that already have content
-    const sectionsHtml = GS_CATS.map((c,i)=>{
-      const val     = escHtml(vals[c.key]||'');
-      const hasVal  = !!(vals[c.key]?.trim());
-      const openCls = (hasVal || i===0) ? ' open' : '';
-      const hasCls  = hasVal ? ' has-content' : '';
-      return `
-        <div class="gs-cat-section${openCls}${hasCls}" id="gs-cat-sec-${c.key}">
-          <div class="gs-cat-header" onclick="gsToggleCatSection('${c.key}')">
-            <span class="gs-cat-icon">${c.icon}</span>
-            <span class="gs-cat-title">${c.title}</span>
-            <span class="gs-cat-chevron">▼</span>
-          </div>
-          <div class="gs-cat-body">
-            <textarea class="gs-cat-textarea" id="gs-inp-${c.key}" maxlength="120"
-              placeholder="${c.ph}"
-              oninput="gsOnCatInput('${c.key}',this)">${val}</textarea>
-            <div class="gs-cat-count" id="gs-cnt-${c.key}">${val.length}/120</div>
-          </div>
+    const prevSel = vals.selections || [];
+
+    // Build menu-driven sections if menu available
+    let menuSectionsHtml = '';
+    if(menu && menu.categories && menu.categories.length){
+      menuSectionsHtml = menu.categories.map((cat, ci)=>{
+        const availItems = cat.subcategories.flatMap(sub=>
+          sub.items.filter(it=>it.available).map(it=>({...it, subId:sub.id, subLabel:sub.label, catId:cat.id, catLabel:cat.label}))
+        );
+        if(!availItems.length) return '';
+        const hasChecked = availItems.some(it=>prevSel.find(s=>s.id===it.id));
+        const openCls = hasChecked ? ' open' : (ci===0 ? ' open' : '');
+        const hasCls  = hasChecked ? ' has-content' : '';
+
+        // Group by subcategory within this cat section
+        const bySub = {};
+        availItems.forEach(it=>{
+          if(!bySub[it.subId]) bySub[it.subId] = { label:it.subLabel, items:[] };
+          bySub[it.subId].items.push(it);
+        });
+
+        const subsHtml = Object.values(bySub).map(sub=>`
+          <div style="margin-bottom:10px">
+            <div style="font-size:.72rem;font-weight:700;color:var(--color-text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">${escHtml(sub.label)}</div>
+            ${sub.items.map(it=>{
+              const checked = prevSel.find(s=>s.id===it.id) ? 'checked' : '';
+              const allergenBadge = it.allergens?.length ? `<span style="font-size:.65rem;color:var(--color-warning);margin-left:4px">⚠ ${it.allergens.join(', ')}</span>` : '';
+              const dietaryBadge = it.dietary?.length ? `<span style="font-size:.65rem;color:var(--color-success);margin-left:4px">✓ ${it.dietary.join(', ')}</span>` : '';
+              const ssrBadge = it.isSpecialMeal ? `<span style="font-size:.62rem;background:var(--color-warning);color:#000;padding:1px 5px;border-radius:3px;margin-left:4px">SSR</span>` : '';
+              return `
+              <label style="display:flex;align-items:flex-start;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;transition:background .15s"
+                onmouseover="this.style.background='var(--color-card-elevated)'" onmouseout="this.style.background=''"
+                onclick="gsOnMenuItemToggle('${cat.id}')">
+                <input type="checkbox" class="gs-menu-cb" value="${it.id}" ${checked}
+                  data-cat-id="${cat.id}" data-cat-label="${escHtml(cat.label)}"
+                  data-sub-id="${it.subId}" data-sub-label="${escHtml(it.subLabel)}"
+                  data-name="${escHtml(it.name)}"
+                  data-allergens="${escHtml(JSON.stringify(it.allergens||[]))}"
+                  data-dietary="${escHtml(JSON.stringify(it.dietary||[]))}"
+                  style="margin-top:2px;accent-color:var(--color-accent);width:16px;height:16px;flex-shrink:0"/>
+                <span style="flex:1;min-width:0">
+                  <span style="font-size:.82rem;color:var(--color-text-primary)">${escHtml(it.name)}</span>
+                  ${ssrBadge}${allergenBadge}${dietaryBadge}
+                  ${it.description ? `<div style="font-size:.7rem;color:var(--muted);margin-top:1px">${escHtml(it.description)}</div>` : ''}
+                </span>
+              </label>`;
+            }).join('')}
+          </div>`).join('');
+
+        return `
+          <div class="gs-cat-section${openCls}${hasCls}" id="gs-cat-sec-${cat.id}">
+            <div class="gs-cat-header" onclick="gsToggleCatSection('${cat.id}')">
+              <span class="gs-cat-icon">${ci===0 ? '🍽️' : '🥤'}</span>
+              <span class="gs-cat-title">${escHtml(cat.label)}</span>
+              <span class="gs-cat-badge" id="gs-cat-badge-${cat.id}" style="display:none;font-size:.7rem;background:var(--color-accent);color:#000;border-radius:10px;padding:1px 7px;font-weight:700"></span>
+              <span class="gs-cat-chevron">▼</span>
+            </div>
+            <div class="gs-cat-body" style="padding:4px 0">
+              ${subsHtml}
+            </div>
+          </div>`;
+      }).join('');
+    } else {
+      // No menu configured — fall back to free-text for meals and drinks
+      menuSectionsHtml = [
+        { key:'mealNote', icon:'🍽️', title:'Meal', ph:'e.g. Chicken, vegetarian, no nuts, halal…' },
+        { key:'drinkNote', icon:'🥤', title:'Drink', ph:'e.g. Orange juice, still water, red wine…' }
+      ].map((c,i)=>{
+        const val    = escHtml(vals[c.key]||'');
+        const hasVal = !!(vals[c.key]?.trim());
+        return `
+          <div class="gs-cat-section${hasVal||i===0?' open':''}${hasVal?' has-content':''}" id="gs-cat-sec-${c.key}">
+            <div class="gs-cat-header" onclick="gsToggleCatSection('${c.key}')">
+              <span class="gs-cat-icon">${c.icon}</span><span class="gs-cat-title">${c.title}</span><span class="gs-cat-chevron">▼</span>
+            </div>
+            <div class="gs-cat-body">
+              <textarea class="gs-cat-textarea" id="gs-inp-${c.key}" maxlength="120"
+                placeholder="${c.ph}" oninput="gsOnCatInput('${c.key}',this)">${val}</textarea>
+              <div class="gs-cat-count" id="gs-cnt-${c.key}">${val.length}/120</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Special request section always present (free-text)
+    const spVal    = escHtml(vals.specialNote||'');
+    const spHasVal = !!(vals.specialNote?.trim());
+    const specialHtml = `
+      <div class="gs-cat-section${spHasVal?' open has-content':''}" id="gs-cat-sec-specialNote">
+        <div class="gs-cat-header" onclick="gsToggleCatSection('specialNote')">
+          <span class="gs-cat-icon">⭐</span>
+          <span class="gs-cat-title">Special Request / Allergy Alert</span>
+          <span class="gs-cat-chevron">▼</span>
         </div>
-      `;
-    }).join('');
+        <div class="gs-cat-body">
+          <textarea class="gs-cat-textarea" id="gs-inp-specialNote" maxlength="120"
+            placeholder="e.g. Allergy alert, anniversary cake, extra blanket, KSML preordered…"
+            oninput="gsOnCatInput('specialNote',this)">${spVal}</textarea>
+          <div class="gs-cat-count" id="gs-cnt-specialNote">${spVal.length}/120</div>
+        </div>
+      </div>`;
 
     body.innerHTML = `
-      <p style="font-size:.75rem;color:var(--color-text-muted);margin:0 0 14px">Fill in any category that applies — you can use all three.</p>
-      ${sectionsHtml}
-      <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()">Save Order</button>
-    `;
+      <p style="font-size:.75rem;color:var(--color-text-muted);margin:0 0 14px">${menu ? 'Select from the menu — tick all that apply.' : 'Fill in any category that applies.'}</p>
+      ${menuSectionsHtml}
+      ${specialHtml}
+      <div id="gs-allergen-warning" style="display:none;background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin:10px 0">⚠ One or more selected items contain allergens — confirm with passenger.</div>
+      <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()">Save Order</button>`;
+
+    // Initialise badge counts for pre-checked items
+    if(menu) _gsUpdateMenuBadges();
   }
+}
+
+function gsOnMenuItemToggle(catId){
+  // Runs after checkbox state changes (via label click)
+  _gsUpdateMenuBadges();
+  // Show allergen warning if any checked item has allergens
+  const anyAllergen = [...document.querySelectorAll('.gs-menu-cb:checked')].some(cb=>{
+    try{ return JSON.parse(cb.dataset.allergens||'[]').length > 0; }catch(e){ return false; }
+  });
+  const warn = document.getElementById('gs-allergen-warning');
+  if(warn) warn.style.display = anyAllergen ? 'block' : 'none';
+}
+
+function _gsUpdateMenuBadges(){
+  // Update per-category checked counts
+  const counts = {};
+  document.querySelectorAll('.gs-menu-cb:checked').forEach(cb=>{
+    counts[cb.dataset.catId] = (counts[cb.dataset.catId]||0) + 1;
+  });
+  document.querySelectorAll('[id^="gs-cat-badge-"]').forEach(badge=>{
+    const catId = badge.id.replace('gs-cat-badge-','');
+    const n = counts[catId]||0;
+    badge.style.display = n ? 'inline-block' : 'none';
+    badge.textContent   = n;
+    const sec = document.getElementById('gs-cat-sec-'+catId);
+    if(sec) sec.classList.toggle('has-content', n>0);
+  });
 }
 
 function gsToggleCatSection(key){
@@ -4521,12 +4678,30 @@ function gsOnCatInput(key, el){
 }
 
 async function gsSaveOrder(){
+  // Collect menu checkbox selections
+  const selections = [...document.querySelectorAll('.gs-menu-cb:checked')].map(cb=>{
+    let allergens = [], dietary = [];
+    try{ allergens = JSON.parse(cb.dataset.allergens||'[]'); }catch(e){}
+    try{ dietary   = JSON.parse(cb.dataset.dietary  ||'[]'); }catch(e){}
+    return {
+      id:       cb.value,
+      name:     cb.dataset.name,
+      catId:    cb.dataset.catId,
+      catLabel: cb.dataset.catLabel,
+      subId:    cb.dataset.subId,
+      subLabel: cb.dataset.subLabel,
+      allergens,
+      dietary
+    };
+  });
+
+  // Legacy free-text (shown when no menu, or always for special note)
   const mealNote    = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,120).trim();
   const drinkNote   = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,120).trim();
   const specialNote = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,120).trim();
 
-  if(!mealNote && !drinkNote && !specialNote){
-    toast('Add at least one order detail before saving.');
+  if(!selections.length && !mealNote && !drinkNote && !specialNote){
+    toast('Select at least one item or add a note before saving.');
     return;
   }
 
@@ -4537,7 +4712,7 @@ async function gsSaveOrder(){
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        mealNote, drinkNote, specialNote, updatedAt: now
+        selections, mealNote, drinkNote, specialNote, updatedAt: now
       });
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
@@ -4548,7 +4723,7 @@ async function gsSaveOrder(){
         packageId:   _gs.pkg.id,
         cabin:       _gs.cabin.id,
         seatNum:     _gs.selectedSeat,
-        mealNote, drinkNote, specialNote,
+        selections, mealNote, drinkNote, specialNote,
         status:      'pending',
         createdAt:   now,
         updatedAt:   now
@@ -4608,6 +4783,8 @@ function gsCloseOrderSheet(){
   _gs.editOrder    = null;
   _gs.sheetMode    = null;
   _gs.selectedSeat = null;
+  // Keep activeMenu cached across sheet opens within same session;
+  // cleared on gaPublishNewMenuVersion so next open picks up the new menu.
 }
 
 // ── Utility: HTML-escape ──────────────────────────────────────────────────────
