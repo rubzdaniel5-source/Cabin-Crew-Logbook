@@ -2,7 +2,7 @@
 // Crew Logbook Service Worker
 // Version bump here when you want clients to pick up a new shell.
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE = 'crew-logbook-v48';
+const CACHE = 'crew-logbook-v49';
 
 // ── Critical shell: must all succeed for the app to work offline ──────────────
 // These are fetched individually so a single failure does not block the rest.
