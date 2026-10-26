@@ -3671,7 +3671,11 @@ async function guestoraSeedMenu(){
 async function guestoraGetActiveMenu(){
   try {
     const all = await idbAll('guestora_menus');
-    return all.find(m => m.isActive) || all[all.length-1] || null;
+    // Prefer explicitly active; fall back to most-recently-published; must have categories
+    const valid = all.filter(m => m.categories && m.categories.length);
+    return valid.find(m => m.isActive)
+        || valid.sort((a,b)=> (b.publishedAt||'').localeCompare(a.publishedAt||''))[0]
+        || null;
   } catch(e){ return null; }
 }
 
@@ -3993,8 +3997,18 @@ async function gaRenderMenuTree(){
   const dateEl = document.getElementById('ga-menu-active-date');
   if(!tree) return;
   try {
-    const menu = await guestoraGetActiveMenu();
-    if(!menu){ tree.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">No menu found.</div>'; return; }
+    let menu = await guestoraGetActiveMenu();
+    if(!menu){
+      // No menu in IDB yet — offer to load the built-in default
+      tree.innerHTML = `
+        <div style="text-align:center;padding:32px">
+          <div style="font-size:2rem;margin-bottom:10px">🍽️</div>
+          <div style="font-size:.88rem;color:var(--color-text-primary);font-weight:700;margin-bottom:6px">No menu configured yet</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:18px">Load the built-in starter menu, then customise and publish it.</div>
+          <button onclick="gaLoadDefaultMenu()" class="btn btn-primary" style="font-size:.82rem;padding:10px 22px">Load Default Menu</button>
+        </div>`;
+      return;
+    }
     _gaWorkingMenu = JSON.parse(JSON.stringify(menu));
     if(nameEl) nameEl.textContent = menu.name;
     if(dateEl) dateEl.textContent = menu.publishedAt ? 'Published ' + new Date(menu.publishedAt).toLocaleDateString() : 'Draft';
@@ -4002,6 +4016,29 @@ async function gaRenderMenuTree(){
   } catch(e){
     tree.innerHTML = `<div style="color:var(--color-error);padding:16px">${e.message}</div>`;
   }
+}
+
+async function gaLoadDefaultMenu(){
+  try {
+    // Seed now (will no-op if already seeded)
+    await guestoraSeedMenu();
+    // If still nothing (store was non-empty with no-isActive menus), build from constant
+    let menu = await guestoraGetActiveMenu();
+    if(!menu){
+      const m = JSON.parse(JSON.stringify(GUESTORA_DEFAULT_MENU));
+      m.id          = guestoraUUID();
+      m.publishedAt = new Date().toISOString();
+      m.isActive    = true;
+      m.categories.forEach(cat=>cat.subcategories.forEach(sub=>sub.items.forEach(it=>{ if(!it.id) it.id=guestoraUUID(); })));
+      await idbPut('guestora_menus', m);
+      menu = m;
+    }
+    _gaWorkingMenu = JSON.parse(JSON.stringify(menu));
+    guestoraUpdateAdminKPI();
+    if(window._gs) _gs.activeMenu = null;
+    toast?.('Default menu loaded — customise and publish when ready');
+    gaRenderMenuTree();
+  } catch(e){ alert('Could not load default menu: '+e.message); }
 }
 
 function _gaRenderMenuTreeHTML(){
@@ -4145,7 +4182,10 @@ function gaCloseItemModal(){
 }
 
 async function gaPublishNewMenuVersion(){
-  if(!_gaWorkingMenu) return;
+  if(!_gaWorkingMenu){
+    alert('No menu loaded. Use "Load Default Menu" first, then customise and publish.');
+    return;
+  }
   const name = prompt('Name this menu version:', _gaWorkingMenu.name || 'Updated Menu');
   if(!name) return;
   try {
