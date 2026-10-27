@@ -3306,6 +3306,47 @@ function uuid(){
 
 // ── GUESTORA helpers ─────────────────────────────────────────────────────────
 
+/**
+ * Order lifecycle — tracks service state of a seat order.
+ * Transitions driven entirely by local crew actions.
+ *   requested → served       (crew taps "Mark Served")
+ *   requested → deferred     (future: crew defers delivery)
+ *   requested → exception    (future: crew records a service exception)
+ * Transitions that require server involvement are defined in Phase 2.
+ */
+const GUESTORA_ORDER_STATUS = Object.freeze({
+  REQUESTED: 'requested',  // order taken; service not yet confirmed
+  SERVED:    'served',     // crew has delivered the order
+  DEFERRED:  'deferred',   // delivery postponed (Phase 5)
+  EXCEPTION: 'exception',  // service problem recorded (Phase 5)
+});
+
+/**
+ * Synchronization lifecycle — tracks whether a local change has reached the server.
+ * Kept separate from order lifecycle so service state and network state are never conflated.
+ *   local   — written to IDB, not yet in outbox (package creation)
+ *   pending — in outbox, waiting for a live sync cycle (all order operations)
+ *   synced  — server acknowledged (Phase 2: set on server ack only)
+ *   conflict— server rejected due to concurrent modification (Phase 2)
+ *   failed  — max retry attempts exhausted (Phase 2)
+ * Only 'local' and 'pending' are assigned in Phase 1; the others are defined here
+ * so Phase 2 server integration can reference the same constants.
+ */
+const GUESTORA_SYNC_STATUS = Object.freeze({
+  LOCAL:    'local',    // not yet in outbox (packages only, pre-sync)
+  PENDING:  'pending',  // in outbox, awaiting server ack
+  SYNCED:   'synced',   // server acknowledged — set in Phase 2
+  CONFLICT: 'conflict', // concurrent modification — set in Phase 2
+  FAILED:   'failed',   // retries exhausted — set in Phase 2
+});
+
+/**
+ * Current outbox payload schema version.
+ * Increment this if the shape of an outbox entry's payload changes,
+ * so the Phase 2 sync processor can handle old entries correctly.
+ */
+const GUESTORA_OUTBOX_SCHEMA_VERSION = 1;
+
 /** Stable UUID v4 via Web Crypto — used for all GUESTORA operation IDs */
 function guestoraUUID(){
   return crypto.randomUUID();
@@ -3351,7 +3392,7 @@ function guestoraGetOrCreatePackage(flightNum, date, actype){
         id: guestoraUUID(),
         flightNum, date, actype,
         createdAt: new Date().toISOString(),
-        syncStatus: 'local'  // PENDING server sync
+        syncStatus: GUESTORA_SYNC_STATUS.LOCAL,  // package not yet in outbox; see Phase 2
       };
       const putReq = store.put(pkg);
       putReq.onsuccess = ()=>resolve(pkg);
@@ -3361,36 +3402,74 @@ function guestoraGetOrCreatePackage(flightNum, date, actype){
   });
 }
 
-/** Update a single field on an existing order (e.g. status → 'served') */
+/**
+ * Update an existing order and atomically enqueue an UPDATE_ORDER outbox entry.
+ * Both writes happen in a single IDB transaction — if either fails the whole
+ * transaction is rolled back, keeping orders and outbox in sync.
+ *
+ * @param {string} orderId  - id of the order to update
+ * @param {object} patch    - fields to merge (e.g. { status:'served' } or full selection set)
+ * @returns {Promise<object>} the updated order record
+ */
 function guestoraUpdateOrder(orderId, patch){
   return new Promise((resolve, reject)=>{
-    const tx = idb.transaction('guestora_orders','readwrite');
-    const store = tx.objectStore('guestora_orders');
-    const getReq = store.get(orderId);
+    const tx = idb.transaction(['guestora_orders','guestora_outbox'],'readwrite');
+    const orderStore  = tx.objectStore('guestora_orders');
+    const outboxStore = tx.objectStore('guestora_outbox');
+
+    const getReq = orderStore.get(orderId);
     getReq.onsuccess = ()=>{
-      if(!getReq.result){ reject(new Error('order not found')); return; }
-      const updated = Object.assign({}, getReq.result, patch, {updatedAt: new Date().toISOString()});
-      store.put(updated);
+      if(!getReq.result){ reject(new Error('order not found: ' + orderId)); tx.abort(); return; }
+
+      const now     = new Date().toISOString();
+      const updated = Object.assign({}, getReq.result, patch, { updatedAt: now });
+
+      orderStore.put(updated);
+
+      outboxStore.put({
+        operationId:   guestoraUUID(),
+        schemaVersion: GUESTORA_OUTBOX_SCHEMA_VERSION,
+        type:          'UPDATE_ORDER',
+        packageId:     updated.packageId,
+        orderId:       updated.id,
+        payload:       updated,               // full snapshot — server can diff or replace
+        syncStatus:    GUESTORA_SYNC_STATUS.PENDING,
+        attempts:      0,
+        retryAt:       null,                  // set by Phase 2 retry engine
+        lastError:     null,                  // populated on first failure in Phase 2
+        createdAt:     now,
+      });
+
       tx.oncomplete = ()=>resolve(updated);
       tx.onerror    = ()=>reject(tx.error);
+      tx.onabort    = ()=>reject(new Error('UPDATE_ORDER transaction aborted'));
     };
-    getReq.onerror = ()=>reject(getReq.error);
+    getReq.onerror = ()=>{ reject(getReq.error); };
   });
 }
 
-/** Delete an order and queue an outbox delete operation */
+/**
+ * Delete an order and atomically enqueue a DELETE_ORDER outbox entry.
+ * The order is removed from the local store in the same transaction so
+ * the two stores are never out of sync.
+ */
 function guestoraDeleteOrder(orderId, packageId){
   return new Promise((resolve, reject)=>{
-    const tx = idb.transaction(['guestora_orders','guestora_outbox'],'readwrite');
+    const now = new Date().toISOString();
+    const tx  = idb.transaction(['guestora_orders','guestora_outbox'],'readwrite');
     tx.objectStore('guestora_orders').delete(orderId);
     tx.objectStore('guestora_outbox').put({
-      operationId: guestoraUUID(),
-      type: 'DELETE_ORDER',
-      orderId,
+      operationId:   guestoraUUID(),
+      schemaVersion: GUESTORA_OUTBOX_SCHEMA_VERSION,
+      type:          'DELETE_ORDER',
       packageId,
-      status: 'pending',  // PENDING: server sync not yet implemented
-      attempts: 0,
-      createdAt: new Date().toISOString()
+      orderId,
+      payload:       null,                    // no snapshot needed for deletes
+      syncStatus:    GUESTORA_SYNC_STATUS.PENDING,
+      attempts:      0,
+      retryAt:       null,
+      lastError:     null,
+      createdAt:     now,
     });
     tx.oncomplete = ()=>resolve();
     tx.onerror    = ()=>reject(tx.error);
@@ -3671,7 +3750,11 @@ async function guestoraSeedMenu(){
 async function guestoraGetActiveMenu(){
   try {
     const all = await idbAll('guestora_menus');
-    return all.find(m => m.isActive) || all[all.length-1] || null;
+    // Prefer explicitly active; fall back to most-recently-published; must have categories
+    const valid = all.filter(m => m.categories && m.categories.length);
+    return valid.find(m => m.isActive)
+        || valid.sort((a,b)=> (b.publishedAt||'').localeCompare(a.publishedAt||''))[0]
+        || null;
   } catch(e){ return null; }
 }
 
@@ -3993,8 +4076,18 @@ async function gaRenderMenuTree(){
   const dateEl = document.getElementById('ga-menu-active-date');
   if(!tree) return;
   try {
-    const menu = await guestoraGetActiveMenu();
-    if(!menu){ tree.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:.85rem">No menu found.</div>'; return; }
+    let menu = await guestoraGetActiveMenu();
+    if(!menu){
+      // No menu in IDB yet — offer to load the built-in default
+      tree.innerHTML = `
+        <div style="text-align:center;padding:32px">
+          <div style="font-size:2rem;margin-bottom:10px">🍽️</div>
+          <div style="font-size:.88rem;color:var(--color-text-primary);font-weight:700;margin-bottom:6px">No menu configured yet</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:18px">Load the built-in starter menu, then customise and publish it.</div>
+          <button onclick="gaLoadDefaultMenu()" class="btn btn-primary" style="font-size:.82rem;padding:10px 22px">Load Default Menu</button>
+        </div>`;
+      return;
+    }
     _gaWorkingMenu = JSON.parse(JSON.stringify(menu));
     if(nameEl) nameEl.textContent = menu.name;
     if(dateEl) dateEl.textContent = menu.publishedAt ? 'Published ' + new Date(menu.publishedAt).toLocaleDateString() : 'Draft';
@@ -4002,6 +4095,29 @@ async function gaRenderMenuTree(){
   } catch(e){
     tree.innerHTML = `<div style="color:var(--color-error);padding:16px">${e.message}</div>`;
   }
+}
+
+async function gaLoadDefaultMenu(){
+  try {
+    // Seed now (will no-op if already seeded)
+    await guestoraSeedMenu();
+    // If still nothing (store was non-empty with no-isActive menus), build from constant
+    let menu = await guestoraGetActiveMenu();
+    if(!menu){
+      const m = JSON.parse(JSON.stringify(GUESTORA_DEFAULT_MENU));
+      m.id          = guestoraUUID();
+      m.publishedAt = new Date().toISOString();
+      m.isActive    = true;
+      m.categories.forEach(cat=>cat.subcategories.forEach(sub=>sub.items.forEach(it=>{ if(!it.id) it.id=guestoraUUID(); })));
+      await idbPut('guestora_menus', m);
+      menu = m;
+    }
+    _gaWorkingMenu = JSON.parse(JSON.stringify(menu));
+    guestoraUpdateAdminKPI();
+    if(window._gs) _gs.activeMenu = null;
+    toast?.('Default menu loaded — customise and publish when ready');
+    gaRenderMenuTree();
+  } catch(e){ alert('Could not load default menu: '+e.message); }
 }
 
 function _gaRenderMenuTreeHTML(){
@@ -4145,7 +4261,10 @@ function gaCloseItemModal(){
 }
 
 async function gaPublishNewMenuVersion(){
-  if(!_gaWorkingMenu) return;
+  if(!_gaWorkingMenu){
+    alert('No menu loaded. Use "Load Default Menu" first, then customise and publish.');
+    return;
+  }
   const name = prompt('Name this menu version:', _gaWorkingMenu.name || 'Updated Menu');
   if(!name) return;
   try {
@@ -4172,21 +4291,63 @@ async function gaPublishNewMenuVersion(){
   } catch(e){ alert('Publish failed: '+e.message); }
 }
 
-// ── GUESTORA sync stub
-// Server-side contract is PENDING (Supabase tables not yet created).
-// This function reads pending outbox entries but does NOT send them anywhere.
-// Replace with real implementation when server contract is defined.
+// ── GUESTORA outbox processor
+// Phase 1: reads the outbox and reports counts. Does NOT mutate any record,
+// does NOT call the server, does NOT mark anything as synced.
+//
+// Phase 2 will replace the inner loop body with real server calls. The required
+// Supabase tables are documented below for the schema design phase.
+//
+// Required server tables (Phase 2 — not yet created):
+//   guestora_service_packages(id UUID PK, flight_number TEXT, date DATE, actype TEXT,
+//                             created_by UUID REFERENCES profiles, created_at TIMESTAMPTZ)
+//   guestora_service_orders(id UUID PK, package_id UUID REFERENCES guestora_service_packages,
+//                           seat_num TEXT, cabin TEXT, selections JSONB, meal_note TEXT,
+//                           drink_note TEXT, special_note TEXT, status TEXT,
+//                           operation_id UUID UNIQUE,   ← idempotency key
+//                           schema_version INT,
+//                           created_by UUID REFERENCES profiles,
+//                           created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
+// RLS (Phase 2): authenticated user whose profile.flights contains (flight_number, date)
+//                can read/write orders for that package.
 async function guestoraSyncOutbox(){
-  // PENDING: implement when Supabase tables are ready
-  // Required tables (not yet created):
-  //   guestora_service_packages(id, flight_number, date, actype, created_by, created_at)
-  //   guestora_service_orders(id, package_id, seat_num, category, note, status,
-  //                           operation_id UNIQUE, created_by, created_at, updated_at)
-  // RLS: any authenticated user whose profile.flights contains (flight_number, date)
-  //      can read/write orders for that package.
-  // Idempotency: operation_id unique constraint — safe to retry.
-  console.log('[GUESTORA] sync stub called — server contract PENDING');
-  return { synced: 0, pending: 0, failed: 0 };
+  try {
+    const all     = await idbAll('guestora_outbox');
+    const pending = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.PENDING
+                                 || e.status     === 'pending');  // compat: old field name
+    const synced  = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.SYNCED);
+    const failed  = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.FAILED);
+
+    console.log(
+      `[GUESTORA] outbox: ${pending.length} pending, ${synced.length} synced, `
+      + `${failed.length} failed — server sync PENDING (Phase 2)`
+    );
+
+    // Phase 2 implementation point:
+    // for (const entry of pending) {
+    //   try {
+    //     await guestoraSendToServer(entry);          // idempotent via operationId
+    //     await idbPut('guestora_outbox', {           // mark synced only on server ack
+    //       ...entry, syncStatus: GUESTORA_SYNC_STATUS.SYNCED
+    //     });
+    //   } catch (err) {
+    //     const attempts = (entry.attempts || 0) + 1;
+    //     const nextStatus = attempts >= 5
+    //       ? GUESTORA_SYNC_STATUS.FAILED
+    //       : GUESTORA_SYNC_STATUS.PENDING;
+    //     await idbPut('guestora_outbox', {
+    //       ...entry, attempts, syncStatus: nextStatus,
+    //       lastError: err.message,
+    //       retryAt: new Date(Date.now() + Math.pow(2, attempts) * 1000).toISOString()
+    //     });
+    //   }
+    // }
+
+    return { pending: pending.length, synced: synced.length, failed: failed.length };
+  } catch(e){
+    console.error('[GUESTORA] guestoraSyncOutbox error:', e);
+    return { pending: 0, synced: 0, failed: 0 };
+  }
 }
 
 // ── GUESTORA UI state ────────────────────────────────────────────────────────
@@ -4712,7 +4873,7 @@ async function gsSaveOrder(){
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        selections, mealNote, drinkNote, specialNote, updatedAt: now
+        selections, mealNote, drinkNote, specialNote
       });
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
@@ -4724,19 +4885,22 @@ async function gsSaveOrder(){
         cabin:       _gs.cabin.id,
         seatNum:     _gs.selectedSeat,
         selections, mealNote, drinkNote, specialNote,
-        status:      'pending',
+        status:      GUESTORA_ORDER_STATUS.REQUESTED,  // order lifecycle
         createdAt:   now,
         updatedAt:   now
       };
       const outboxEntry = {
-        operationId:  guestoraUUID(),
-        type:         'CREATE_ORDER',
-        packageId:    _gs.pkg.id,
-        payload:      order,
-        status:       'pending',  // PENDING: server sync not implemented
-        attempts:     0,
-        createdAt:    now,
-        dependencies: []
+        operationId:   guestoraUUID(),
+        schemaVersion: GUESTORA_OUTBOX_SCHEMA_VERSION,
+        type:          'CREATE_ORDER',
+        packageId:     _gs.pkg.id,
+        orderId:       order.id,
+        payload:       order,
+        syncStatus:    GUESTORA_SYNC_STATUS.PENDING,
+        attempts:      0,
+        retryAt:       null,
+        lastError:     null,
+        createdAt:     now,
       };
       await guestoraAtomicWrite(order, outboxEntry);
       _gs.orders.push(order);
@@ -4757,7 +4921,7 @@ function gsEditOrder(){
 
 async function gsMarkServed(orderId){
   try {
-    const updated = await guestoraUpdateOrder(orderId, { status: 'served' });
+    const updated = await guestoraUpdateOrder(orderId, { status: GUESTORA_ORDER_STATUS.SERVED });
     const idx = _gs.orders.findIndex(o=>o.id===orderId);
     if(idx!==-1) _gs.orders[idx] = updated;
     toast('✅ Marked as served');
@@ -4874,6 +5038,9 @@ async function syncToCloud(){
 
     // ── PULL: notes sync ────────────────────────────────────
     await syncNotes();
+
+    // ── GUESTORA outbox — reads and counts pending entries; no server calls in Phase 1
+    await guestoraSyncOutbox();
 
     // Refresh UI
     cache.flights = (await idbAll('flights')).filter(f=>!f._deleted).sort((a,b)=>b.date.localeCompare(a.date));
