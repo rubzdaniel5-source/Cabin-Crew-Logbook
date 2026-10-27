@@ -4873,7 +4873,7 @@ async function gsSaveOrder(){
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        selections, mealNote, drinkNote, specialNote, updatedAt: now
+        selections, mealNote, drinkNote, specialNote
       });
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
@@ -4921,7 +4921,7 @@ function gsEditOrder(){
 
 async function gsMarkServed(orderId){
   try {
-    const updated = await guestoraUpdateOrder(orderId, { status: 'served' });
+    const updated = await guestoraUpdateOrder(orderId, { status: GUESTORA_ORDER_STATUS.SERVED });
     const idx = _gs.orders.findIndex(o=>o.id===orderId);
     if(idx!==-1) _gs.orders[idx] = updated;
     toast('✅ Marked as served');
