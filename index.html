@@ -3440,6 +3440,14 @@ function guestoraUpdateOrder(orderId, patch){
         createdAt:     now,
       });
 
+      // T4 ATOMICITY TEST HOOK — removed after test; disabled by default
+      // Enable in DevTools: window.__GUESTORA_TEST_ABORT_UPDATE = true
+      if(window.__GUESTORA_TEST_ABORT_UPDATE){
+        console.warn('[GUESTORA T4] test hook active — aborting transaction');
+        tx.abort();
+        return;
+      }
+
       tx.oncomplete = ()=>resolve(updated);
       tx.onerror    = ()=>reject(tx.error);
       tx.onabort    = ()=>reject(new Error('UPDATE_ORDER transaction aborted'));
