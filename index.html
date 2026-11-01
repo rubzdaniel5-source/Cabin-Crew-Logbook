@@ -5204,7 +5204,7 @@ async function initAuth(){
 
   // Retrieve current session with a bounded timeout so offline users are not
   // left waiting on the loading screen indefinitely.
-    let session = null;
+  let session = null;
   let sessionFetchFailed = false;
   try{
     const SESSION_TIMEOUT_MS = 8000;
@@ -5214,10 +5214,7 @@ async function initAuth(){
     ]);
     session = sessionResult?.data?.session ?? null;
   }catch(err){
-    // Timed out or network error — treat as unauthenticated.
-    // A previously authenticated user will see the auth screen; they can sign in
-    // again when online, or if connectivity returns the page auto-syncs.
-        console.warn('getSession failed or timed out:', err.message);
+    console.warn('getSession failed or timed out:', err.message);
     session = null;
     sessionFetchFailed = true;
   }
@@ -5226,24 +5223,41 @@ async function initAuth(){
     currentUser = session.user;
     await onLoggedIn();
   } else {
+    // ── Offline cold-start recovery ──────────────────────────────────────────
+    // getSession() returns null when:
+    //   (a) the user was never logged in, OR
+    //   (b) the access token expired and a refresh network call failed (offline)
+    //
+    // Case (b) must NOT show the login screen — the user was already authenticated
+    // and their data lives in IndexedDB. We detect it by reading the Supabase
+    // session key from localStorage directly: if it's there with a user object,
+    // we're in case (b) and can boot from IDB data.
+    //
+    // The Supabase JS v2 localStorage key format:
+    //   sb-<supabase-project-ref>-auth-token
     let offlineUser = null;
     try{
       const SB_STORAGE_KEY = `sb-${SUPABASE_URL.split('.')[0].split('//')[1]}-auth-token`;
       const rawSession = localStorage.getItem(SB_STORAGE_KEY);
       if(rawSession){
         const parsed = JSON.parse(rawSession);
+        // The stored object has { access_token, refresh_token, user, expires_at }
         if(parsed?.user?.id) offlineUser = parsed.user;
       }
     }catch(_){}
 
     if(offlineUser && !navigator.onLine){
+      // Previously authenticated, currently offline — boot from IDB
       console.info('Offline cold-start: using cached session identity for', offlineUser.email);
       currentUser = offlineUser;
+      // When connectivity returns, onAuthStateChange will fire TOKEN_REFRESHED
+      // and onLoggedIn will re-run, pulling fresh data from the server.
       await onLoggedIn();
     } else {
+      // Genuinely not logged in, or online but session is invalid → login screen
       document.getElementById('app-loading').style.display='none';
       document.getElementById('auth-screen').style.display='flex';
-      checkSignupsEnabled();
+      checkSignupsEnabled(); // lock/grey tab if signups closed
     }
   }
 
@@ -5253,8 +5267,12 @@ async function initAuth(){
       document.getElementById('auth-screen').style.display='none';
       onLoggedIn();
     }
+    // TOKEN_REFRESHED fires when connectivity returns after an offline cold-start.
+    // At that point currentUser is already set (from the cached identity), so we
+    // just re-fetch the profile + cloud data without re-rendering the whole UI.
     if(event === 'TOKEN_REFRESHED' && session && currentUser){
       currentUser = session.user;
+      // Re-run the cloud sync portion; onLoggedIn is idempotent for the UI parts
       syncToCloud().catch(()=>{});
     }
     if(event === 'SIGNED_OUT'){
