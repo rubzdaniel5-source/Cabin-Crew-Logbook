@@ -2,22 +2,22 @@
 // Crew Logbook Service Worker
 // Version bump here when you want clients to pick up a new shell.
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE = 'crew-logbook-v50';
+const CACHE = 'crew-logbook-v47';
 
 // ── Critical shell: must all succeed for the app to work offline ──────────────
-// These are fetched individually so a single failure does not block the rest.
+// supabase-js is included here because auth is gated on it — the app cannot
+// cold-start offline if this script is missing from the cache.
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
 ];
 
 // ── Third-party scripts: cached best-effort ───────────────────────────────────
-// A failure here is tolerated during install so the shell still caches.
-// On a live device they will already be in the cache from the first online visit.
+// These are large or rarely needed offline; failures are tolerated.
 const OPTIONAL_CDN = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
   'https://cdn.jsdelivr.net/npm/lucide@0.447.0/dist/umd/lucide.min.js',
@@ -25,12 +25,12 @@ const OPTIONAL_CDN = [
 
 // ── Install ───────────────────────────────────────────────────────────────────
 // Cache the shell atomically (all-or-nothing for the critical set).
-// Cache optional CDN scripts best-effort — failures are swallowed so install
-// succeeds even if jsDelivr is unreachable.
+// The app must first be installed while online so that supabase-js is cached.
+// Cache optional CDN scripts best-effort — failures are swallowed.
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(async cache => {
-      // Critical shell — all must succeed
+      // Critical shell — all must succeed (including supabase-js)
       await cache.addAll(SHELL_ASSETS);
 
       // Optional CDN — each is attempted independently
