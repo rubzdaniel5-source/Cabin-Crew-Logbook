@@ -4505,6 +4505,31 @@ let _gs = {
   activeMenu:  null,  // cached active menu (invalidated on publish)
 };
 
+// ── Brand application — swaps 'GUESTORA' label for tenant's dining_brand ─────
+// Called once after tenant config loads. Updates every crew-visible element;
+// leaves internal admin labels ("GUESTORA Settings") unchanged.
+function guestoraApplyBrand(brand){
+  if(!brand || brand === 'GUESTORA') return; // nothing to swap
+
+  // 1. Overlay header title (all views with .gs-hdr-title show the brand)
+  document.querySelectorAll('.gs-hdr-title').forEach(el => {
+    if(el.textContent.trim() === 'GUESTORA') el.textContent = brand;
+  });
+
+  // 2. Hub card array entry — update in-memory data so any re-render is correct
+  const entry = HUB_CARDS?.find?.(h => h.id === 'guestora');
+  if(entry){
+    entry.title = brand;
+    entry.sub   = `${brand} · Business-class order pad`;
+  }
+
+  // 3. Re-render hub grid if it is currently visible so the tile updates now
+  const hubGrid = document.getElementById('hub-card-grid');
+  if(hubGrid && hubGrid.children.length > 0) renderCrewHub();
+
+  console.log(`[GUESTORA] brand applied: ${brand}`);
+}
+
 // ── Open / close overlay ─────────────────────────────────────────────────────
 async function openGuestoraOverlay(){
   gsShowView('sector');
@@ -5290,6 +5315,11 @@ let selectedCrew   = [];
 let currentUser    = null;
 let isAdmin        = false;
 let sectorFieldCount = 2;
+
+// ── Tenant config — resolved after login from guestora_tenants ──────────────
+// dining_brand: 'CRANE CUISINE' for Uganda Airlines, 'Menuva' for independent.
+// Falls back to 'GUESTORA' until loaded so offline/pre-fetch paths are safe.
+window._tenantConfig = { dining_brand: 'GUESTORA' };
 let editingFlightId = null;
 
 // In-memory caches, refreshed from Supabase on load / after writes
@@ -9947,7 +9977,7 @@ async function onLoggedIn(){
   // ── Step 1: profile fetch (unavoidable — needed for blocked check + role) ──
   // This is the only network call that must complete before anything renders.
   const { data: profile } = await sb.from('profiles')
-    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email')
+    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email, tenant_id')
     .eq('id', currentUser.id).single();
 
   // ── BLOCKED CHECK — must happen before anything else ──
@@ -10066,6 +10096,24 @@ async function onLoggedIn(){
 
   loadManualsMetadata();    // fire and forget regardless of online state
   preloadNexaChunks();      // fire and forget
+
+  // ── Tenant config: load dining_brand so Guestora shows the right brand name ──
+  // Runs non-blocking; falls back to 'GUESTORA' if offline or not found.
+  if(isOnline && profile?.tenant_id){
+    (async () => {
+      try {
+        const { data: tenant } = await sb
+          .from('guestora_tenants')
+          .select('dining_brand, slug')
+          .eq('id', profile.tenant_id)
+          .single();
+        if(tenant?.dining_brand){
+          window._tenantConfig = { ...window._tenantConfig, ...tenant };
+          guestoraApplyBrand(tenant.dining_brand);
+        }
+      } catch(e){ console.warn('[GUESTORA] tenant config fetch failed:', e); }
+    })();
+  }
 
   // Full sync every 60s
   setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
