@@ -5204,7 +5204,8 @@ async function initAuth(){
 
   // Retrieve current session with a bounded timeout so offline users are not
   // left waiting on the loading screen indefinitely.
-  let session = null;
+    let session = null;
+  let sessionFetchFailed = false;
   try{
     const SESSION_TIMEOUT_MS = 8000;
     const sessionResult = await Promise.race([
@@ -5216,24 +5217,45 @@ async function initAuth(){
     // Timed out or network error — treat as unauthenticated.
     // A previously authenticated user will see the auth screen; they can sign in
     // again when online, or if connectivity returns the page auto-syncs.
-    console.warn('getSession failed or timed out:', err.message);
+        console.warn('getSession failed or timed out:', err.message);
     session = null;
+    sessionFetchFailed = true;
   }
 
   if(session){
     currentUser = session.user;
     await onLoggedIn();
   } else {
-    document.getElementById('app-loading').style.display='none';
-    document.getElementById('auth-screen').style.display='flex';
-    checkSignupsEnabled(); // lock/grey tab if signups closed
+    let offlineUser = null;
+    try{
+      const SB_STORAGE_KEY = `sb-${SUPABASE_URL.split('.')[0].split('//')[1]}-auth-token`;
+      const rawSession = localStorage.getItem(SB_STORAGE_KEY);
+      if(rawSession){
+        const parsed = JSON.parse(rawSession);
+        if(parsed?.user?.id) offlineUser = parsed.user;
+      }
+    }catch(_){}
+
+    if(offlineUser && !navigator.onLine){
+      console.info('Offline cold-start: using cached session identity for', offlineUser.email);
+      currentUser = offlineUser;
+      await onLoggedIn();
+    } else {
+      document.getElementById('app-loading').style.display='none';
+      document.getElementById('auth-screen').style.display='flex';
+      checkSignupsEnabled();
+    }
   }
 
   sb.auth.onAuthStateChange((event, session) => {
-    if(event === 'SIGNED_IN' && session){
+      if(event === 'SIGNED_IN' && session){
       currentUser = session.user;
       document.getElementById('auth-screen').style.display='none';
       onLoggedIn();
+    }
+    if(event === 'TOKEN_REFRESHED' && session && currentUser){
+      currentUser = session.user;
+      syncToCloud().catch(()=>{});
     }
     if(event === 'SIGNED_OUT'){
       currentUser = null;
