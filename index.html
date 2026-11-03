@@ -636,6 +636,21 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .auth-card input::placeholder{color:var(--color-text-disabled)}
 .auth-card input:focus{outline:none;border-color:var(--color-focus);box-shadow:0 0 0 3px rgba(255,198,41,.15)}
 .auth-card .btn{width:100%}
+/* ── SIGNUP AIRLINE PICKER ────────────────────────────────── */
+#signup-airline-search-wrap input{margin-bottom:0}
+#signup-airline-dropdown::-webkit-scrollbar{width:6px}
+#signup-airline-dropdown::-webkit-scrollbar-track{background:transparent}
+#signup-airline-dropdown::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
+.signup-airline-row{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--color-border);transition:background .12s;text-align:left}
+.signup-airline-row:last-child{border-bottom:none}
+.signup-airline-row:hover,.signup-airline-row.focused{background:rgba(143,197,255,.08)}
+.signup-airline-row.selected{background:rgba(143,197,255,.14)}
+.signup-airline-row.disabled{opacity:.5;cursor:default}
+.signup-airline-iata{font-size:.7rem;font-weight:800;color:var(--color-accent);min-width:28px;text-align:center;letter-spacing:.04em}
+.signup-airline-name{font-size:.86rem;font-weight:600;color:var(--color-text-primary);flex:1}
+.signup-airline-badge{font-size:.64rem;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(143,197,255,.18);color:var(--color-accent);letter-spacing:.03em}
+#signup-airline-search-wrap.has-selection input{border-color:var(--color-accent);background:rgba(143,197,255,.06)}
+#signup-not-configured button:hover{opacity:.85}
 .auth-status{font-size:.8rem;margin-top:14px;min-height:18px;color:var(--color-text-secondary)}
 .auth-status.error{color:var(--color-error)}
 .auth-status.success{color:var(--color-success)}
@@ -1256,12 +1271,60 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <button onclick="openContactAdmin('signup')" style="margin-top:10px;background:none;border:1.5px solid var(--sky);border-radius:8px;color:var(--sky);font-size:.78rem;font-weight:700;padding:7px 16px;cursor:pointer;font-family:var(--font)">✉ Contact Admin to Create Account</button>
       </div>
       <div id="signup-fields">
-        <input type="text"     id="signup-name"      placeholder="Full name *"                   autocomplete="name"/>
-        <input type="email"    id="signup-email"     placeholder="Email address *"              autocomplete="email"/>
-        <input type="tel"      id="signup-phone"     placeholder="Phone number * (e.g. +256 700 000000)" autocomplete="tel"/>
-        <input type="password" id="signup-password"  placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
-        <input type="password" id="signup-password2" placeholder="Confirm password"             autocomplete="new-password"/>
-        <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+        <input type="text"  id="signup-name"  placeholder="Full name *"  autocomplete="name"/>
+        <input type="email" id="signup-email" placeholder="Email address *" autocomplete="email"
+               oninput="onSignupEmailInput(this.value)"/>
+        <input type="tel"   id="signup-phone" placeholder="Phone number * (e.g. +256 700 000000)" autocomplete="tel"/>
+
+        <!-- ── Airline selector ─────────────────────────────────── -->
+        <div id="signup-airline-wrap" style="position:relative;margin-bottom:10px">
+          <!-- Domain-detected chip (hidden until recognised domain is typed) -->
+          <div id="signup-domain-chip" style="display:none;align-items:center;gap:8px;background:rgba(143,197,255,.1);border:1.5px solid rgba(143,197,255,.35);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+            <span style="font-size:1.1rem">✈</span>
+            <div style="flex:1;text-align:left">
+              <div id="signup-domain-chip-name" style="font-size:.85rem;font-weight:800;color:var(--color-text-primary)"></div>
+              <div style="font-size:.7rem;color:var(--muted)">Detected from your email domain</div>
+            </div>
+            <button onclick="clearAirlineSelection()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px;line-height:1">×</button>
+          </div>
+
+          <!-- Search input (shown when domain not detected) -->
+          <div id="signup-airline-search-wrap" style="position:relative">
+            <input type="text" id="signup-airline-search"
+                   placeholder="Search your airline (optional)"
+                   autocomplete="off"
+                   onfocus="onAirlineSearchFocus()"
+                   oninput="onAirlineSearch(this.value)"
+                   style="padding-right:32px"/>
+            <span id="signup-airline-search-icon" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none">✈</span>
+          </div>
+
+          <!-- Dropdown results list -->
+          <div id="signup-airline-dropdown" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--color-modal-bg);border:1.5px solid var(--color-border-strong);border-radius:10px;max-height:210px;overflow-y:auto;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.45)">
+            <div id="signup-airline-list"></div>
+          </div>
+        </div>
+
+        <!-- Not-yet-configured gate (shown when airline is selected but enabled=false) -->
+        <div id="signup-not-configured" style="display:none;background:rgba(255,198,41,.07);border:1.5px solid rgba(255,198,41,.4);border-radius:10px;padding:14px;margin-bottom:10px;text-align:center">
+          <div style="font-size:1.3rem;margin-bottom:6px">🛫</div>
+          <div style="font-weight:800;color:var(--color-accent);font-size:.9rem" id="signup-not-configured-name"></div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:6px;line-height:1.5">
+            This airline is not yet on Crew Logbook.<br>
+            You can still create an independent account — you'll be migrated automatically when your airline joins.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button onclick="proceedAsIndependent()" class="btn btn-primary" style="flex:1;font-size:.8rem">Continue as Independent</button>
+            <button onclick="clearAirlineSelection()" style="flex:1;background:none;border:1.5px solid var(--color-border);border-radius:8px;color:var(--color-text-secondary);font-size:.8rem;cursor:pointer;font-family:var(--font);padding:8px">Choose Different</button>
+          </div>
+        </div>
+
+        <!-- Password fields (hidden while not-yet-configured gate is showing) -->
+        <div id="signup-password-fields">
+          <input type="password" id="signup-password"  placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
+          <input type="password" id="signup-password2" placeholder="Confirm password"             autocomplete="new-password"/>
+          <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+        </div>
       </div>
     </div>
 
@@ -5556,6 +5619,156 @@ async function initAuth(){
 }
 
 // ── Auth tab switcher ─────────────────────────────────────
+// ── Guestora signup airline state ───────────────────────
+let _guestoraTenants        = [];   // [{id, slug, airline_name, iata_code, enabled}]
+let _signupSelectedTenant   = null; // the chosen tenant row (or null)
+let _signupIsIndependent    = false;// true after "Continue as Independent" is clicked
+let _airlineDropdownOpen    = false;
+
+async function loadTenantsForSignup(){
+  if(_guestoraTenants.length) return; // already loaded
+  try{
+    const { data } = await sb.from('guestora_tenants')
+      .select('id, slug, airline_name, iata_code, enabled')
+      .neq('slug','independent')
+      .order('airline_name', { ascending:true });
+    if(data) _guestoraTenants = data;
+  }catch(e){ console.warn('[GUESTORA] loadTenantsForSignup failed:', e); }
+}
+
+function onSignupEmailInput(val){
+  const domain = val.split('@')[1]?.toLowerCase() || '';
+  if(!domain) return;
+  // Uganda Airlines domain detection
+  const ugDomains = ['crew.ugandairlines.com','ugandairlines.com'];
+  if(ugDomains.some(d => domain === d)){
+    const ugTenant = _guestoraTenants.find(t => t.slug === 'uganda-airlines');
+    if(ugTenant) { selectAirlineTenant(ugTenant, true); return; }
+  }
+  // If a domain-detected chip was showing for a different airline, clear it
+  const chip = document.getElementById('signup-domain-chip');
+  if(chip && chip.style.display !== 'none' && _signupSelectedTenant?.slug !== 'uganda-airlines'){
+    clearAirlineSelection();
+  }
+}
+
+function onAirlineSearchFocus(){
+  if(!_signupSelectedTenant && !_signupIsIndependent) openAirlineDropdown('');
+}
+
+function onAirlineSearch(val){
+  openAirlineDropdown(val);
+}
+
+function openAirlineDropdown(query){
+  const dropdown = document.getElementById('signup-airline-dropdown');
+  const list     = document.getElementById('signup-airline-list');
+  if(!dropdown||!list) return;
+
+  const q = query.toLowerCase().trim();
+  const filtered = _guestoraTenants.filter(t =>
+    !q || t.airline_name.toLowerCase().includes(q) || (t.iata_code||'').toLowerCase().includes(q)
+  ).slice(0, 40);
+
+  if(!filtered.length){
+    list.innerHTML = `<div style="padding:14px;text-align:center;color:var(--muted);font-size:.82rem">No airlines found</div>`;
+  } else {
+    list.innerHTML = filtered.map(t => `
+      <div class="signup-airline-row ${t.slug===_signupSelectedTenant?.slug?'selected':''}"
+           onclick="selectAirlineTenant(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <span class="signup-airline-iata">${t.iata_code||'–'}</span>
+        <span class="signup-airline-name">${t.airline_name}</span>
+        ${t.enabled?'<span class="signup-airline-badge">✓ On Platform</span>':''}
+      </div>`).join('');
+  }
+
+  dropdown.style.display = 'block';
+  _airlineDropdownOpen = true;
+
+  if(!document._signupDropdownListener){
+    document._signupDropdownListener = (e) => {
+      if(!document.getElementById('signup-airline-wrap')?.contains(e.target)){
+        closeAirlineDropdown();
+      }
+    };
+    document.addEventListener('click', document._signupDropdownListener);
+  }
+}
+
+function closeAirlineDropdown(){
+  const d = document.getElementById('signup-airline-dropdown');
+  if(d) d.style.display='none';
+  _airlineDropdownOpen = false;
+}
+
+function selectAirlineTenant(tenant, fromDomain=false){
+  _signupSelectedTenant = tenant;
+  _signupIsIndependent  = false;
+  closeAirlineDropdown();
+
+  const searchWrap = document.getElementById('signup-airline-search-wrap');
+  const searchInput= document.getElementById('signup-airline-search');
+  const chip       = document.getElementById('signup-domain-chip');
+  const chipName   = document.getElementById('signup-domain-chip-name');
+  const notCfg     = document.getElementById('signup-not-configured');
+  const pwdFields  = document.getElementById('signup-password-fields');
+  const notCfgName = document.getElementById('signup-not-configured-name');
+
+  if(fromDomain || tenant.enabled){
+    // Show domain chip (or just update search to show selection)
+    if(fromDomain && chip){
+      chipName.textContent = tenant.airline_name;
+      chip.style.display   = 'flex';
+      if(searchWrap) searchWrap.style.display = 'none';
+    } else {
+      // enabled airline selected from search — show name in input
+      if(searchInput) searchInput.value = tenant.airline_name;
+      if(searchWrap)  searchWrap.classList.add('has-selection');
+    }
+    // Show password fields, hide not-configured gate
+    if(notCfg)    notCfg.style.display = 'none';
+    if(pwdFields) pwdFields.style.display = 'block';
+  } else {
+    // enabled=false — show not-yet-configured gate, hide password fields
+    if(searchInput) searchInput.value = '';
+    if(searchWrap)  searchWrap.classList.remove('has-selection');
+    if(chip)        chip.style.display = 'none';
+    if(notCfgName)  notCfgName.textContent = tenant.airline_name;
+    if(notCfg)      notCfg.style.display = 'block';
+    if(pwdFields)   pwdFields.style.display = 'none';
+  }
+}
+
+function clearAirlineSelection(){
+  _signupSelectedTenant = null;
+  _signupIsIndependent  = false;
+  const chip      = document.getElementById('signup-domain-chip');
+  const searchWrap= document.getElementById('signup-airline-search-wrap');
+  const searchInput=document.getElementById('signup-airline-search');
+  const notCfg    = document.getElementById('signup-not-configured');
+  const pwdFields = document.getElementById('signup-password-fields');
+  if(chip)       { chip.style.display='none'; }
+  if(searchWrap) { searchWrap.style.display='block'; searchWrap.classList.remove('has-selection'); }
+  if(searchInput){ searchInput.value=''; }
+  if(notCfg)     { notCfg.style.display='none'; }
+  if(pwdFields)  { pwdFields.style.display='block'; }
+}
+
+function proceedAsIndependent(){
+  // User chose "Continue as Independent" from not-configured gate
+  _signupIsIndependent = true;
+  const notCfg    = document.getElementById('signup-not-configured');
+  const pwdFields = document.getElementById('signup-password-fields');
+  const searchWrap= document.getElementById('signup-airline-search-wrap');
+  const searchInput=document.getElementById('signup-airline-search');
+  if(notCfg)     notCfg.style.display='none';
+  if(pwdFields)  pwdFields.style.display='block';
+  if(searchInput) searchInput.value = _signupSelectedTenant?.airline_name || '';
+  if(searchWrap) searchWrap.classList.add('has-selection');
+}
+
+// ─────────────────────────────────────────────────────────
+
 function switchAuthTab(tab){
   const isSignIn = tab==='signin';
   document.getElementById('auth-signin-form').style.display = isSignIn?'block':'none';
@@ -5567,7 +5780,7 @@ function switchAuthTab(tab){
   document.getElementById('auth-status').textContent='';
   document.getElementById('auth-status').className='auth-status';
   // Check signup status when switching to signup tab
-  if(!isSignIn) checkSignupsEnabled();
+  if(!isSignIn){ checkSignupsEnabled(); loadTenantsForSignup(); }
 }
 
 async function checkSignupsEnabled(){
@@ -5673,12 +5886,64 @@ async function doSignUp(){
     statusEl.className='auth-status error'; return;
   }
 
+  // ── Resolve tenant assignment ─────────────────────────────
+  // Priority 1: enabled airline selected (or domain-detected)
+  // Priority 2: independent — stated_airline_id if airline in directory
+  // Priority 3: pure independent — no airline
+  let profileExtra = {};
+  const selTenant = _signupSelectedTenant;
+
+  if(selTenant && selTenant.enabled && !_signupIsIndependent){
+    // Adopted airline — user_class='airline', tenant resolved from selection
+    profileExtra = { user_class: 'airline', stated_airline_id: null, stated_airline_name: null };
+    // tenant_id resolved server-side from email domain by RLS/trigger,
+    // but we set it explicitly here as a convenience upsert (server still verifies via RLS)
+    profileExtra._tenant_slug = selTenant.slug; // used below to look up id
+  } else if(selTenant && !selTenant.enabled){
+    // Airline exists in directory but not adopted
+    profileExtra = {
+      user_class:       'independent',
+      stated_airline_id: selTenant.id,
+      stated_airline_name: null
+    };
+  } else {
+    // No airline selected — pure independent
+    profileExtra = {
+      user_class:          'independent',
+      stated_airline_id:   null,
+      stated_airline_name: null
+    };
+  }
+
+  // Look up independent pseudo-tenant id for fallback and airline users
+  let resolvedTenantId = null;
+  try{
+    if(profileExtra._tenant_slug){
+      // Airline user: use the selected tenant's id
+      const { data: t } = await sb.from('guestora_tenants')
+        .select('id').eq('slug', profileExtra._tenant_slug).single();
+      resolvedTenantId = t?.id || null;
+      delete profileExtra._tenant_slug;
+    }
+    if(!resolvedTenantId){
+      // Independent: use the pseudo-tenant
+      const { data: t } = await sb.from('guestora_tenants')
+        .select('id').eq('slug','independent').single();
+      resolvedTenantId = t?.id || null;
+    }
+  }catch(e){ console.warn('[GUESTORA] tenant id lookup failed:', e); }
+
   // Save name, email and phone to profiles
   localStorage.setItem('ccl_user_name', name);
-  await sb.from('profiles').upsert({
+  const upsertPayload = {
     id: data.user.id,
-    email, full_name: name, phone: phone || null
-  }, { onConflict:'id' });
+    email, full_name: name, phone: phone || null,
+    tenant_id:          resolvedTenantId,
+    user_class:         profileExtra.user_class         ?? 'independent',
+    stated_airline_id:  profileExtra.stated_airline_id  ?? null,
+    stated_airline_name:profileExtra.stated_airline_name?? null,
+  };
+  await sb.from('profiles').upsert(upsertPayload, { onConflict:'id' });
   currentUser = data.user;
   // onAuthStateChange SIGNED_IN fires → onLoggedIn()
 }
