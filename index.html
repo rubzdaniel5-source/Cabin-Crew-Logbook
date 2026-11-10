@@ -874,6 +874,42 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
 .gs-seat-allergen{position:absolute;top:2px;right:4px;font-size:.55rem;color:var(--color-warning);z-index:2;line-height:1}
 .gs-seat-pax{font-size:.5rem;color:rgba(255,255,255,.55);line-height:1;max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;z-index:1}
+
+/* ── MY ROSTER ─────────────────────────────────────────────── */
+.roster-card{background:var(--color-card,#16213e);border-radius:12px;padding:12px 14px;margin-bottom:9px;border-left:3px solid transparent;position:relative}
+.roster-card.rc-op{border-left-color:var(--color-accent,#4f8ef7)}
+.roster-card.rc-op.rc-today{border-left-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.2)}
+.roster-card.rc-op.rc-completed{border-left-color:#22c55e;opacity:.8}
+.roster-card.rc-op.rc-cancelled{border-left-color:#ef4444;opacity:.65}
+.roster-card.rc-op.rc-diverted{border-left-color:#f59e0b}
+.roster-card.rc-dma,.roster-card.rc-woff,.roster-card.rc-layover,.roster-card.rc-na{opacity:.7}
+.roster-card-row{display:flex;align-items:center;gap:10px}
+.roster-card-date{font-size:.68rem;font-weight:800;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:52px}
+.roster-card-type{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.rct-op{background:rgba(79,142,247,.18);color:#a0bfff}
+.rct-dma{background:rgba(255,255,255,.07);color:var(--color-text-muted)}
+.rct-woff{background:rgba(255,255,255,.07);color:var(--color-text-muted)}
+.rct-layover{background:rgba(245,158,11,.12);color:#fbbf24}
+.rct-na{background:rgba(239,68,68,.1);color:#fca5a5}
+.roster-card-flight{font-size:.88rem;font-weight:800;color:var(--color-text-primary)}
+.roster-card-route{font-size:.75rem;color:var(--color-text-muted)}
+.roster-status-badge{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:auto;white-space:nowrap}
+.rsb-rostered{background:rgba(79,142,247,.15);color:#93b4fd}
+.rsb-completed{background:rgba(34,197,94,.15);color:#86efac}
+.rsb-cancelled{background:rgba(239,68,68,.15);color:#fca5a5}
+.rsb-diverted{background:rgba(245,158,11,.15);color:#fde68a}
+.roster-block-row{display:flex;gap:16px;margin-top:7px;flex-wrap:wrap}
+.roster-block-item{font-size:.7rem}
+.roster-block-item span{font-weight:800;color:var(--color-text-primary)}
+.roster-week-heading{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--color-text-muted);padding:14px 2px 6px;border-top:1px solid var(--color-border);margin-top:4px}
+.roster-today-pulse{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:rosterPulse 1.4s ease-in-out infinite;flex-shrink:0}
+@keyframes rosterPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+.roster-complete-btn{font-size:.72rem;font-weight:700;padding:5px 12px;background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.3);border-radius:8px;cursor:pointer;margin-top:8px;width:100%}
+.rcs-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.rcs-status-btn{padding:9px 6px;border-radius:10px;border:1.5px solid var(--color-border);background:var(--color-card);font-size:.78rem;font-weight:700;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.rcs-status-btn.selected{border-color:var(--color-accent);background:rgba(79,142,247,.18);color:var(--color-text-primary)}
+.rcs-label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-muted);margin-bottom:4px}
+.rcs-time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -1787,19 +1823,89 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
      3. LOGBOOK
 ════════════════════════════════════════════════════════════ -->
 <div class="section" id="tab-log">
-  <div class="search-wrap">
-    <span class="search-ico">🔍</span>
-    <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
+  <!-- Log sub-tabs -->
+  <div class="pd-view-tabs" id="log-sub-tabs" style="margin-bottom:0">
+    <button class="pd-view-tab active" id="log-subtab-flights" onclick="switchLogView('flights')">✈️ Flight Logs</button>
+    <button class="pd-view-tab" id="log-subtab-roster" onclick="switchLogView('roster')">📋 My Roster</button>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+
+  <!-- ── FLIGHT LOGS VIEW ───────────────────────────── -->
+  <div id="log-view-flights">
+    <div class="search-wrap" style="margin-top:12px">
+      <span class="search-ico">🔍</span>
+      <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-excel')">📊 Flights Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-pdf')">📄 Flights PDF</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-excel')">📊 Per Diem Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-pdf')">📄 Per Diem PDF</button>
     </div>
+    <div id="log-list"></div>
   </div>
-  <div id="log-list"></div>
+
+  <!-- ── MY ROSTER VIEW ────────────────────────────── -->
+  <div id="log-view-roster" style="display:none">
+    <!-- Header bar: period selector + upload -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;gap:8px">
+      <select id="roster-period-select" class="field" style="flex:1;font-size:.8rem;padding:7px 10px"
+              onchange="loadRosterDuties(this.value)">
+        <option value="">— No roster uploaded —</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="triggerRosterUpload()" style="white-space:nowrap;flex-shrink:0">
+        ⬆ Upload PDF
+      </button>
+    </div>
+    <input type="file" id="roster-file-input" accept="application/pdf" style="display:none" onchange="handleRosterFile(event)"/>
+
+    <!-- Offline notice -->
+    <div id="roster-offline-notice" style="display:none;text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:.82rem">
+      📡 My Roster requires a connection to load.
+    </div>
+
+    <!-- Duty list -->
+    <div id="roster-duty-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ROSTER IMPORT PREVIEW MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="roster-preview-modal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:90vh;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">📋 Roster Preview</div>
+      <div id="roster-preview-meta" style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px"></div>
+    </div>
+    <!-- Body -->
+    <div id="roster-preview-body" style="flex:1;overflow-y:auto;padding:12px 16px"></div>
+    <!-- Footer -->
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeRosterPreview()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="confirmRosterImport()" class="btn btn-primary" style="flex:1" id="roster-import-btn">Import Roster</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ROSTER DUTY COMPLETE SHEET
+════════════════════════════════════════════════════════════ -->
+<div id="roster-complete-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div>
+        <div id="rcs-title" style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)"></div>
+        <div id="rcs-sub"   style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeRosterCompleteSheet()" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div id="rcs-body" style="flex:1;overflow-y:auto;padding:14px 16px 0"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeRosterCompleteSheet()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="saveRosterComplete()" class="btn btn-primary" style="flex:1">Save & Complete</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -11613,7 +11719,7 @@ function showTab(name){
   if(tabEl) tabEl.classList.add('active');
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
-  if(name==='log')     renderLog();
+  if(name==='log'){    renderLog(); initRosterTab(); }
   if(name==='hub')     renderCrewHub();
   if(name==='db'){
     loadAdminUsers().then(()=>{
@@ -11816,6 +11922,619 @@ function renderLog(){
     parts.push(logItemHTML(e));
   }
   el.innerHTML = parts.join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MY ROSTER
+// ═══════════════════════════════════════════════════════════════
+
+/* ── State ─────────────────────────────────────────────────── */
+let _rosterState = {
+  parsed:    null,   // { meta, duties } from parseRosterPDF()
+  rosterId:  null,   // current crew_rosters.id being viewed
+  duties:    [],     // roster_duties rows for current roster
+  completeId: null,  // roster_duties.id being completed
+};
+
+/* ── Sub-tab switcher ───────────────────────────────────────── */
+function switchLogView(tab){
+  document.getElementById('log-view-flights').style.display = tab==='flights' ? '' : 'none';
+  document.getElementById('log-view-roster').style.display  = tab==='roster'  ? '' : 'none';
+  document.getElementById('log-subtab-flights').classList.toggle('active', tab==='flights');
+  document.getElementById('log-subtab-roster').classList.toggle('active',  tab==='roster');
+  if(tab==='roster') initRosterTab();
+}
+
+/* ── Init: populate period selector ────────────────────────── */
+async function initRosterTab(){
+  if(!isOnline){
+    document.getElementById('roster-offline-notice').style.display = '';
+    document.getElementById('roster-duty-list').innerHTML = '';
+    document.getElementById('roster-period-select').innerHTML = '<option value="">— Offline —</option>';
+    return;
+  }
+  document.getElementById('roster-offline-notice').style.display = 'none';
+  try{
+    const { data, error } = await sb.from('crew_rosters')
+      .select('id, crew_name, crew_code, period_from, period_to, source_filename')
+      .order('period_from', { ascending: false });
+    if(error) throw error;
+    const sel = document.getElementById('roster-period-select');
+    if(!data || !data.length){
+      sel.innerHTML = '<option value="">— No roster uploaded yet —</option>';
+      document.getElementById('roster-duty-list').innerHTML =
+        `<div class="empty" style="padding:32px 0;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">📋</div>
+          <div style="font-size:.9rem;font-weight:700;color:var(--color-text-primary);margin-bottom:4px">No roster yet</div>
+          <div style="font-size:.78rem;color:var(--color-text-muted)">Upload your ARMS® Crew Daily Roster PDF to get started.</div>
+        </div>`;
+      return;
+    }
+    sel.innerHTML = data.map(r =>
+      `<option value="${r.id}">${fmtRosterPeriod(r.period_from, r.period_to)} — ${r.crew_code||r.crew_name||''}</option>`
+    ).join('');
+    // Auto-select: prefer the roster that covers today, else first
+    const today = new Date().toISOString().slice(0,10);
+    const covering = data.find(r => r.period_from <= today && r.period_to >= today);
+    sel.value = covering ? covering.id : data[0].id;
+    await loadRosterDuties(sel.value);
+  }catch(e){
+    console.warn('[ROSTER] init failed:', e.message);
+  }
+}
+
+function fmtRosterPeriod(from, to){
+  if(!from) return '—';
+  const f = d => { const p=d.split('-'); return `${parseInt(p[2])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1]} ${p[0]}`; };
+  return `${f(from)}${to && to!==from ? ' – '+f(to) : ''}`;
+}
+
+/* ── Load duties for a roster ───────────────────────────────── */
+async function loadRosterDuties(rosterId){
+  if(!rosterId) return;
+  _rosterState.rosterId = rosterId;
+  document.getElementById('roster-duty-list').innerHTML =
+    `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
+  try{
+    const { data, error } = await sb.from('roster_duties')
+      .select('*')
+      .eq('roster_id', rosterId)
+      .order('duty_date', { ascending: true });
+    if(error) throw error;
+    _rosterState.duties = data || [];
+    renderRosterDuties();
+  }catch(e){
+    document.getElementById('roster-duty-list').innerHTML =
+      `<div style="text-align:center;padding:24px;color:var(--color-warning);font-size:.82rem">⚠ Could not load duties: ${e.message}</div>`;
+  }
+}
+
+/* ── Render duty list ───────────────────────────────────────── */
+function renderRosterDuties(){
+  const duties = _rosterState.duties;
+  const el = document.getElementById('roster-duty-list');
+  if(!duties.length){ el.innerHTML = '<div class="empty" style="padding:24px 0;text-align:center">No duties found.</div>'; return; }
+
+  const today = new Date().toISOString().slice(0,10);
+  const parts = [];
+  let lastWeek = '';
+
+  for(const d of duties){
+    // Week heading
+    const weekKey = getISOWeek(d.duty_date);
+    if(weekKey !== lastWeek){
+      parts.push(`<div class="roster-week-heading">${weekHeadingLabel(d.duty_date)}</div>`);
+      lastWeek = weekKey;
+    }
+    parts.push(rosterDutyCardHTML(d, today));
+  }
+  el.innerHTML = parts.join('');
+}
+
+function getISOWeek(dateStr){
+  const d = new Date(dateStr);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  const y = d.getFullYear();
+  const w = Math.ceil((((d - new Date(y,0,1))/86400000)+1)/7);
+  return `${y}-W${w}`;
+}
+
+function weekHeadingLabel(dateStr){
+  const d = new Date(dateStr);
+  const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const fmt = x => `${x.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]}`;
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+function dutyTypeLabel(type){
+  if(!type) return { text:'Unknown', cls:'rct-dma' };
+  const t = type.toUpperCase();
+  if(t.startsWith('OP'))          return { text:'Operating ✈️', cls:'rct-op' };
+  if(t==='DMA')                   return { text:'Duty May be Assigned', cls:'rct-dma' };
+  if(t==='WOFF')                  return { text:'Weekly Off', cls:'rct-woff' };
+  if(t.includes('LAYOVER'))       return { text:'Layover 🏨', cls:'rct-layover' };
+  if(t==='NA')                    return { text:'Not Available', cls:'rct-na' };
+  if(t==='SBY')                   return { text:'Standby 📲', cls:'rct-dma' };
+  if(t==='TRG')                   return { text:'Training 📚', cls:'rct-dma' };
+  if(t==='GRD')                   return { text:'Ground Duty 🏢', cls:'rct-dma' };
+  return { text: escHtml(type), cls:'rct-dma' };
+}
+
+function statusBadgeHTML(status){
+  const map = {
+    rostered:  { cls:'rsb-rostered',  text:'Rostered' },
+    completed: { cls:'rsb-completed', text:'Completed ✓' },
+    cancelled: { cls:'rsb-cancelled', text:'Cancelled' },
+    diverted:  { cls:'rsb-diverted',  text:'Diverted' },
+    standby:   { cls:'rsb-rostered',  text:'Standby' },
+  };
+  const s = map[status] || map.rostered;
+  return `<span class="roster-status-badge ${s.cls}">${s.text}</span>`;
+}
+
+function minsToHHMM(mins){
+  if(!mins && mins!==0) return '–';
+  const h = Math.floor(mins/60), m = mins%60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function rosterDutyCardHTML(d, today){
+  const isToday  = d.duty_date === today;
+  const isOP     = d.duty_type && d.duty_type.toUpperCase().startsWith('OP');
+  const dtl      = dutyTypeLabel(d.duty_type);
+  const dateDisp = (() => {
+    const p = d.duty_date.split('-');
+    return `${parseInt(p[2])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1]}`;
+  })();
+
+  let cardCls = 'roster-card';
+  if(isOP){
+    cardCls += ' rc-op';
+    if(isToday)                        cardCls += ' rc-today';
+    if(d.status === 'completed')       cardCls += ' rc-completed';
+    if(d.status === 'cancelled')       cardCls += ' rc-cancelled';
+    if(d.status === 'diverted')        cardCls += ' rc-diverted';
+  } else {
+    const tl = d.duty_type?.toUpperCase() || '';
+    if(tl === 'DMA')           cardCls += ' rc-dma';
+    else if(tl === 'WOFF')     cardCls += ' rc-woff';
+    else if(tl.includes('LAY')) cardCls += ' rc-layover';
+    else                        cardCls += ' rc-na';
+  }
+
+  if(!isOP){
+    return `<div class="${cardCls}">
+      <div class="roster-card-row">
+        <span class="roster-card-date">${dateDisp}</span>
+        <span class="roster-card-type ${dtl.cls}">${dtl.text}</span>
+        ${isToday ? '<span class="roster-today-pulse" style="margin-left:4px"></span>' : ''}
+      </div>
+    </div>`;
+  }
+
+  // OP card
+  const route    = [d.origin, d.destination].filter(Boolean).join(' → ') || '–';
+  const estBlock = d.block_scheduled_mins ? minsToHHMM(d.block_scheduled_mins) : '–';
+  const actBlock = d.block_actual_mins    ? minsToHHMM(d.block_actual_mins)    : null;
+  const showComplete = d.status === 'rostered' && d.duty_date <= today;
+
+  return `<div class="${cardCls}">
+    <div class="roster-card-row">
+      <span class="roster-card-date">${dateDisp}</span>
+      ${isToday ? '<span class="roster-today-pulse"></span>' : ''}
+      <span class="roster-card-flight">${escHtml(d.flight_number||'–')}</span>
+      <span class="roster-card-route">${escHtml(route)}</span>
+      ${statusBadgeHTML(d.status)}
+    </div>
+    <div class="roster-block-row">
+      <div class="roster-block-item">STD <span>${escHtml(d.std_local||d.std_utc||'–')}</span></div>
+      <div class="roster-block-item">STA <span>${escHtml((d.sta_local||d.sta_utc||'–').replace(/\/\d+$/,''))}</span></div>
+      <div class="roster-block-item">Est. Block <span>${estBlock}</span></div>
+      ${actBlock ? `<div class="roster-block-item">Actual Block <span style="color:#86efac">${actBlock}</span></div>` : ''}
+      ${d.divert_airport ? `<div class="roster-block-item">Diverted → <span style="color:#fde68a">${escHtml(d.divert_airport)}</span></div>` : ''}
+    </div>
+    ${showComplete ? `<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>` : ''}
+  </div>`;
+}
+
+/* ── Upload PDF ─────────────────────────────────────────────── */
+function triggerRosterUpload(){
+  document.getElementById('roster-file-input').value = '';
+  document.getElementById('roster-file-input').click();
+}
+
+async function handleRosterFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  toast('🔍 Parsing roster PDF…');
+  try{
+    const arrayBuffer = await file.arrayBuffer();
+    // Ensure PDF.js worker is configured
+    if(!window.pdfjsLib){
+      await new Promise((res,rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+    // Extract full text from all pages
+    const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for(let p = 1; p <= pdfDoc.numPages; p++){
+      const page  = await pdfDoc.getPage(p);
+      const tc    = await page.getTextContent();
+      fullText   += tc.items.map(i => i.str).join(' ') + '\n';
+    }
+
+    const parsed = parseRosterPDF(fullText);
+    if(!parsed || !parsed.duties.length) throw new Error('No duty rows found. Check the PDF format.');
+    _rosterState.parsed = { ...parsed, sourceFilename: file.name, rawText: fullText };
+    showRosterPreview(parsed, file.name);
+  }catch(e){
+    toast('⚠ ' + e.message);
+  }
+}
+
+/* ── Parser ─────────────────────────────────────────────────── */
+function parseRosterPDF(text){
+  // Normalise whitespace
+  const lines = text.split(/\n/).map(l => l.replace(/\s{2,}/g,' ').trim()).filter(Boolean);
+  const full  = lines.join('\n');
+
+  // ── Header fields ──
+  const crewNameM  = full.match(/Crew Name\s*[:\-]\s*([A-Z][A-Z\s]+)/i);
+  const crewCodeM  = full.match(/Crew Code\s*[:\-]\s*(\S+)/i);
+  const baseM      = full.match(/Base\s*[:\-]\s*(.+?)(?:\n|Crew|Period)/i);
+  const periodM    = full.match(/Period From\s*[:\-]\s*(\d{1,2}[- ]\w+[- ]\d{4})\s+to\s+(\d{1,2}[- ]\w+[- ]\d{4})/i);
+  const totalBlockM= full.match(/Total Block Time\s*[:\-]?\s*(\d{1,3}:\d{2})/i);
+
+  const meta = {
+    crewName:  crewNameM  ? crewNameM[1].trim()  : null,
+    crewCode:  crewCodeM  ? crewCodeM[1].trim()  : null,
+    base:      baseM      ? baseM[1].trim()      : null,
+    periodFrom: periodM   ? parseRosterDate(periodM[1]) : null,
+    periodTo:   periodM   ? parseRosterDate(periodM[2]) : null,
+    totalEstBlockMins: totalBlockM ? hhmmToMins(totalBlockM[1]) : null,
+  };
+
+  // Extract crew rank from first OP duty suffix e.g. "OP - (JCCM)"
+  const rankM = full.match(/OP\s*[-–]\s*\(([A-Z]+)\)/i);
+  meta.crewRank = rankM ? rankM[1].toUpperCase() : null;
+
+  // ── Table rows ──
+  // Pattern: S NO | DATE | TYPE | [FLIGHT] | STD | STD(UTC) | FROM | TO | STA | STA(UTC) | BLOCK | [REMARK]
+  // The extracted text puts each row on one line; we detect rows by leading integer
+  const duties = [];
+  let sNo = 0;
+
+  for(const line of lines){
+    // Matches a row that starts with a number (S NO)
+    const rowM = line.match(/^(\d+)\s+(\d{1,2}-\w{3}-\d{4})\s+(.+)/);
+    if(!rowM) continue;
+    sNo++;
+    const sNoVal  = parseInt(rowM[1]);
+    const dateRaw = rowM[2];   // e.g. "18-Nov-2026"
+    const rest    = rowM[3].trim();
+
+    const dutyDate = parseRosterDate(dateRaw);
+
+    // Normalise duty type
+    let dutyType = 'DMA';
+    let crewRankLocal = null;
+
+    const opM = rest.match(/^(OP)\s*[-–]\s*\(([A-Z]+)\)/i);
+    if(opM){
+      dutyType     = 'OP';
+      crewRankLocal = opM[2].toUpperCase();
+      if(!meta.crewRank) meta.crewRank = crewRankLocal;
+    } else if(/^DMA[-\s]Lay\s*[Oo]ver/i.test(rest)){
+      dutyType = 'DMA-LayOver';
+    } else if(/^DMA/i.test(rest)){
+      dutyType = 'DMA';
+    } else if(/^WOFF/i.test(rest)){
+      dutyType = 'WOFF';
+    } else if(/^(NA|Not\s*Available)/i.test(rest)){
+      dutyType = 'NA';
+    } else if(/^SBY/i.test(rest)){
+      dutyType = 'SBY';
+    } else if(/^TRG/i.test(rest)){
+      dutyType = 'TRG';
+    } else if(/^GRD/i.test(rest)){
+      dutyType = 'GRD';
+    }
+
+    // For OP rows parse the remaining flight data tokens
+    let flightNumber = null, stdLocal = null, stdUtc = null,
+        origin = null, destination = null, staLocal = null, staUtc = null,
+        blockScheduledMins = null, remark = null;
+
+    if(dutyType === 'OP'){
+      // After stripping the OP - (RANK) prefix, tokens are:
+      // FLIGHT  STD  STD(UTC)  FROM  TO  STA  STA(UTC)  BLOCK  [REMARK...]
+      const afterOp = rest.replace(/^OP\s*[-–]\s*\([A-Z]+\)\s*/i, '').trim();
+      const toks = afterOp.split(/\s+/);
+      // Flight number starts with UR/EY/etc followed by digits
+      let ti = 0;
+      if(toks[ti] && /^[A-Z]{1,2}\d{2,4}$/i.test(toks[ti])){
+        flightNumber = toks[ti++].toUpperCase();
+      }
+      // HH:MM local STD
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])) stdLocal = toks[ti++];
+      // HH:MM UTC STD
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])) stdUtc  = toks[ti++];
+      // 3-letter IATA origin
+      if(toks[ti] && /^[A-Z]{3}$/.test(toks[ti])) origin      = toks[ti++];
+      // 3-letter IATA destination
+      if(toks[ti] && /^[A-Z]{3}$/.test(toks[ti])) destination  = toks[ti++];
+      // STA local (may have /DD next-day suffix)
+      if(toks[ti] && /^\d{1,2}:\d{2}(\/\d{1,2})?$/.test(toks[ti])) staLocal = toks[ti++];
+      // STA UTC
+      if(toks[ti] && /^\d{1,2}:\d{2}(\/\d{1,2})?$/.test(toks[ti])) staUtc  = toks[ti++];
+      // Block HH:MM
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])){
+        blockScheduledMins = hhmmToMins(toks[ti++]);
+      }
+      // Remaining tokens = remark
+      if(ti < toks.length) remark = toks.slice(ti).join(' ');
+    } else if(dutyType === 'WOFF'){
+      // WOFF rows sometimes have STD / STA for the off-period window
+      const toks = rest.replace(/^WOFF\s*/i,'').trim().split(/\s+/);
+      if(toks[0] && /^\d{1,2}:\d{2}$/.test(toks[0])) stdLocal = toks[0];
+      if(toks[1] && /^\d{1,2}:\d{2}$/.test(toks[1])) stdUtc   = toks[1];
+      if(toks[2] && /^\d{1,2}:\d{2}$/.test(toks[2])) staLocal  = toks[2];
+      if(toks[3] && /^\d{1,2}:\d{2}$/.test(toks[3])) staUtc   = toks[3];
+    }
+
+    duties.push({
+      s_no: sNoVal,
+      duty_date: dutyDate,
+      duty_type: dutyType,
+      flight_number: flightNumber,
+      origin, destination,
+      std_local: stdLocal, std_utc: stdUtc,
+      sta_local: staLocal, sta_utc: staUtc,
+      block_scheduled_mins: blockScheduledMins,
+      remark,
+      status: 'rostered',
+    });
+  }
+
+  return { meta, duties };
+}
+
+function parseRosterDate(str){
+  if(!str) return null;
+  // Formats: "18-Nov-2026", "18 Nov 2026", "18 Nov. 2026"
+  const m = str.trim().match(/(\d{1,2})[-\s]+(\w{3,})[-\s.]+(\d{4})/);
+  if(!m) return null;
+  const months = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const mo = months[(m[2].slice(0,3).toLowerCase())];
+  if(!mo) return null;
+  return `${m[3]}-${String(mo).padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+
+function hhmmToMins(hhmm){
+  if(!hhmm) return null;
+  const p = hhmm.split(':');
+  return parseInt(p[0])*60 + parseInt(p[1]||'0');
+}
+
+/* ── Preview modal ──────────────────────────────────────────── */
+function showRosterPreview(parsed, filename){
+  const { meta, duties } = parsed;
+  const opCount  = duties.filter(d=>d.duty_type==='OP').length;
+  const offCount = duties.filter(d=>d.duty_type!=='OP').length;
+
+  document.getElementById('roster-preview-meta').textContent =
+    `${meta.crewName||''} · ${meta.crewCode||''} · ${fmtRosterPeriod(meta.periodFrom, meta.periodTo)}`;
+
+  const rows = duties.map(d => {
+    const dtl = dutyTypeLabel(d.duty_type);
+    return `<tr style="border-bottom:1px solid var(--color-border)">
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${d.duty_date}</td>
+      <td style="padding:5px 4px"><span class="roster-card-type ${dtl.cls}" style="font-size:.68rem">${dtl.text.replace(' ✈️','').replace(' 🏨','')}</span></td>
+      <td style="padding:5px 4px;font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${d.flight_number||'–'}</td>
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${[d.origin,d.destination].filter(Boolean).join('→')||'–'}</td>
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${d.block_scheduled_mins?minsToHHMM(d.block_scheduled_mins):'–'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('roster-preview-body').innerHTML =
+    `<div style="font-size:.8rem;color:var(--color-text-muted);margin-bottom:12px">
+      Found <strong style="color:var(--color-text-primary)">${opCount} operating flight${opCount!==1?'s':''}</strong>
+      and ${offCount} non-operating day${offCount!==1?'s':''}.
+      ${meta.totalEstBlockMins ? `Est. block time: <strong style="color:var(--color-text-primary)">${minsToHHMM(meta.totalEstBlockMins)}</strong>.` : ''}
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border)">
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Date</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Type</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Flight</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Route</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Est.Block</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  const modal = document.getElementById('roster-preview-modal');
+  modal.style.display = 'flex';
+}
+
+function closeRosterPreview(){
+  document.getElementById('roster-preview-modal').style.display = 'none';
+  _rosterState.parsed = null;
+}
+
+/* ── Confirm import → Supabase ──────────────────────────────── */
+async function confirmRosterImport(){
+  const p = _rosterState.parsed;
+  if(!p){ closeRosterPreview(); return; }
+  document.getElementById('roster-import-btn').textContent = 'Importing…';
+  document.getElementById('roster-import-btn').disabled = true;
+  try{
+    const { meta, duties, sourceFilename, rawText } = p;
+    // 1. Insert crew_roster header
+    const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
+      crew_name:            meta.crewName,
+      crew_code:            meta.crewCode,
+      crew_rank:            meta.crewRank,
+      base:                 meta.base,
+      period_from:          meta.periodFrom,
+      period_to:            meta.periodTo,
+      total_est_block_mins: meta.totalEstBlockMins,
+      source_filename:      sourceFilename,
+      raw_text:             rawText,
+    }).select('id').single();
+    if(rErr) throw rErr;
+    const rosterId = rRow.id;
+
+    // 2. Insert duty rows in batches of 50
+    const dutyRows = duties.map(d => ({ ...d, roster_id: rosterId }));
+    for(let i = 0; i < dutyRows.length; i += 50){
+      const { error: dErr } = await sb.from('roster_duties').insert(dutyRows.slice(i, i+50));
+      if(dErr) throw dErr;
+    }
+
+    toast('✅ Roster imported!');
+    closeRosterPreview();
+    await initRosterTab();
+  }catch(e){
+    toast('⚠ Import failed: ' + e.message);
+  }finally{
+    const btn = document.getElementById('roster-import-btn');
+    if(btn){ btn.textContent = 'Import Roster'; btn.disabled = false; }
+  }
+}
+
+/* ── Mark Complete sheet ────────────────────────────────────── */
+function openRosterCompleteSheet(dutyId){
+  const d = _rosterState.duties.find(x => x.id === dutyId);
+  if(!d) return;
+  _rosterState.completeId = dutyId;
+
+  document.getElementById('rcs-title').textContent =
+    `${d.flight_number||'Flight'} · ${d.origin||'–'} → ${d.destination||'–'}`;
+  document.getElementById('rcs-sub').textContent =
+    fmtRosterPeriod(d.duty_date, d.duty_date);
+
+  const preSTD = d.std_local || '';
+  const preSTA = (d.sta_local || '').replace(/\/\d+$/,'');
+  const preBlock = d.block_scheduled_mins
+    ? `${String(Math.floor(d.block_scheduled_mins/60)).padStart(2,'0')}:${String(d.block_scheduled_mins%60).padStart(2,'0')}`
+    : '';
+
+  document.getElementById('rcs-body').innerHTML = `
+    <div style="margin-bottom:14px">
+      <div class="rcs-label">Flight Status</div>
+      <div class="rcs-status-grid">
+        <button class="rcs-status-btn selected" data-status="completed"   onclick="selectRcsStatus(this,'completed')">✅ On Time</button>
+        <button class="rcs-status-btn"           data-status="completed"  onclick="selectRcsStatus(this,'completed')" data-label="Early">⚡ Early</button>
+        <button class="rcs-status-btn"           data-status="diverted"  onclick="selectRcsStatus(this,'diverted')">🔀 Diverted</button>
+        <button class="rcs-status-btn"           data-status="cancelled" onclick="selectRcsStatus(this,'cancelled')">❌ Cancelled</button>
+      </div>
+    </div>
+
+    <div id="rcs-divert-row" style="display:none;margin-bottom:14px">
+      <div class="rcs-label">Divert Airport (IATA)</div>
+      <input id="rcs-divert" class="field" type="text" maxlength="4" placeholder="e.g. NBO"
+             style="text-transform:uppercase;font-size:.9rem" oninput="this.value=this.value.toUpperCase()"/>
+    </div>
+
+    <div id="rcs-flight-details">
+      <div class="rcs-time-row">
+        <div>
+          <div class="rcs-label">Actual Block Time</div>
+          <input id="rcs-block" class="field" type="text" placeholder="HH:MM"
+                 value="${preBlock}" style="font-size:.9rem;text-align:center"/>
+        </div>
+        <div></div>
+      </div>
+      <div class="rcs-time-row">
+        <div>
+          <div class="rcs-label">ATD — Actual Departure</div>
+          <input id="rcs-atd" class="field" type="text" placeholder="HH:MM"
+                 value="${preSTD}" style="font-size:.9rem;text-align:center"/>
+        </div>
+        <div>
+          <div class="rcs-label">ATA — Actual Arrival</div>
+          <input id="rcs-ata" class="field" type="text" placeholder="HH:MM"
+                 value="${preSTA}" style="font-size:.9rem;text-align:center"/>
+        </div>
+      </div>
+      <div>
+        <div class="rcs-label">Note (optional)</div>
+        <input id="rcs-note" class="field" type="text" placeholder="Any remarks…" style="font-size:.85rem"/>
+      </div>
+    </div>
+    <div style="height:16px"></div>`;
+
+  document.getElementById('roster-complete-sheet').style.display = 'flex';
+}
+
+function selectRcsStatus(btn, status){
+  document.querySelectorAll('.rcs-status-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('rcs-divert-row').style.display =
+    status === 'diverted' ? '' : 'none';
+  document.getElementById('rcs-flight-details').style.display =
+    status === 'cancelled' ? 'none' : '';
+}
+
+function closeRosterCompleteSheet(){
+  document.getElementById('roster-complete-sheet').style.display = 'none';
+  _rosterState.completeId = null;
+}
+
+async function saveRosterComplete(){
+  const dutyId = _rosterState.completeId;
+  if(!dutyId) return;
+
+  const selectedBtn = document.querySelector('.rcs-status-btn.selected');
+  const status      = selectedBtn?.dataset.status || 'completed';
+  const divert      = (document.getElementById('rcs-divert')?.value || '').trim().toUpperCase() || null;
+  const blockRaw    = (document.getElementById('rcs-block')?.value || '').trim();
+  const atd         = (document.getElementById('rcs-atd')?.value || '').trim() || null;
+  const ata         = (document.getElementById('rcs-ata')?.value || '').trim() || null;
+  const note        = (document.getElementById('rcs-note')?.value || '').trim() || null;
+  const blockMins   = blockRaw ? hhmmToMins(blockRaw) : null;
+
+  if(status !== 'cancelled' && !blockRaw){
+    toast('⚠ Please enter the actual block time.'); return;
+  }
+
+  try{
+    const update = {
+      status,
+      block_actual_mins: blockMins,
+      atd_local:         atd,
+      ata_local:         ata,
+      divert_airport:    status === 'diverted' ? divert : null,
+      completion_note:   note,
+      completed_at:      new Date().toISOString(),
+    };
+    const { error } = await sb.from('roster_duties').update(update).eq('id', dutyId);
+    if(error) throw error;
+
+    // Update local state
+    const idx = _rosterState.duties.findIndex(x => x.id === dutyId);
+    if(idx !== -1) _rosterState.duties[idx] = { ..._rosterState.duties[idx], ...update };
+
+    toast('✅ Flight marked as ' + status);
+    closeRosterCompleteSheet();
+    renderRosterDuties();
+  }catch(e){
+    toast('⚠ Could not save: ' + e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════
