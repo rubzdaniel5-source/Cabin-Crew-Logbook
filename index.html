@@ -12396,22 +12396,24 @@ async function confirmRosterImport(){
   document.getElementById('roster-import-btn').disabled = true;
   try{
     const { meta, duties, sourceFilename, rawText } = p;
-    // Resolve tenant_id: read from profiles, fall back to independent tenant
+
+    // Resolve tenant_id via SECURITY DEFINER RPC — the server looks up the
+    // caller's tenant_id from profiles using auth.uid(), so there is no
+    // client-side mismatch with the RLS INSERT policy on crew_rosters.
     let tenantId = null;
-    const { data: profileRow } = await sb
-      .from('profiles').select('tenant_id').eq('id', currentUser.id).single();
-    tenantId = profileRow?.tenant_id || null;
-    if(!tenantId){
-      // Profile missing tenant_id (user registered before backfill, or sign-up race).
-      // Assign the independent pseudo-tenant and patch the profile.
-      const { data: indTenant } = await sb
-        .from('guestora_tenants').select('id').eq('slug','independent').single();
-      tenantId = indTenant?.id || null;
-      if(tenantId){
-        await sb.from('profiles').update({ tenant_id: tenantId }).eq('id', currentUser.id);
-      }
+    const { data: rpcTenant, error: rpcErr } = await sb.rpc('guestora_resolve_tenant_id');
+    if(!rpcErr && rpcTenant) {
+      tenantId = rpcTenant;
+    } else {
+      // RPC fallback: direct profiles read (works when RLS session is healthy)
+      const { data: profileRow, error: profErr } = await sb
+        .from('profiles').select('tenant_id').eq('id', currentUser.id).single();
+      if(profErr) console.warn('profiles select error:', profErr.message);
+      tenantId = profileRow?.tenant_id || null;
     }
-    if(!tenantId) throw new Error('Could not resolve tenant. Contact your administrator.');
+    if(!tenantId) throw new Error(
+      'Could not resolve your tenant. Please sign out and sign back in, then try again.'
+    );
 
     // 1. Insert crew_roster header
     const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
