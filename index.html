@@ -873,6 +873,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 /* Served check mark on seat */
 .gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
 .gs-seat-allergen{position:absolute;top:2px;right:4px;font-size:.55rem;color:var(--color-warning);z-index:2;line-height:1}
+.gs-seat-pax{font-size:.5rem;color:rgba(255,255,255,.55);line-height:1;max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;z-index:1}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -3334,6 +3335,8 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <div class="gs-sheet-seat" id="gs-sheet-seat-label">Seat –</div>
       <div id="gs-status-pill-wrap"></div>
     </div>
+    <!-- PAX info bar — shown when manifest is loaded for this flight -->
+    <div id="gs-sheet-pax-info" style="display:none;padding:8px 16px 6px;border-bottom:1px solid var(--color-border);background:rgba(255,255,255,.04)"></div>
     <div class="gs-sheet-body" id="gs-sheet-body">
       <!-- populated by gsOpenOrderSheet() -->
     </div>
@@ -4914,6 +4917,7 @@ let _gs = {
   selectedCat:   null,  // 'Meal' | 'Drink' | 'Special Request'
   activeMenu:    null,  // cached active menu (invalidated on publish)
   mealInventory: null,  // { [itemId]: { name, total, remaining } } or null if not entered
+  paxManifest:   null,  // array of pax objects from passenger_manifests for current flight, or null
 };
 
 // ── Brand application — swaps 'GUESTORA' label for tenant's dining_brand ─────
@@ -4953,6 +4957,7 @@ function closeGuestoraOverlay(){
   gsCloseOrderSheet();
   _gs.activeMenu    = null; // reset so next open fetches fresh menu
   _gs.mealInventory = null; // reset so next session prompts fresh counts
+  _gs.paxManifest   = null; // reset so next session fetches fresh manifest
 }
 
 // ── View navigation ───────────────────────────────────────────────────────────
@@ -5238,6 +5243,9 @@ async function gsSelectSector(flight){
       cabinList.appendChild(div);
     });
   }
+  // Load pax manifest for this flight (best-effort, non-blocking)
+  gsLoadPaxManifest(flightNum, date);
+
   gsShowView('cabin');
 }
 
@@ -5391,6 +5399,18 @@ function gsRenderSeatMap(cabin){
           seatEl.classList.add('empty');
         }
 
+        // PAX name label — show surname if manifest loaded for this flight
+        const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+        if(pax){
+          const nameEl = document.createElement('div');
+          nameEl.className = 'gs-seat-pax';
+          // Show first word of surname (before '/') truncated to 5 chars
+          const raw = (pax.name||'').split('/')[0].trim();
+          nameEl.textContent = raw.length > 5 ? raw.slice(0,5)+'…' : (raw||'PAX');
+          nameEl.title = pax.name || '';
+          seatEl.appendChild(nameEl);
+        }
+
         seatEl.onclick = ()=>gsOpenOrderSheet(seatNum, order||null);
         groupEl.appendChild(seatEl);
       });
@@ -5431,6 +5451,25 @@ async function gsOpenOrderSheet(seatNum, existingOrder){
   _gs.sheetMode    = existingOrder ? 'view' : 'new';
 
   document.getElementById('gs-sheet-seat-label').textContent = 'Seat ' + seatNum;
+
+  // Show pax name in sheet header if manifest is loaded
+  const paxInfoEl = document.getElementById('gs-sheet-pax-info');
+  if(paxInfoEl){
+    const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+    if(pax){
+      const statusBadge = pax.status === 'checked_in'
+        ? '<span style="font-size:.6rem;background:rgba(26,122,69,.35);color:#2ecc71;border:1px solid #1a7a45;border-radius:4px;padding:1px 5px;margin-left:4px">✓ Checked In</span>'
+        : '<span style="font-size:.6rem;background:rgba(255,255,255,.08);color:var(--muted);border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:1px 5px;margin-left:4px">Pending</span>';
+      const cabinLabel = pax.cabin === 'JC' ? 'Business' : pax.cabin === 'PYC' ? 'Premium Econ' : 'Economy';
+      paxInfoEl.innerHTML = `
+        <div style="font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${escHtml(pax.name||'Unknown')}${statusBadge}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:1px">${cabinLabel}${pax.arr?' · → '+escHtml(pax.arr):''}${pax.gender?' · '+escHtml(pax.gender):''}</div>`;
+      paxInfoEl.style.display = 'block';
+    } else {
+      paxInfoEl.innerHTML = '';
+      paxInfoEl.style.display = 'none';
+    }
+  }
 
   const pillWrap = document.getElementById('gs-status-pill-wrap');
   if(existingOrder){
@@ -5922,6 +5961,38 @@ async function gsSaveInventory(){
 
 function gsCloseInventoryModal(){
   document.getElementById('gs-inventory-modal').style.display = 'none';
+}
+
+// ── PAX manifest pre-fill ─────────────────────────────────────────────────────
+
+/**
+ * Fetch the passenger manifest for a given flight+date into _gs.paxManifest.
+ * Called non-blocking from gsSelectSector(); failures are silent.
+ * Builds a seat→pax lookup used by the seat map renderer and order sheet.
+ */
+async function gsLoadPaxManifest(flightNum, date){
+  _gs.paxManifest = null;
+  if(!isOnline) return; // offline: no manifest (future: could cache in IDB)
+  try{
+    const { data, error } = await sb.from('passenger_manifests')
+      .select('passengers')
+      .eq('flight_number', flightNum)
+      .eq('flight_date', date)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if(error || !data) return; // no manifest for this flight — silently skip
+    const pax = data.passengers
+      ? (typeof data.passengers === 'string' ? JSON.parse(data.passengers) : data.passengers)
+      : [];
+    _gs.paxManifest = pax.length ? pax : null;
+    // Refresh seat map if it's already visible (crew had it open while manifest loaded)
+    if(_gs.cabin && document.getElementById('gs-view-seatmap')?.classList.contains('active')){
+      gsRenderSeatMap(_gs.cabin);
+    }
+  }catch(e){
+    console.warn('[GUESTORA] pax manifest fetch failed:', e.message);
+  }
 }
 
 /**
@@ -10326,6 +10397,7 @@ async function loadManifests(){
       if(!manifests.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests for your flights</h3><p>Your flights do not have uploaded manifests yet.</p></div>'; return; }
     }
 
+    const canManage = isAdmin || getUserRole() === 'ops_manager';
     el.innerHTML = manifests.map(m=>{
       const pax      = m.passengers ? (typeof m.passengers==='string' ? JSON.parse(m.passengers) : m.passengers) : [];
       const summary  = m.flight_summary ? (typeof m.flight_summary==='string' ? JSON.parse(m.flight_summary) : m.flight_summary) : {};
@@ -10334,21 +10406,31 @@ async function loadManifests(){
       const py = pax.filter(p=>p.cabin==='PYC').length;
       const yc = pax.filter(p=>p.cabin==='YC').length;
       const methodBadge = m.upload_method ? `<span class="mfst-upload-method ${m.upload_method}">${m.upload_method==='api'?'🔗 API':m.upload_method==='agent'?'🎫 Agent':'👤 Admin'}</span>` : '';
+      const deleteBtn = canManage
+        ? `<button onclick="event.stopPropagation();deleteManifest('${m.id}','${escHtml(m.flight_number)}','${m.flight_date}')"
+            style="padding:5px 10px;border-radius:7px;border:1px solid rgba(184,41,42,.5);background:rgba(184,41,42,.12);color:#ff6b6b;font-size:.7rem;cursor:pointer;flex-shrink:0">🗑 Delete</button>`
+        : '';
       return `
-      <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="viewManifest('${m.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <div>
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;cursor:pointer" onclick="viewManifest('${m.id}')">
+          <div style="flex:1;min-width:0">
             <div style="font-weight:800;color:var(--color-text-primary)">${escHtml(m.flight_number)} ${methodBadge}</div>
             <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${m.flight_date} · ${escHtml(m.dep||'?')} → ${escHtml(m.arr||'?')} · Uploaded ${uploaded}</div>
+            ${m.uploaded_by_name ? `<div style="font-size:.68rem;color:var(--muted)">By ${escHtml(m.uploaded_by_name)}</div>` : ''}
           </div>
-          <div style="text-align:right;font-size:.72rem;color:var(--muted)">
+          <div style="text-align:right;font-size:.72rem;color:var(--muted);flex-shrink:0;margin-left:10px">
             ${pax.length > 0
               ? `<div style="font-weight:700;color:var(--color-text-primary)">${pax.length} pax</div>
                  <div>${jc?`JC:${jc} ·`:''} ${py?`PYC:${py} ·`:''} YC:${yc}</div>`
               : '<div>No pax data</div>'}
           </div>
         </div>
-        ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted)">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
+        ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button onclick="viewManifest('${m.id}')"
+            style="flex:1;padding:6px 10px;border-radius:7px;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:.75rem;cursor:pointer">View Manifest</button>
+          ${deleteBtn}
+        </div>
       </div>`;
     }).join('');
   }catch(e){
@@ -10394,8 +10476,13 @@ async function viewManifest(id){
     <div class="mfst-section-hdr">→ ${dest} (${passengers.length} passengers)</div>
     ${paxRowHtml(passengers)}`).join('');
 
+  const canManage = isAdmin || getUserRole() === 'ops_manager';
   el.innerHTML = `
-    <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">← Back to list</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="flex:1;text-align:left">← Back to list</button>
+      ${canManage ? `<button onclick="deleteManifest('${id}','${escHtml(data.flight_number)}','${data.flight_date}')"
+        style="padding:6px 12px;border-radius:7px;border:1px solid rgba(184,41,42,.5);background:rgba(184,41,42,.12);color:#ff6b6b;font-size:.75rem;cursor:pointer;flex-shrink:0">🗑 Delete</button>` : ''}
+    </div>
 
     <!-- Flight header -->
     <div class="mfst-header">
@@ -10456,6 +10543,19 @@ function mfstSearchFilter(q, manifestId){
         </div>
         <span class="mfst-status-badge ${p.status==='checked_in'?'checked':'pending'}">${p.status==='checked_in'?'✓ In':'Pend'}</span>
       </div>`).join('')}`).join('');
+}
+
+// ── Manifest delete ───────────────────────────────────────────────────────────
+async function deleteManifest(id, flightNum, date){
+  if(!confirm(`Delete manifest for ${flightNum} on ${date}?\n\nThis cannot be undone.`)) return;
+  try{
+    const { error } = await sb.from('passenger_manifests').delete().eq('id', id);
+    if(error) throw error;
+    toast(`🗑 Manifest for ${flightNum} deleted`);
+    loadManifests();
+  }catch(e){
+    toast('⚠ Could not delete: ' + e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════
