@@ -2128,6 +2128,35 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   </div>
 </div>
 
+<!-- ── Seat map preview modal (admin — read-only full fuselage view) ──────────── -->
+<div id="ga-seatmap-preview-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="background:var(--color-modal-bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div>
+        <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)" id="ga-preview-modal-title">Seat Map Preview</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="ga-preview-modal-sub">All seats shown empty</div>
+      </div>
+      <button onclick="gaClosePreviewModal()" style="background:none;border:none;color:var(--muted);font-size:1.6rem;line-height:1;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    <!-- Cabin tab strip (shown when >1 cabin) -->
+    <div id="ga-preview-cabin-tabs" style="display:none;flex-shrink:0;border-bottom:1px solid var(--color-border);overflow-x:auto;white-space:nowrap;padding:0 8px"></div>
+    <!-- Legend -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2)"></div>Empty</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(201,124,10,.35);border:1.5px solid #c97c0a"></div>Order</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(26,122,69,.35);border:1.5px solid #1a7a45"></div>Served</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(184,41,42,.35);border:1.5px solid #b8292a"></div>Special</div>
+    </div>
+    <!-- Scrollable seat map -->
+    <div id="ga-preview-seatmap-body" style="flex:1;overflow-y:auto;padding:0"></div>
+    <!-- Footer -->
+    <div style="padding:14px 16px;border-top:1px solid var(--color-border);flex-shrink:0">
+      <button onclick="gaClosePreviewModal()" class="btn" style="width:100%;font-size:.85rem;padding:12px">Close Preview</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      MENU DRAWER
 ════════════════════════════════════════════════════════════ -->
@@ -3944,6 +3973,7 @@ async function gaRenderAircraftList(){
             <div style="font-size:.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cabinLabels} · ${totalSeats} seats</div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
+            <button onclick="gaPreviewAircraftSeatMap('${cfg.id}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">Preview</button>
             <button onclick="gaOpenAircraftEditor('${cfg.id}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">Edit</button>
             <button onclick="gaDeleteAircraft('${cfg.id}','${cfg.actype}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px;color:var(--color-error);border-color:var(--color-error)">Delete</button>
           </div>
@@ -4046,6 +4076,7 @@ async function gaOpenAircraftEditor(configId){
     <div id="ga-cabins-wrap"></div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button onclick="gaSaveAircraftConfig()" class="btn btn-primary" style="flex:1">Save</button>
+      <button onclick="gaPreviewFromEditor()" class="btn" style="flex:1">Preview Map</button>
       <button onclick="gaCloseAircraftModal()" class="btn" style="flex:1">Cancel</button>
     </div>`;
   renderCabinRows();
@@ -4187,6 +4218,208 @@ function gaCloseAircraftModal(){
   if(modal) modal.style.display = 'none';
   _gaEditCabins = [];
   _gaEditConfigId = null;
+}
+
+// ── Seat map preview (admin read-only) ───────────────────────────────────────
+
+let _gaPreviewCfg = null;    // current config being previewed
+let _gaPreviewCabinIdx = 0;  // which cabin tab is active
+
+/**
+ * Preview from within the editor — reads the current DOM state (unsaved)
+ * and renders a preview without saving to IDB.
+ */
+function gaPreviewFromEditor(){
+  _gaReadCabinsFromDOM();
+  const actype = document.getElementById('ga-actype-input')?.value.trim() || 'Preview';
+  if(!_gaEditCabins.length){ toast('Add at least one cabin first'); return; }
+  // Build a temporary cfg object (same shape as an IDB record)
+  const tempCfg = {
+    id:      _gaEditConfigId || '_preview',
+    actype,
+    aliases: [],
+    cabins:  JSON.parse(JSON.stringify(_gaEditCabins))
+  };
+  // Open the preview using the in-memory config directly
+  _gaPreviewCfg = tempCfg;
+  _gaPreviewCabinIdx = 0;
+
+  document.getElementById('ga-preview-modal-title').textContent = actype + ' — Seat Map (Unsaved Preview)';
+  document.getElementById('ga-preview-modal-sub').textContent =
+    tempCfg.cabins.map(c=>`${c.label||'Cabin'} (${c.seatCount||0} seats)`).join('  ·  ') +
+    '  ·  Unsaved — changes reflected here';
+
+  const tabsEl = document.getElementById('ga-preview-cabin-tabs');
+  if(tempCfg.cabins.length > 1){
+    tabsEl.style.display = 'block';
+    tabsEl.innerHTML = tempCfg.cabins.map((c,i)=>`
+      <button id="ga-prev-tab-${i}" onclick="gaPreviewSwitchCabin(${i})"
+        style="display:inline-block;padding:10px 16px;border:none;background:none;font-size:.8rem;font-weight:700;cursor:pointer;
+               color:${i===0?'var(--color-accent)':'var(--muted)'};
+               border-bottom:2px solid ${i===0?'var(--color-accent)':'transparent'}">
+        ${escHtml(c.label||'Cabin '+(i+1))}
+      </button>`).join('');
+  } else {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+  }
+
+  gsRenderSeatMapPreview(tempCfg.cabins[0]);
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'flex';
+}
+
+async function gaPreviewAircraftSeatMap(configId){
+  const all = await idbAll('guestora_aircraft_configs');
+  const cfg = all.find(r=>r.id===configId);
+  if(!cfg){ toast('Config not found'); return; }
+  _gaPreviewCfg = cfg;
+  _gaPreviewCabinIdx = 0;
+
+  document.getElementById('ga-preview-modal-title').textContent = cfg.actype + ' — Seat Map';
+  document.getElementById('ga-preview-modal-sub').textContent =
+    (cfg.cabins||[]).map(c=>`${c.label} (${c.seatCount||0} seats)`).join('  ·  ') +
+    '  ·  All seats shown empty';
+
+  // Build cabin tabs
+  const tabsEl = document.getElementById('ga-preview-cabin-tabs');
+  if((cfg.cabins||[]).length > 1){
+    tabsEl.style.display = 'block';
+    tabsEl.innerHTML = cfg.cabins.map((c,i)=>`
+      <button id="ga-prev-tab-${i}" onclick="gaPreviewSwitchCabin(${i})"
+        style="display:inline-block;padding:10px 16px;border:none;background:none;font-size:.8rem;font-weight:700;cursor:pointer;
+               color:${i===0?'var(--color-accent)':'var(--muted)'};
+               border-bottom:2px solid ${i===0?'var(--color-accent)':'transparent'};
+               transition:color .15s">
+        ${escHtml(c.label)}
+      </button>`).join('');
+  } else {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+  }
+
+  gsRenderSeatMapPreview(cfg.cabins[0]);
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'flex';
+}
+
+function gaPreviewSwitchCabin(idx){
+  if(!_gaPreviewCfg) return;
+  _gaPreviewCabinIdx = idx;
+  // Update tab styles
+  (_gaPreviewCfg.cabins||[]).forEach((_,i)=>{
+    const btn = document.getElementById(`ga-prev-tab-${i}`);
+    if(!btn) return;
+    btn.style.color = i===idx ? 'var(--color-accent)' : 'var(--muted)';
+    btn.style.borderBottomColor = i===idx ? 'var(--color-accent)' : 'transparent';
+  });
+  gsRenderSeatMapPreview(_gaPreviewCfg.cabins[idx]);
+}
+
+function gaClosePreviewModal(){
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'none';
+  _gaPreviewCfg = null;
+}
+
+/**
+ * Renders a full fuselage view of a cabin into #ga-preview-seatmap-body.
+ * Read-only: all seats shown empty. No click handlers (or shows label on tap).
+ * Reuses the same layout logic as gsRenderSeatMap() but without order state.
+ */
+function gsRenderSeatMapPreview(cabin){
+  const body = document.getElementById('ga-preview-seatmap-body');
+  if(!body || !cabin) return;
+  body.innerHTML = '';
+
+  // Scroll back to top when switching cabins
+  body.scrollTop = 0;
+
+  // Fuselage wrapper
+  const fuselage = document.createElement('div');
+  fuselage.className = 'gs-fuselage';
+
+  // Nose nub
+  const nose = document.createElement('div');
+  nose.className = 'gs-nose';
+  fuselage.appendChild(nose);
+
+  // Cabin tube
+  const tube = document.createElement('div');
+  tube.className = 'gs-cabin-tube';
+
+  // FRONT label
+  const frontLbl = document.createElement('div');
+  frontLbl.className = 'gs-cabin-label-strip';
+  frontLbl.textContent = '▲  FRONT  ▲';
+  tube.appendChild(frontLbl);
+
+  // columns: stored right→left; reverse for screen left→right display
+  const displayCols = [...cabin.columns].reverse();
+
+  // Rows bottom-first (row 1 at bottom — crew face aft)
+  const rowsBottomFirst = [...cabin.rows].reverse();
+
+  rowsBottomFirst.forEach(rowNum=>{
+    const rowEl = document.createElement('div');
+    rowEl.className = 'gs-row';
+
+    // Row number left
+    const numL = document.createElement('div');
+    numL.className = 'gs-row-num';
+    numL.textContent = rowNum;
+    rowEl.appendChild(numL);
+
+    displayCols.forEach((group, gi)=>{
+      if(gi > 0){
+        const aisleEl = document.createElement('div');
+        aisleEl.className = 'gs-aisle';
+        const aisleInner = document.createElement('div');
+        aisleInner.className = 'gs-aisle-line';
+        aisleEl.appendChild(aisleInner);
+        rowEl.appendChild(aisleEl);
+      }
+      const groupEl = document.createElement('div');
+      groupEl.className = 'gs-col-group';
+      group.forEach(letter=>{
+        const seatNum = String(rowNum)+letter;
+        const seatEl  = document.createElement('div');
+        seatEl.className = 'gs-seat empty';
+        seatEl.dataset.seat = seatNum;
+        seatEl.title = seatNum;
+
+        const numSpan = document.createElement('div');
+        numSpan.className = 'gs-seat-num';
+        numSpan.textContent = seatNum;
+
+        const dot = document.createElement('div');
+        dot.className = 'gs-seat-dot';
+
+        seatEl.appendChild(numSpan);
+        seatEl.appendChild(dot);
+
+        // Preview-mode: tap shows seat label as toast (no order sheet)
+        seatEl.onclick = ()=>toast(seatNum);
+
+        groupEl.appendChild(seatEl);
+      });
+      rowEl.appendChild(groupEl);
+    });
+
+    // Row number right
+    const numR = document.createElement('div');
+    numR.className = 'gs-row-num';
+    numR.textContent = rowNum;
+    rowEl.appendChild(numR);
+
+    tube.appendChild(rowEl);
+  });
+
+  // REAR label
+  const rearLbl = document.createElement('div');
+  rearLbl.className = 'gs-cabin-label-strip';
+  rearLbl.textContent = '▼  REAR  ▼';
+  tube.appendChild(rearLbl);
+
+  fuselage.appendChild(tube);
+  body.appendChild(fuselage);
 }
 
 // ── Menu tab ──────────────────────────────────────────────────────────────────
