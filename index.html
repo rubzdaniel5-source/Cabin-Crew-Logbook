@@ -12396,9 +12396,12 @@ async function confirmRosterImport(){
   document.getElementById('roster-import-btn').disabled = true;
   try{
     const { meta, duties, sourceFilename, rawText } = p;
-    // Resolve tenant_id once — same function used by all other GUESTORA tables
-    const { data: tenantId } = await sb.rpc('guestora_resolve_tenant_id');
-    if(!tenantId) throw new Error('Could not resolve tenant. Are you logged in?');
+    // Resolve tenant_id from the logged-in user's profile row
+    const { data: profileRow, error: profErr } = await sb
+      .from('profiles').select('tenant_id').eq('id', currentUser.id).single();
+    if(profErr || !profileRow?.tenant_id)
+      throw new Error('Could not resolve tenant. Are you logged in?');
+    const tenantId = profileRow.tenant_id;
 
     // 1. Insert crew_roster header
     const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
