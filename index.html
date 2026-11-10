@@ -12163,13 +12163,26 @@ async function handleRosterFile(evt){
     window.pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-    // Extract full text from all pages
+    // Extract full text from all pages, preserving line breaks.
+    // PDF.js text items carry hasEOL=true when the item ends a visual line.
+    // We group items by their Y-position bucket (rounded to 1 dp) so items
+    // on the same line are joined with a space, and items on a new line get \n.
     const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
     for(let p = 1; p <= pdfDoc.numPages; p++){
-      const page  = await pdfDoc.getPage(p);
-      const tc    = await page.getTextContent();
-      fullText   += tc.items.map(i => i.str).join(' ') + '\n';
+      const page = await pdfDoc.getPage(p);
+      const tc   = await page.getTextContent({ normalizeWhitespace: true });
+      // Group by Y (rounded to nearest integer to absorb minor baseline jitter)
+      const rows = new Map();
+      for(const item of tc.items){
+        if(!item.str) continue;
+        const y = Math.round(item.transform[5]);
+        if(!rows.has(y)) rows.set(y, []);
+        rows.get(y).push(item.str);
+      }
+      // Sort Y descending (PDF Y=0 is bottom; higher Y = higher on page)
+      const sorted = [...rows.entries()].sort((a,b) => b[0]-a[0]);
+      fullText += sorted.map(([,words]) => words.join(' ')).join('\n') + '\n';
     }
 
     const parsed = parseRosterPDF(fullText);
