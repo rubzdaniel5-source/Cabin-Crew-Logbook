@@ -12396,12 +12396,22 @@ async function confirmRosterImport(){
   document.getElementById('roster-import-btn').disabled = true;
   try{
     const { meta, duties, sourceFilename, rawText } = p;
-    // Resolve tenant_id from the logged-in user's profile row
-    const { data: profileRow, error: profErr } = await sb
+    // Resolve tenant_id: read from profiles, fall back to independent tenant
+    let tenantId = null;
+    const { data: profileRow } = await sb
       .from('profiles').select('tenant_id').eq('id', currentUser.id).single();
-    if(profErr || !profileRow?.tenant_id)
-      throw new Error('Could not resolve tenant. Are you logged in?');
-    const tenantId = profileRow.tenant_id;
+    tenantId = profileRow?.tenant_id || null;
+    if(!tenantId){
+      // Profile missing tenant_id (user registered before backfill, or sign-up race).
+      // Assign the independent pseudo-tenant and patch the profile.
+      const { data: indTenant } = await sb
+        .from('guestora_tenants').select('id').eq('slug','independent').single();
+      tenantId = indTenant?.id || null;
+      if(tenantId){
+        await sb.from('profiles').update({ tenant_id: tenantId }).eq('id', currentUser.id);
+      }
+    }
+    if(!tenantId) throw new Error('Could not resolve tenant. Contact your administrator.');
 
     // 1. Insert crew_roster header
     const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
