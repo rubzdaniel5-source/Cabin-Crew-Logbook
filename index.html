@@ -12397,27 +12397,13 @@ async function confirmRosterImport(){
   try{
     const { meta, duties, sourceFilename, rawText } = p;
 
-    // Resolve tenant_id via SECURITY DEFINER RPC — the server looks up the
-    // caller's tenant_id from profiles using auth.uid(), so there is no
-    // client-side mismatch with the RLS INSERT policy on crew_rosters.
-    let tenantId = null;
-    const { data: rpcTenant, error: rpcErr } = await sb.rpc('guestora_resolve_tenant_id');
-    if(!rpcErr && rpcTenant) {
-      tenantId = rpcTenant;
-    } else {
-      // RPC fallback: direct profiles read (works when RLS session is healthy)
-      const { data: profileRow, error: profErr } = await sb
-        .from('profiles').select('tenant_id').eq('id', currentUser.id).single();
-      if(profErr) console.warn('profiles select error:', profErr.message);
-      tenantId = profileRow?.tenant_id || null;
-    }
-    if(!tenantId) throw new Error(
-      'Could not resolve your tenant. Please sign out and sign back in, then try again.'
-    );
+    // tenant_id is NOT sent by the client.
+    // Migration 15 BEFORE INSERT triggers on crew_rosters and roster_duties
+    // call guestora_resolve_tenant_id() server-side (SECURITY DEFINER) and
+    // set tenant_id automatically — same pattern as passenger_manifests.
 
-    // 1. Insert crew_roster header
+    // 1. Insert crew_roster header (no tenant_id — trigger sets it)
     const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
-      tenant_id,
       crew_name:            meta.crewName,
       crew_code:            meta.crewCode,
       crew_rank:            meta.crewRank,
@@ -12432,9 +12418,8 @@ async function confirmRosterImport(){
     if(rErr) throw rErr;
     const rosterId = rRow.id;
 
-    // 2. Insert duty rows in batches of 50 — explicit fields only, no spread
+    // 2. Insert duty rows in batches of 50 (no tenant_id — trigger sets it)
     const dutyRows = duties.map(d => ({
-      tenant_id,
       roster_id:            rosterId,
       s_no:                 d.s_no,
       duty_date:            d.duty_date,
