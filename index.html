@@ -3297,7 +3297,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // OFFLINE STORAGE (IndexedDB) — local mirror for flights & per_diem
 // ═══════════════════════════════════════════════
 const IDB_NAME = 'ccl_offline_db';
-const IDB_VERSION = 3;
+const IDB_VERSION = 4;
 let idb = null;
 let isOnline = navigator.onLine;
 let isSyncing = false;
@@ -3333,6 +3333,15 @@ function openIDB(){
         // guestora_menus: versioned menu snapshots (meals + drinks)
         const mnStore = db.createObjectStore('guestora_menus',{keyPath:'id'});
         mnStore.createIndex('by_active','isActive',{unique:false});
+      }
+      // ── GUESTORA v4 stores: shared session workspace ──────────────────────
+      if(e.oldVersion < 4){
+        // guestora_sessions: one per individual sector (flight_number + flight_date)
+        // Mirrors server guestora_sessions table; used for status caching and
+        // offline session-open check before queueing orders.
+        const ssStore = db.createObjectStore('guestora_sessions',{keyPath:'id'});
+        ssStore.createIndex('by_flight_date',['flightNumber','flightDate'],{unique:false});
+        ssStore.createIndex('by_status','status',{unique:false});
       }
     };
     req.onsuccess = (e)=>resolve(e.target.result);
@@ -3385,6 +3394,49 @@ function uuid(){
  *   requested → exception    (future: crew records a service exception)
  * Transitions that require server involvement are defined in Phase 2.
  */
+// ── Flight-number parsing utilities ──────────────────────────────────────────
+/**
+ * parseCombinedFlightNum(raw) → string[]
+ * Splits a combined flight-number string into individual sector numbers.
+ *
+ * Rules (confirmed by Uganda Airlines operational data):
+ *   'UR110'    → ['UR110']           1-sector: single number
+ *   'UR206/7'  → ['UR206', 'UR207']  2-sector pair: base + suffix replaces last N digits
+ *   'UR334'    → ['UR334']           3-sector: same number throughout
+ *   'UR202/3'  → ['UR202', 'UR203']  4-sector fn2: same logic
+ *
+ * Returns the raw string in a 1-element array if the format is unrecognised.
+ */
+function parseCombinedFlightNum(raw){
+  if(!raw) return [];
+  const str = raw.trim().toUpperCase();
+  const slashIdx = str.indexOf('/');
+  if(slashIdx === -1) return [str];                 // single number
+  const base   = str.slice(0, slashIdx);            // e.g. 'UR206'
+  const suffix = str.slice(slashIdx + 1);           // e.g. '7'
+  const baseMatch = base.match(/^([A-Z]+)(\d+)$/);
+  if(!baseMatch) return [str];                      // unexpected format — return as-is
+  const prefix   = baseMatch[1];                    // 'UR'
+  const baseNum  = baseMatch[2];                    // '206'
+  if(suffix.length >= baseNum.length) return [str]; // suffix longer than digits — guard
+  const secondNum = baseNum.slice(0, baseNum.length - suffix.length) + suffix;
+  return [base, prefix + secondNum];                // ['UR206', 'UR207']
+}
+
+/**
+ * getAllSectorNums(flights) → string[]
+ * Returns all individual sector flight numbers from the crew's cached duty records.
+ * Used by the manifest filter and sector picker.
+ */
+function getAllSectorNums(flights){
+  const nums = new Set();
+  for(const f of flights){
+    if(f.flightNum)  parseCombinedFlightNum(f.flightNum).forEach(n => nums.add(n));
+    if(f.flightNum2) parseCombinedFlightNum(f.flightNum2).forEach(n => nums.add(n));
+  }
+  return [...nums];
+}
+
 const GUESTORA_ORDER_STATUS = Object.freeze({
   REQUESTED: 'requested',  // order taken; service not yet confirmed
   SERVED:    'served',     // crew has delivered the order
@@ -4430,11 +4482,12 @@ async function guestoraSendToServer(entry, serverPackageId){
         schema_version: entry.schemaVersion || 1,
         seat_num:       p.seatNum,
         cabin:          p.cabin,
-        selections:     p.selections  || [],
-        meal_note:      p.mealNote    || null,
-        drink_note:     p.drinkNote   || null,
-        special_note:   p.specialNote || null,
-        status:         p.status      || GUESTORA_ORDER_STATUS.REQUESTED,
+        selections:          p.selections         || [],
+        meal_note:           p.mealNote           || null,
+        drink_note:          p.drinkNote          || null,
+        special_note:        p.specialNote        || null,
+        additional_request:  p.additionalRequest  || null,
+        status:              p.status             || GUESTORA_ORDER_STATUS.REQUESTED,
         created_by:     uid,
         updated_by:     uid,
       }, {
@@ -4496,6 +4549,37 @@ async function guestoraSyncOutbox(){
         if(!serverPkgMap[entry.packageId]){
           const localPkg = await idbGet('guestora_packages', entry.packageId);
           if(!localPkg) throw new Error(`local package ${entry.packageId} not found`);
+
+          // ── Session-open gate ──────────────────────────────────────────
+          // Before syncing, verify the corresponding session is still open.
+          // If closed, hold the entry with a named reason instead of failing.
+          const { data: sessCheck } = await sb.from('guestora_sessions')
+            .select('status, id')
+            .eq('flight_number', localPkg.flightNum)
+            .eq('flight_date',   localPkg.date)
+            .single();
+          if(sessCheck && sessCheck.status === 'closed'){
+            await idbPut('guestora_outbox', {
+              ...entry,
+              syncStatus:  GUESTORA_SYNC_STATUS.PENDING,
+              heldReason:  'session_closed',
+              sessionId:   sessCheck.id,
+              lastError:   'Session is closed — reopen session to sync this order.',
+            });
+            console.warn(`[GUESTORA] entry ${entry.operationId} held — session for ${localPkg.flightNum}/${localPkg.date} is closed`);
+            continue;
+          }
+          if(!sessCheck){
+            await idbPut('guestora_outbox', {
+              ...entry,
+              syncStatus: GUESTORA_SYNC_STATUS.PENDING,
+              heldReason: 'session_not_found',
+              lastError:  'Session not found on server — contact crew or admin.',
+            });
+            console.warn(`[GUESTORA] entry ${entry.operationId} held — no session found for ${localPkg.flightNum}/${localPkg.date}`);
+            continue;
+          }
+          // ── Session is open — proceed with package sync ────────────────
           serverPkgMap[entry.packageId] = await guestoraSyncPackage(localPkg);
 
           // If server assigned a different id (another device created it first),
@@ -4559,6 +4643,7 @@ async function guestoraSyncOutbox(){
 // ── GUESTORA UI state ────────────────────────────────────────────────────────
 let _gs = {
   pkg:         null,  // current guestora_packages record
+  session:     null,  // current guestora_sessions record (server or IDB-cached)
   cabin:       null,  // selected cabin config object
   orders:      [],    // guestora_orders for current pkg
   editOrder:   null,  // order being edited / viewed in sheet
@@ -4613,48 +4698,178 @@ function gsShowView(viewName){
 }
 
 // ── Sector Picker ─────────────────────────────────────────────────────────────
+
+/**
+ * Merge server flight rows into IDB, preserving locally-created unsync'd duties.
+ * Server rows overwrite IDB rows only when the IDB row is marked synced.
+ */
+async function gsMergeServerFlights(serverRows){
+  for(const row of serverRows){
+    const existing = await idbGet('flights', row.id);
+    // Only overwrite if already synced — preserve LOCAL entries
+    if(!existing || existing.synced !== false){
+      await idbPut('flights', rowToFlight(row));
+    }
+  }
+}
+
+/**
+ * Build the list of individual sectors to display in the picker.
+ * Each duty is expanded using parseCombinedFlightNum() so multi-sector duties
+ * show as separate rows — one per individual passenger-carrying sector.
+ * Returns array of { flightNum, date, actype, dutyId, dep, arr }
+ */
+function gsExpandDutiesToSectors(duties){
+  const sectors = [];
+  for(const f of duties){
+    if(!f.flightNum) continue;
+    // fn1 always present
+    const fn1Nums = parseCombinedFlightNum(f.flightNum);
+    fn1Nums.forEach(num => sectors.push({
+      flightNum: num,
+      date:      f.date,
+      actype:    f.actype || f.aircraft_type || '',
+      dep:       f.dep || '',
+      arr:       f.arr || '',
+      dutyId:    f.id,
+    }));
+    // fn2 present only for 4-sector duties
+    if(f.flightNum2){
+      const fn2Nums = parseCombinedFlightNum(f.flightNum2);
+      fn2Nums.forEach(num => sectors.push({
+        flightNum: num,
+        date:      f.date,
+        actype:    f.actype || f.aircraft_type || '',
+        dep:       f.dep || '',
+        arr:       f.arr || '',
+        dutyId:    f.id,
+      }));
+    }
+  }
+  // Deduplicate by (flightNum, date) — a 3-sector duty has the same number 3 times
+  const seen = new Set();
+  return sectors.filter(s=>{
+    const key = s.flightNum + '|' + s.date;
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function gsLoadSectorList(){
   const container = document.getElementById('gs-sector-list');
   container.innerHTML = '<div class="gs-empty">Loading…</div>';
   try {
-    // Pull today's flights from IDB logbook
+    // ── 1. Fetch flights from server in parallel with IDB read ────────────
+    // Runs every time the picker opens — not conditional on IDB being empty.
+    const serverFetchPromise = (async ()=>{
+      if(!isOnline) return [];
+      try{
+        const { data } = await sb.from('flights')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .gte('date', (() => {
+            const d = new Date(); d.setDate(d.getDate() - 1);
+            return d.toISOString().slice(0,10);
+          })())
+          .order('date', { ascending: false });
+        return data || [];
+      }catch(e){
+        console.warn('[GUESTORA] server flight fetch failed:', e.message);
+        return [];
+      }
+    })();
+
     const allFlights = await idbAll('flights');
-    const todayStr   = new Date().toISOString().slice(0,10);   // YYYY-MM-DD
-    // Show flights from today ±1 day (duty can span midnight)
-    const window1d   = 86400000;
-    const relevant   = allFlights.filter(f=>{
-      if(!f.date) return false;
+
+    // ── 2. Merge server results into IDB ──────────────────────────────────
+    const serverRows = await serverFetchPromise;
+    if(serverRows.length) await gsMergeServerFlights(serverRows);
+
+    // ── 3. Build the working set from IDB (now merged) ────────────────────
+    const merged = await idbAll('flights');
+    const window1d = 86400000;
+    const relevant = merged.filter(f=>{
+      if(!f.date || f._deleted) return false;
       const diff = Math.abs(new Date(f.date).getTime() - Date.now());
       return diff < window1d * 2;
     }).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
-    if(!relevant.length){
+    // ── 4. Expand duties into individual sectors ──────────────────────────
+    const sectors = gsExpandDutiesToSectors(relevant);
+
+    if(!sectors.length){
       container.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">✈️</div>No flights found for today.<br><span style="font-size:.72rem">Log a flight first to start a service session.</span></div>`;
       return;
     }
-    container.innerHTML = '';
-    // Resolve seat configs in parallel (IDB-first) for cabin hints
+
+    // ── 5. Fetch session status for all sectors in one query ──────────────
+    const sessionStatusMap = {}; // key: 'flightNum|date' → 'open'|'closed'|null
+    if(isOnline){
+      try{
+        const flightNums = sectors.map(s => s.flightNum);
+        const { data: sessions } = await sb.from('guestora_sessions')
+          .select('flight_number, flight_date, status')
+          .in('flight_number', flightNums);
+        if(sessions){
+          sessions.forEach(sess=>{
+            sessionStatusMap[sess.flight_number + '|' + sess.flight_date] = sess.status;
+          });
+        }
+        // Also cache into IDB for offline use
+        for(const sess of (sessions||[])){
+          await idbPut('guestora_sessions', {
+            id:           sess.id || (sess.flight_number + '_' + sess.flight_date),
+            flightNumber: sess.flight_number,
+            flightDate:   sess.flight_date,
+            status:       sess.status,
+            cachedAt:     new Date().toISOString(),
+          });
+        }
+      }catch(e){
+        console.warn('[GUESTORA] session status fetch failed:', e.message);
+        // Fall back to IDB cached sessions
+        const cachedSessions = await idbAll('guestora_sessions');
+        cachedSessions.forEach(s=>{
+          sessionStatusMap[s.flightNumber + '|' + s.flightDate] = s.status;
+        });
+      }
+    } else {
+      // Offline: use IDB cached sessions
+      const cachedSessions = await idbAll('guestora_sessions');
+      cachedSessions.forEach(s=>{
+        sessionStatusMap[s.flightNumber + '|' + s.flightDate] = s.status;
+      });
+    }
+
+    // ── 6. Resolve seat configs for cabin hints ───────────────────────────
     const cfgMap = {};
-    await Promise.all(relevant.map(async f=>{
-      const actype = f.actype || f.aircraft_type || '';
-      if(actype && !cfgMap[actype]){
-        cfgMap[actype] = await guestoraResolveSeatConfigAsync(actype);
+    await Promise.all(sectors.map(async s=>{
+      if(s.actype && !cfgMap[s.actype]){
+        cfgMap[s.actype] = await guestoraResolveSeatConfigAsync(s.actype);
       }
     }));
-    relevant.forEach(f=>{
-      const actype    = f.actype || f.aircraft_type || '—';
-      const cfg       = cfgMap[actype];
-      const cabinHint = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
+
+    // ── 7. Render sector rows ─────────────────────────────────────────────
+    container.innerHTML = '';
+    sectors.forEach(s=>{
+      const cfg         = cfgMap[s.actype];
+      const cabinHint   = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
+      const sessStatus  = sessionStatusMap[s.flightNum + '|' + s.date] || null;
+      const statusBadge = sessStatus === 'open'   ? `<span style="font-size:.68rem;background:var(--color-success,#22c55e);color:#000;border-radius:10px;padding:1px 8px;font-weight:700;margin-left:6px">OPEN</span>`
+                        : sessStatus === 'closed' ? `<span style="font-size:.68rem;background:var(--color-text-muted,#888);color:#fff;border-radius:10px;padding:1px 8px;font-weight:700;margin-left:6px">CLOSED</span>`
+                        : `<span style="font-size:.68rem;border:1px solid var(--color-border,#444);color:var(--color-text-muted,#888);border-radius:10px;padding:1px 8px;margin-left:6px">NEW</span>`;
       const div = document.createElement('div');
       div.className = 'gs-list-item';
       div.innerHTML = `
-        <div class="gs-list-label">${escHtml(f.flightNum||f.flight_number||'—')}  ·  ${escHtml(f.date||'')}</div>
-        <div class="gs-list-sub">${escHtml(actype)}  ·  ${escHtml(cabinHint)}</div>
+        <div class="gs-list-label">${escHtml(s.flightNum)}  ·  ${escHtml(s.date)}${statusBadge}</div>
+        <div class="gs-list-sub">${escHtml(s.actype||'—')}  ·  ${escHtml(cabinHint)}</div>
       `;
-      div.onclick = ()=>gsSelectSector(f);
+      div.onclick = ()=>gsSelectSector(s);
       container.appendChild(div);
     });
   } catch(err){
+    console.error('[GUESTORA] gsLoadSectorList error:', err);
     container.innerHTML = `<div class="gs-empty">Error loading flights: ${escHtml(err.message)}</div>`;
   }
 }
@@ -4663,6 +4878,73 @@ async function gsSelectSector(flight){
   const flightNum = flight.flightNum || flight.flight_number || String(flight.id);
   const date      = flight.date;
   const actype    = flight.actype || flight.aircraft_type || '';
+
+  // ── 1. Server-first session get-or-create ──────────────────────────────
+  // The session is the shared workspace. All crew members on this flight join
+  // the same session. If offline, we work with the IDB-cached session status.
+  let sessionStatus = 'open'; // default: assume open if we cannot reach server
+  if(isOnline){
+    try{
+      // Upsert: creates session if none exists, returns existing if already there.
+      // ON CONFLICT (tenant_id, flight_number, flight_date) DO NOTHING — then re-select.
+      const { error: insertErr } = await sb.from('guestora_sessions').insert({
+        flight_number: flightNum,
+        flight_date:   date,
+        status:        'open',
+        opened_by:     currentUser.id,
+      }, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: true });
+      // Insert may be ignored (conflict) — that's correct. Now read the session.
+      const { data: sessData, error: selErr } = await sb.from('guestora_sessions')
+        .select('id, status, opened_by, opened_at, closed_by, closed_at')
+        .eq('flight_number', flightNum)
+        .eq('flight_date',   date)
+        .single();
+      if(selErr) throw selErr;
+      sessionStatus = sessData.status;
+      _gs.session   = sessData;
+      // Cache in IDB for offline use
+      await idbPut('guestora_sessions', {
+        id:           sessData.id,
+        flightNumber: flightNum,
+        flightDate:   date,
+        status:       sessData.status,
+        cachedAt:     new Date().toISOString(),
+      });
+    }catch(e){
+      console.warn('[GUESTORA] session get-or-create failed:', e.message);
+      // Fall back to IDB cached status
+      const cached = (await idbAll('guestora_sessions'))
+        .find(s => s.flightNumber === flightNum && s.flightDate === date);
+      sessionStatus = cached?.status || 'open';
+      _gs.session   = cached || null;
+      toast('⚠ Offline — using cached session state.');
+    }
+  } else {
+    const cached = (await idbAll('guestora_sessions'))
+      .find(s => s.flightNumber === flightNum && s.flightDate === date);
+    sessionStatus = cached?.status || 'open';
+    _gs.session   = cached || null;
+  }
+
+  // ── 2. If session is closed, show read-only notice ─────────────────────
+  if(sessionStatus === 'closed'){
+    // Show cabin view but with a prominent closed banner and Reopen button
+    _gs.pkg = await guestoraGetOrCreatePackage(flightNum, date, actype);
+    _gs.orders = await guestoraGetOrdersByPackage(_gs.pkg.id);
+    document.getElementById('gs-cabin-hdr-sub').textContent = `${flightNum}  ·  ${date}`;
+    const cabinList = document.getElementById('gs-cabin-list');
+    cabinList.innerHTML = `
+      <div style="margin:16px;padding:14px 16px;background:rgba(136,136,136,.12);border:1px solid var(--color-border);border-radius:10px;text-align:center">
+        <div style="font-size:1.1rem;margin-bottom:6px">🔒 Service Session Closed</div>
+        <div style="font-size:.8rem;color:var(--color-text-muted);margin-bottom:14px">This session has been closed. Orders are read-only.</div>
+        <button style="padding:8px 20px;border-radius:8px;border:1px solid var(--color-accent);background:transparent;color:var(--color-accent);font-size:.85rem;cursor:pointer"
+          onclick="gsReopenSession('${flightNum}','${date}')">Reopen Session</button>
+      </div>`;
+    gsShowView('cabin');
+    return;
+  }
+
+  // ── 3. Session is open — proceed normally ─────────────────────────────
   // Get-or-create the package record
   _gs.pkg = await guestoraGetOrCreatePackage(flightNum, date, actype);
   // Load orders for this package
@@ -4689,6 +4971,40 @@ async function gsSelectSector(flight){
     });
   }
   gsShowView('cabin');
+}
+
+// ── Session lifecycle helpers ─────────────────────────────────────────────────
+async function gsReopenSession(flightNum, date){
+  if(!_gs.session?.id){ toast('⚠ Session ID not found — please reload.'); return; }
+  try{
+    const { error } = await sb.rpc('guestora_set_session_status', {
+      p_session_id: _gs.session.id,
+      p_new_status: 'open',
+    });
+    if(error) throw error;
+    toast('✅ Session reopened.');
+    // Reload the sector list so the status badge updates
+    await gsLoadSectorList();
+  }catch(e){
+    toast('⚠ Could not reopen session: ' + e.message);
+  }
+}
+
+async function gsCloseSession(){
+  if(!_gs.session?.id){ toast('⚠ No active session.'); return; }
+  if(!confirm('Close the service session for this flight? No new orders can be taken until it is reopened.')) return;
+  try{
+    const { error } = await sb.rpc('guestora_set_session_status', {
+      p_session_id: _gs.session.id,
+      p_new_status: 'closed',
+    });
+    if(error) throw error;
+    toast('✅ Session closed.');
+    gsShowView('sector');
+    await gsLoadSectorList();
+  }catch(e){
+    toast('⚠ Could not close session: ' + e.message);
+  }
 }
 
 // ── Cabin Picker ──────────────────────────────────────────────────────────────
@@ -4896,10 +5212,11 @@ function gsRenderSheetBody(existingOrder){
     const legacyHtml = [
       existingOrder.mealNote?.trim()    ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🍽️ Meal note</div><div class="gs-view-cat-text">${escHtml(existingOrder.mealNote)}</div></div>` : '',
       existingOrder.drinkNote?.trim()   ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🥤 Drink note</div><div class="gs-view-cat-text">${escHtml(existingOrder.drinkNote)}</div></div>` : '',
-      existingOrder.specialNote?.trim() ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">⭐ Special request</div><div class="gs-view-cat-text">${escHtml(existingOrder.specialNote)}</div></div>` : ''
+      existingOrder.specialNote?.trim()       ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">⭐ Special request / Allergy alert</div><div class="gs-view-cat-text">${escHtml(existingOrder.specialNote)}</div></div>` : '',
+      existingOrder.additionalRequest?.trim() ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">➕ Additional request</div><div class="gs-view-cat-text">${escHtml(existingOrder.additionalRequest)}</div></div>` : '',
     ].join('');
 
-    const empty = !selections.length && !existingOrder.mealNote?.trim() && !existingOrder.drinkNote?.trim() && !existingOrder.specialNote?.trim();
+    const empty = !selections.length && !existingOrder.mealNote?.trim() && !existingOrder.drinkNote?.trim() && !existingOrder.specialNote?.trim() && !existingOrder.additionalRequest?.trim();
 
     body.innerHTML = `
       ${hasAllergen ? `<div style="background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin-bottom:12px">⚠ Allergen alert — verify with passenger before service</div>` : ''}
@@ -4999,7 +5316,7 @@ function gsRenderSheetBody(existingOrder){
       }).join('');
     }
 
-    // Special request section always present (free-text)
+    // Special request section — allergy alerts and pre-ordered meals
     const spVal    = escHtml(vals.specialNote||'');
     const spHasVal = !!(vals.specialNote?.trim());
     const specialHtml = `
@@ -5010,10 +5327,28 @@ function gsRenderSheetBody(existingOrder){
           <span class="gs-cat-chevron">▼</span>
         </div>
         <div class="gs-cat-body">
-          <textarea class="gs-cat-textarea" id="gs-inp-specialNote" maxlength="120"
-            placeholder="e.g. Allergy alert, anniversary cake, extra blanket, KSML preordered…"
+          <textarea class="gs-cat-textarea" id="gs-inp-specialNote" maxlength="200"
+            placeholder="e.g. Nut allergy — no nut products, KSML pre-ordered, anniversary cake arranged with catering…"
             oninput="gsOnCatInput('specialNote',this)">${spVal}</textarea>
-          <div class="gs-cat-count" id="gs-cnt-specialNote">${spVal.length}/120</div>
+          <div class="gs-cat-count" id="gs-cnt-specialNote">${spVal.length}/200</div>
+        </div>
+      </div>`;
+
+    // Additional request section — available off-menu items the passenger wants
+    const arVal    = escHtml(vals.additionalRequest||'');
+    const arHasVal = !!(vals.additionalRequest?.trim());
+    const additionalHtml = `
+      <div class="gs-cat-section${arHasVal?' open has-content':''}" id="gs-cat-sec-additionalRequest">
+        <div class="gs-cat-header" onclick="gsToggleCatSection('additionalRequest')">
+          <span class="gs-cat-icon">➕</span>
+          <span class="gs-cat-title">Additional Request</span>
+          <span class="gs-cat-chevron">▼</span>
+        </div>
+        <div class="gs-cat-body">
+          <textarea class="gs-cat-textarea" id="gs-inp-additionalRequest" maxlength="200"
+            placeholder="e.g. Extra bread roll, specific soft drink, additional snack available on board…"
+            oninput="gsOnCatInput('additionalRequest',this)">${arVal}</textarea>
+          <div class="gs-cat-count" id="gs-cnt-additionalRequest">${arVal.length}/200</div>
         </div>
       </div>`;
 
@@ -5021,6 +5356,7 @@ function gsRenderSheetBody(existingOrder){
       <p style="font-size:.75rem;color:var(--color-text-muted);margin:0 0 14px">${menu ? 'Select from the menu — tick all that apply.' : 'Fill in any category that applies.'}</p>
       ${menuSectionsHtml}
       ${specialHtml}
+      ${additionalHtml}
       <div id="gs-allergen-warning" style="display:none;background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin:10px 0">⚠ One or more selected items contain allergens — confirm with passenger.</div>
       <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()">Save Order</button>`;
 
@@ -5087,12 +5423,13 @@ async function gsSaveOrder(){
     };
   });
 
-  // Legacy free-text (shown when no menu, or always for special note)
-  const mealNote    = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,120).trim();
-  const drinkNote   = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,120).trim();
-  const specialNote = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,120).trim();
+  // Legacy free-text (shown when no menu, or always for special/additional notes)
+  const mealNote          = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,200).trim();
+  const drinkNote         = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,200).trim();
+  const specialNote       = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,200).trim();
+  const additionalRequest = (document.getElementById('gs-inp-additionalRequest')?.value||'').slice(0,200).trim();
 
-  if(!selections.length && !mealNote && !drinkNote && !specialNote){
+  if(!selections.length && !mealNote && !drinkNote && !specialNote && !additionalRequest){
     toast('Select at least one item or add a note before saving.');
     return;
   }
@@ -5104,7 +5441,7 @@ async function gsSaveOrder(){
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        selections, mealNote, drinkNote, specialNote
+        selections, mealNote, drinkNote, specialNote, additionalRequest
       });
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
@@ -5115,7 +5452,7 @@ async function gsSaveOrder(){
         packageId:   _gs.pkg.id,
         cabin:       _gs.cabin.id,
         seatNum:     _gs.selectedSeat,
-        selections, mealNote, drinkNote, specialNote,
+        selections, mealNote, drinkNote, specialNote, additionalRequest,
         status:      GUESTORA_ORDER_STATUS.REQUESTED,  // order lifecycle
         createdAt:   now,
         updatedAt:   now
@@ -8418,26 +8755,25 @@ async function agentUploadManifest(){
     summary    = res.summary;
   }catch(e){ toast('⚠ Parse error: '+e.message); btn.textContent='⬆ Upload Manifest'; btn.disabled=false; return; }
 
-  // Upsert: update if exists, insert if new
-  const { data:existing } = await sb.from('passenger_manifests')
-    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
-
+  // Single upsert — tenant_id resolved server-side by RLS / trigger.
+  // UNIQUE constraint (tenant_id, flight_number, flight_date) makes this safe.
   const payload = {
-    flight_number:flightNum, flight_date:date,
-    dep: summary.dep||'', arr:'',
+    flight_number:  flightNum,
+    flight_date:    date,
+    dep:            summary.dep || '',
+    arr:            '',
     passengers:     JSON.stringify(passengers),
     flight_summary: JSON.stringify(summary),
     raw_text,
-    uploaded_by:    currentUser.id,
-    upload_method:  'agent',
+    uploaded_by:     currentUser.id,
+    uploaded_by_name: currentUser.user_metadata?.full_name || currentUser.email || '',
+    upload_method:   'agent',
+    // tenant_id is NOT supplied by the client — it is set via a BEFORE INSERT trigger
+    // that calls guestora_resolve_tenant_id() server-side (see migration 8).
   };
 
-  let error;
-  if(existing?.length){
-    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
-  } else {
-    ({ error } = await sb.from('passenger_manifests').insert(payload));
-  }
+  const { error } = await sb.from('passenger_manifests')
+    .upsert(payload, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: false });
 
   btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
   if(error){ toast('⚠ '+error.message); return; }
@@ -8454,9 +8790,11 @@ async function loadAgentRecentUploads(){
   if(!el) return;
   // Last 48 hours
   const since = new Date(Date.now()-48*3600000).toISOString();
+  // RLS (tenant_id policy) already scopes results to this tenant.
+  // No .eq('uploaded_by') filter — agents should see all recent uploads
+  // for their tenant, not only their own.
   const { data, error } = await sb.from('passenger_manifests')
-    .select('id,flight_number,flight_date,dep,arr,created_at,passengers')
-    .eq('uploaded_by', currentUser.id)
+    .select('id,flight_number,flight_date,dep,arr,created_at,passengers,uploaded_by_name')
     .gte('created_at', since)
     .order('created_at',{ascending:false});
 
@@ -9201,7 +9539,9 @@ function amadeusClassToDisplay(code){
 // ── Manifest combo filter ─────────────────────────────────
 const _mfstOpts = {};
 function mfstBuildOpts(){
-  _mfstOpts.flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  // Use getAllSectorNums() so multi-sector duties (UR206/7 → UR206, UR207)
+  // appear as individual entries in the autocomplete.
+  _mfstOpts.flightNums = getAllSectorNums(cache.flights);
   _mfstOpts.airports   = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
 }
 function mfstFilterCombo(inputId, ddId, optKey){
@@ -9346,10 +9686,81 @@ async function uploadManifest(){
 
   try{
     if(fname.endsWith('.pdf')){
-      // PDF: store as-is, no auto-parse
-      passengers = [];
-      summary    = { note:'PDF upload — passenger data not auto-parsed' };
-      raw_text   = 'PDF file';
+      btn.textContent = 'Reading PDF…';
+      // ── Step 1: Load PDF.js from CDN (lazy — only when a PDF is uploaded) ──
+      if(!window.pdfjsLib){
+        await new Promise((resolve, reject)=>{
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload = resolve;
+          s.onerror = ()=>reject(new Error('Could not load PDF reader. Check your internet connection.'));
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      // ── Step 2: Extract text from all pages via PDF.js ───────────────────
+      const arrayBuffer = await _manifestFile.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for(let i = 1; i <= pdf.numPages; i++){
+        const page        = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        // Items have .str (text) and .hasEOL; join with space, newline at page end
+        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+      }
+
+      // ── Step 3: If text layer is empty → scanned PDF → try OCR via Tesseract.js
+      if(fullText.trim().length < 50){
+        btn.textContent = 'Running OCR…';
+        toast('⏳ Scanned PDF detected — running OCR. This may take a moment…');
+
+        // Lazy-load Tesseract.js (≈10 MB; cached by browser after first load)
+        if(!window.Tesseract){
+          await new Promise((resolve, reject)=>{
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+            s.onload = resolve;
+            s.onerror = ()=>reject(new Error('Could not load OCR engine. Check your internet connection.'));
+            document.head.appendChild(s);
+          });
+        }
+
+        const worker = await window.Tesseract.createWorker('eng');
+        let ocrText = '';
+        for(let i = 1; i <= pdf.numPages; i++){
+          const page     = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 }); // 1.5× good for manifest text
+          const canvas   = document.createElement('canvas');
+          canvas.width   = viewport.width;
+          canvas.height  = viewport.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          const { data: { text } } = await worker.recognize(canvas);
+          ocrText += text + '\n';
+        }
+        await worker.terminate();
+        fullText = ocrText;
+      }
+
+      raw_text = fullText;
+
+      // ── Step 4: Parse extracted text with existing PNL parser ─────────────
+      if(fullText.trim().length < 50){
+        passengers = [];
+        summary    = { note: 'Could not extract text from this PDF. It may be a scanned image with low quality. Try a CSV export from your DCS system.' };
+        toast('⚠ Could not read passenger data from this PDF. Try a CSV export instead.');
+      } else {
+        const parsed = parsePNLText(fullText);
+        passengers   = parsed.passengers;
+        summary      = parsed.summary;
+        if(summary.flight_number && !flightNum){
+          document.getElementById('mfst-flightnum').value = summary.flight_number;
+        }
+        if(!passengers.length){
+          toast('⚠ PDF read but no passenger rows matched expected format. Check the file is an Amadeus PNL export.');
+        }
+      }
     } else {
       // Text or CSV
       raw_text = await _manifestFile.text();
@@ -9381,25 +9792,22 @@ async function uploadManifest(){
     return;
   }
 
-  // Check if manifest already exists for this flight+date — update instead of insert
-  const { data: existing } = await sb.from('passenger_manifests')
-    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
-
+  // Single upsert on (tenant_id, flight_number, flight_date) — race-safe.
+  // tenant_id is set by a BEFORE INSERT trigger server-side; never supplied by client.
   const payload = {
-    flight_number:flightNum, flight_date:date, dep, arr,
-    passengers:   JSON.stringify(passengers),
-    flight_summary: JSON.stringify(summary),
+    flight_number:   flightNum,
+    flight_date:     date,
+    dep, arr,
+    passengers:      JSON.stringify(passengers),
+    flight_summary:  JSON.stringify(summary),
     raw_text,
-    uploaded_by:  currentUser.id,
-    upload_method: isAdmin ? 'admin' : getUserRole(),
+    uploaded_by:     currentUser.id,
+    uploaded_by_name: currentUser.user_metadata?.full_name || currentUser.email || '',
+    upload_method:   isAdmin ? 'admin' : getUserRole(),
   };
 
-  let error;
-  if(existing?.length){
-    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
-  } else {
-    ({ error } = await sb.from('passenger_manifests').insert(payload));
-  }
+  const { error } = await sb.from('passenger_manifests')
+    .upsert(payload, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: false });
 
   btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
   if(error){ toast('⚠ '+error.message); return; }
@@ -9424,10 +9832,10 @@ async function loadManifests(){
 
   try{
     let query = sb.from('passenger_manifests').select('*').order('created_at',{ascending:false});
-    // Crew: filter to their own flights by number AND date
+    // Crew: pre-filter server query to individual sector numbers from their duties.
+    // getAllSectorNums() expands combined strings (UR206/7 → UR206, UR207).
     if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
-      const myNums  = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-      const myDates = [...new Set(cache.flights.map(f=>f.date).filter(Boolean))];
+      const myNums = getAllSectorNums(cache.flights);
       if(!myNums.length){
         el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests yet</h3><p>Manifests for your flights will appear here once uploaded.</p></div>';
         return;
@@ -9439,10 +9847,14 @@ async function loadManifests(){
     if(error){ el.innerHTML=`<div style="color:var(--muted);padding:20px;text-align:center">Could not load manifests: ${escHtml(error.message)}</div>`; return; }
     if(!data?.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests</h3><p>No manifests have been uploaded yet.</p></div>'; return; }
 
-    // For crew: only show manifests matching both flight_number AND date
+    // For crew: only show manifests matching both flight_number AND date.
+    // getAllSectorNums() expands combined strings (UR206/7 → UR206, UR207) so manifests
+    // for all individual sectors on a multi-sector duty are visible.
     let manifests = data;
     if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
-      manifests = data.filter(m => cache.flights.some(f=>f.flightNum===m.flight_number && f.date===m.flight_date));
+      const myNums  = new Set(getAllSectorNums(cache.flights));
+      const myDates = new Set(cache.flights.map(f=>f.date).filter(Boolean));
+      manifests = data.filter(m => myNums.has(m.flight_number) && myDates.has(m.flight_date));
       if(!manifests.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests for your flights</h3><p>Your flights do not have uploaded manifests yet.</p></div>'; return; }
     }
 
