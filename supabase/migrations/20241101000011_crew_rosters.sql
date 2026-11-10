@@ -30,7 +30,7 @@
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS crew_rosters (
   id                    uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id             uuid        NOT NULL REFERENCES tenants(id),
+  tenant_id             uuid        NOT NULL REFERENCES guestora_tenants(id),
 
   -- Header metadata extracted from the PDF
   crew_name             text,
@@ -62,7 +62,7 @@ COMMENT ON COLUMN crew_rosters.crew_rank IS
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS roster_duties (
   id                    uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id             uuid        NOT NULL REFERENCES tenants(id),
+  tenant_id             uuid        NOT NULL REFERENCES guestora_tenants(id),
   roster_id             uuid        NOT NULL REFERENCES crew_rosters(id) ON DELETE CASCADE,
 
   -- From the PDF table
