@@ -3286,6 +3286,14 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <div class="gs-hdr-sub" id="gs-seatmap-sub"></div>
       </div>
     </div>
+    <!-- Meal inventory strip (hidden when no inventory set) -->
+    <div id="gs-inventory-strip" style="display:none;padding:7px 14px 6px;border-bottom:1px solid var(--color-border);background:rgba(0,0,0,.18)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:.68rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">Meal Uplift</span>
+        <button onclick="gsOpenInventoryModal()" style="font-size:.65rem;color:var(--color-accent);background:none;border:none;cursor:pointer;padding:0">Edit</button>
+      </div>
+      <div id="gs-inventory-pills" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    </div>
     <!-- Legend -->
     <div class="gs-seatmap-legend">
       <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2)"></div>Empty</div>
@@ -3295,6 +3303,27 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     </div>
     <!-- Seat map scrollable body — fuselage rendered by JS -->
     <div class="gs-body" id="gs-seatmap-body" style="padding:0;overflow-y:auto"></div>
+  </div>
+
+  <!-- ── Meal Inventory Entry Modal ─────────────────────────────────────── -->
+  <div id="gs-inventory-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.72);z-index:800;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)">
+    <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+        <div>
+          <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">🍽️ Meal Uplift Count</div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Enter how many of each item came on board</div>
+        </div>
+        <button onclick="gsCloseInventoryModal()" style="background:rgba(255,255,255,.08);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1.1rem;color:var(--color-text-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <!-- Body -->
+      <div id="gs-inventory-modal-body" style="flex:1;overflow-y:auto;padding:12px 16px 0"></div>
+      <!-- Footer -->
+      <div style="padding:12px 16px 20px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+        <button onclick="gsSkipInventory()" class="btn" style="flex:1;font-size:.82rem">Skip (Unlimited)</button>
+        <button onclick="gsSaveInventory()" class="btn btn-primary" style="flex:1;font-size:.82rem">Save Counts</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Order sheet (slide-up) and backdrop ──────────────────────────── -->
@@ -4875,15 +4904,16 @@ async function guestoraSyncOutbox(){
 
 // ── GUESTORA UI state ────────────────────────────────────────────────────────
 let _gs = {
-  pkg:         null,  // current guestora_packages record
-  session:     null,  // current guestora_sessions record (server or IDB-cached)
-  cabin:       null,  // selected cabin config object
-  orders:      [],    // guestora_orders for current pkg
-  editOrder:   null,  // order being edited / viewed in sheet
-  sheetMode:   null,  // 'new' | 'view' | 'edit'
-  selectedSeat:null,  // seat number string (e.g. '2G')
-  selectedCat: null,  // 'Meal' | 'Drink' | 'Special Request'
-  activeMenu:  null,  // cached active menu (invalidated on publish)
+  pkg:           null,  // current guestora_packages record
+  session:       null,  // current guestora_sessions record (server or IDB-cached)
+  cabin:         null,  // selected cabin config object
+  orders:        [],    // guestora_orders for current pkg
+  editOrder:     null,  // order being edited / viewed in sheet
+  sheetMode:     null,  // 'new' | 'view' | 'edit'
+  selectedSeat:  null,  // seat number string (e.g. '2G')
+  selectedCat:   null,  // 'Meal' | 'Drink' | 'Special Request'
+  activeMenu:    null,  // cached active menu (invalidated on publish)
+  mealInventory: null,  // { [itemId]: { name, total, remaining } } or null if not entered
 };
 
 // ── Brand application — swaps 'GUESTORA' label for tenant's dining_brand ─────
@@ -4921,7 +4951,8 @@ async function openGuestoraOverlay(){
 function closeGuestoraOverlay(){
   document.getElementById('guestora-overlay').classList.remove('open');
   gsCloseOrderSheet();
-  _gs.activeMenu = null; // reset so next open fetches fresh menu
+  _gs.activeMenu    = null; // reset so next open fetches fresh menu
+  _gs.mealInventory = null; // reset so next session prompts fresh counts
 }
 
 // ── View navigation ───────────────────────────────────────────────────────────
@@ -5128,35 +5159,39 @@ async function gsSelectSector(flight){
       }, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: true });
       // Insert may be ignored (conflict) — that's correct. Now read the session.
       const { data: sessData, error: selErr } = await sb.from('guestora_sessions')
-        .select('id, status, opened_by, opened_at, closed_by, closed_at')
+        .select('id, status, opened_by, opened_at, closed_by, closed_at, meal_inventory')
         .eq('flight_number', flightNum)
         .eq('flight_date',   date)
         .single();
       if(selErr) throw selErr;
-      sessionStatus = sessData.status;
-      _gs.session   = sessData;
-      // Cache in IDB for offline use
+      sessionStatus     = sessData.status;
+      _gs.session       = sessData;
+      _gs.mealInventory = sessData.meal_inventory || null;
+      // Cache in IDB for offline use (include meal_inventory for offline continuity)
       await idbPut('guestora_sessions', {
-        id:           sessData.id,
-        flightNumber: flightNum,
-        flightDate:   date,
-        status:       sessData.status,
-        cachedAt:     new Date().toISOString(),
+        id:            sessData.id,
+        flightNumber:  flightNum,
+        flightDate:    date,
+        status:        sessData.status,
+        mealInventory: sessData.meal_inventory || null,
+        cachedAt:      new Date().toISOString(),
       });
     }catch(e){
       console.warn('[GUESTORA] session get-or-create failed:', e.message);
       // Fall back to IDB cached status
       const cached = (await idbAll('guestora_sessions'))
         .find(s => s.flightNumber === flightNum && s.flightDate === date);
-      sessionStatus = cached?.status || 'open';
-      _gs.session   = cached || null;
+      sessionStatus     = cached?.status || 'open';
+      _gs.session       = cached || null;
+      _gs.mealInventory = cached?.mealInventory || null;
       toast('⚠ Offline — using cached session state.');
     }
   } else {
     const cached = (await idbAll('guestora_sessions'))
       .find(s => s.flightNumber === flightNum && s.flightDate === date);
-    sessionStatus = cached?.status || 'open';
-    _gs.session   = cached || null;
+    sessionStatus     = cached?.status || 'open';
+    _gs.session       = cached || null;
+    _gs.mealInventory = cached?.mealInventory || null;
   }
 
   // ── 2. If session is closed, show read-only notice ─────────────────────
@@ -5241,12 +5276,23 @@ async function gsCloseSession(){
 }
 
 // ── Cabin Picker ──────────────────────────────────────────────────────────────
-function gsSelectCabin(cabin, cfg){
+async function gsSelectCabin(cabin, cfg){
   _gs.cabin = cabin;
   document.getElementById('gs-seatmap-title').textContent = cabin.label;
   document.getElementById('gs-seatmap-sub').textContent   = _gs.pkg.flightNum + '  ·  ' + _gs.pkg.date;
   gsRenderSeatMap(cabin);
+  gsRenderInventoryStrip();
   gsShowView('seatmap');
+  // On first entry to seatmap for a session with no inventory set, prompt crew to enter counts.
+  // We only do this once per session (mealInventory stays set even if all items are 0).
+  if(_gs.mealInventory === null){
+    const menu = _gs.activeMenu || await guestoraGetActiveMenu().catch(()=>null);
+    _gs.activeMenu = menu;
+    if(menu && menu.categories && menu.categories.length){
+      // Slight delay so the seat map is visible behind the modal
+      setTimeout(() => gsOpenInventoryModal(), 180);
+    }
+  }
 }
 
 // ── Seat Map renderer ─────────────────────────────────────────────────────────
@@ -5673,6 +5719,13 @@ async function gsSaveOrder(){
 
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
+      // On edit: reverse old meal selections from inventory, apply new ones
+      if(_gs.mealInventory){
+        const oldSels = _gs.editOrder.selections || [];
+        oldSels.forEach(s=>{ if(_gs.mealInventory[s.id]) _gs.mealInventory[s.id].remaining = Math.min(_gs.mealInventory[s.id].total, (_gs.mealInventory[s.id].remaining||0)+1); });
+        selections.forEach(s=>{ if(_gs.mealInventory[s.id]) _gs.mealInventory[s.id].remaining = Math.max(0, (_gs.mealInventory[s.id].remaining||0)-1); });
+        await gsPersistInventory();
+      }
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
         selections, mealNote, drinkNote, specialNote, additionalRequest
       });
@@ -5705,10 +5758,20 @@ async function gsSaveOrder(){
       };
       await guestoraAtomicWrite(order, outboxEntry);
       _gs.orders.push(order);
+      // Decrement meal inventory for each selected item
+      if(_gs.mealInventory){
+        selections.forEach(s=>{
+          if(_gs.mealInventory[s.id]){
+            _gs.mealInventory[s.id].remaining = Math.max(0, (_gs.mealInventory[s.id].remaining||0)-1);
+          }
+        });
+        await gsPersistInventory();
+      }
       toast('✅ Order saved');
     }
     gsCloseOrderSheet();
     gsRenderSeatMap(_gs.cabin);
+    gsRenderInventoryStrip();
   } catch(err){
     toast('⚠ Could not save: ' + err.message);
     if(saveBtn) saveBtn.disabled = false;
@@ -5734,11 +5797,25 @@ async function gsMarkServed(orderId){
 async function gsConfirmDelete(orderId){
   if(!confirm('Delete this order?')) return;
   try {
+    const deletedOrder = _gs.orders.find(o=>o.id===orderId);
     await guestoraDeleteOrder(orderId, _gs.pkg.id);
     _gs.orders = _gs.orders.filter(o=>o.id!==orderId);
+    // Restore inventory for items on the deleted order
+    if(_gs.mealInventory && deletedOrder?.selections?.length){
+      deletedOrder.selections.forEach(s=>{
+        if(_gs.mealInventory[s.id]){
+          _gs.mealInventory[s.id].remaining = Math.min(
+            _gs.mealInventory[s.id].total,
+            (_gs.mealInventory[s.id].remaining||0)+1
+          );
+        }
+      });
+      await gsPersistInventory();
+    }
     toast('🗑 Order deleted');
     gsCloseOrderSheet();
     gsRenderSeatMap(_gs.cabin);
+    gsRenderInventoryStrip();
   } catch(err){ toast('⚠ ' + err.message); }
 }
 
@@ -5750,6 +5827,164 @@ function gsCloseOrderSheet(){
   _gs.selectedSeat = null;
   // Keep activeMenu cached across sheet opens within same session;
   // cleared on gaPublishNewMenuVersion so next open picks up the new menu.
+}
+
+// ── Meal Inventory helpers ─────────────────────────────────────────────────────
+
+/**
+ * Open the inventory entry modal.
+ * Shows all available Meals items from the active menu with number steppers.
+ * Called automatically on first seat-map entry if no inventory set;
+ * also called via "Edit" button on the inventory strip.
+ */
+async function gsOpenInventoryModal(){
+  const menu = _gs.activeMenu || await guestoraGetActiveMenu().catch(()=>null);
+  if(!menu || !menu.categories || !menu.categories.length){
+    toast('No menu configured. Add a menu in GUESTORA Admin first.');
+    return;
+  }
+  // Build list of all available items (across all categories)
+  const allItems = [];
+  menu.categories.forEach(cat=>{
+    cat.subcategories.forEach(sub=>{
+      sub.items.filter(it=>it.available).forEach(it=>{
+        allItems.push({ id:it.id, name:it.name, catLabel:cat.label, subLabel:sub.label });
+      });
+    });
+  });
+  if(!allItems.length){
+    toast('No available menu items to track.');
+    return;
+  }
+  // Build modal body
+  const body = document.getElementById('gs-inventory-modal-body');
+  body.innerHTML = allItems.map(item=>{
+    const current = _gs.mealInventory?.[item.id]?.total ?? '';
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;color:var(--color-text-primary);font-weight:600">${escHtml(item.name)}</div>
+        <div style="font-size:.68rem;color:var(--muted)">${escHtml(item.catLabel)} · ${escHtml(item.subLabel)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+        <button onclick="gsInventoryStep('${item.id}',-1)"
+          style="width:34px;height:34px;border-radius:8px 0 0 8px;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+        <input type="number" id="gs-inv-${item.id}" value="${current}" min="0" max="999"
+          style="width:52px;height:34px;border:1px solid var(--color-border);border-left:none;border-right:none;background:rgba(255,255,255,.04);color:var(--color-text-primary);text-align:center;font-size:.88rem;-moz-appearance:textfield"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        <button onclick="gsInventoryStep('${item.id}',+1)"
+          style="width:34px;height:34px;border-radius:0 8px 8px 0;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+      </div>
+    </div>`;
+  }).join('');
+  // Store item list in modal for gsSaveInventory to read
+  body.dataset.itemIds = JSON.stringify(allItems.map(i=>({id:i.id,name:i.name})));
+  document.getElementById('gs-inventory-modal').style.display = 'flex';
+}
+
+/** Increment / decrement a stepper without opening keyboard on mobile */
+function gsInventoryStep(itemId, delta){
+  const inp = document.getElementById('gs-inv-'+itemId);
+  if(!inp) return;
+  const cur = parseInt(inp.value,10)||0;
+  inp.value = Math.max(0, cur+delta);
+}
+
+/** Crew chose "Skip" — set all items to unlimited (Infinity sentinel: -1) */
+function gsSkipInventory(){
+  _gs.mealInventory = {}; // empty object = "entered but unlimited"
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+  gsRenderInventoryStrip();
+  gsPersistInventory();
+}
+
+/** Read the stepper values and save to _gs.mealInventory + IDB + server */
+async function gsSaveInventory(){
+  const body = document.getElementById('gs-inventory-modal-body');
+  let items;
+  try { items = JSON.parse(body.dataset.itemIds||'[]'); } catch(e){ items=[]; }
+  const inv = {};
+  items.forEach(({id,name})=>{
+    const inp = document.getElementById('gs-inv-'+id);
+    const val = inp ? Math.max(0,parseInt(inp.value,10)||0) : 0;
+    // Work out how many have already been ordered so "remaining" is correct
+    const alreadyOrdered = _gs.orders.filter(o=>
+      Array.isArray(o.selections) && o.selections.some(s=>s.id===id)
+    ).length;
+    inv[id] = { name, total: val, remaining: Math.max(0, val - alreadyOrdered) };
+  });
+  _gs.mealInventory = inv;
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+  gsRenderInventoryStrip();
+  await gsPersistInventory();
+  toast('✅ Meal counts saved');
+}
+
+function gsCloseInventoryModal(){
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+}
+
+/**
+ * Persist `_gs.mealInventory` to:
+ *   1. IDB guestora_sessions cache (always)
+ *   2. Supabase guestora_sessions.meal_inventory (when online and session id known)
+ */
+async function gsPersistInventory(){
+  // 1. IDB update
+  if(_gs.session){
+    const sessionId = _gs.session.id;
+    if(sessionId){
+      const existing = await idbGet('guestora_sessions', sessionId).catch(()=>null);
+      if(existing){
+        await idbPut('guestora_sessions', { ...existing, mealInventory: _gs.mealInventory });
+      }
+    }
+  }
+  // 2. Server sync (best-effort)
+  if(isOnline && _gs.session?.id){
+    try{
+      await sb.from('guestora_sessions')
+        .update({ meal_inventory: _gs.mealInventory })
+        .eq('id', _gs.session.id);
+    }catch(e){
+      console.warn('[GUESTORA] meal_inventory server sync failed (will retry on next save):', e.message);
+    }
+  }
+}
+
+/**
+ * Render the compact inventory strip above the seat map legend.
+ * Shows each item as a pill: "🍽️ Beef Stew 8/24" with a low-stock warning.
+ * Hides the strip if no inventory has been entered.
+ */
+function gsRenderInventoryStrip(){
+  const strip = document.getElementById('gs-inventory-strip');
+  const pills = document.getElementById('gs-inventory-pills');
+  if(!strip || !pills) return;
+  if(!_gs.mealInventory || Object.keys(_gs.mealInventory).length===0){
+    strip.style.display = 'none';
+    return;
+  }
+  strip.style.display = 'block';
+  const entries = Object.entries(_gs.mealInventory);
+  if(!entries.length){
+    pills.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Unlimited (no counts set)</span>';
+    return;
+  }
+  pills.innerHTML = entries.map(([id,item])=>{
+    const rem  = item.remaining ?? item.total;
+    const tot  = item.total;
+    const pct  = tot > 0 ? rem/tot : 1;
+    const low  = pct <= 0.25 && tot > 0;
+    const out  = rem === 0 && tot > 0;
+    const color = out ? '#b8292a' : low ? '#c97c0a' : 'rgba(255,255,255,.55)';
+    const bg    = out ? 'rgba(184,41,42,.18)' : low ? 'rgba(201,124,10,.18)' : 'rgba(255,255,255,.07)';
+    const label = item.name.length > 18 ? item.name.slice(0,17)+'…' : item.name;
+    return `<span title="${escHtml(item.name)}: ${rem} remaining of ${tot}"
+      style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;border:1px solid ${color};background:${bg};font-size:.68rem;color:${color};white-space:nowrap">
+      🍽️ ${escHtml(label)}&nbsp;<strong>${rem}/${tot}</strong>${out?'&nbsp;⚠':''}
+    </span>`;
+  }).join('');
 }
 
 // ── Utility: HTML-escape ──────────────────────────────────────────────────────
