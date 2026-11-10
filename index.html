@@ -12383,8 +12383,13 @@ async function confirmRosterImport(){
   document.getElementById('roster-import-btn').disabled = true;
   try{
     const { meta, duties, sourceFilename, rawText } = p;
+    // Resolve tenant_id once — same function used by all other GUESTORA tables
+    const { data: tenantId } = await sb.rpc('guestora_resolve_tenant_id');
+    if(!tenantId) throw new Error('Could not resolve tenant. Are you logged in?');
+
     // 1. Insert crew_roster header
     const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
+      tenant_id,
       crew_name:            meta.crewName,
       crew_code:            meta.crewCode,
       crew_rank:            meta.crewRank,
@@ -12394,12 +12399,29 @@ async function confirmRosterImport(){
       total_est_block_mins: meta.totalEstBlockMins,
       source_filename:      sourceFilename,
       raw_text:             rawText,
+      uploaded_by:          currentUser?.id || null,
     }).select('id').single();
     if(rErr) throw rErr;
     const rosterId = rRow.id;
 
-    // 2. Insert duty rows in batches of 50
-    const dutyRows = duties.map(d => ({ ...d, roster_id: rosterId }));
+    // 2. Insert duty rows in batches of 50 — explicit fields only, no spread
+    const dutyRows = duties.map(d => ({
+      tenant_id,
+      roster_id:            rosterId,
+      s_no:                 d.s_no,
+      duty_date:            d.duty_date,
+      duty_type:            d.duty_type,
+      flight_number:        d.flight_number || null,
+      origin:               d.origin        || null,
+      destination:          d.destination   || null,
+      std_local:            d.std_local     || null,
+      std_utc:              d.std_utc       || null,
+      sta_local:            d.sta_local     || null,
+      sta_utc:              d.sta_utc       || null,
+      block_scheduled_mins: d.block_scheduled_mins || null,
+      remark:               d.remark        || null,
+      status:               'rostered',
+    }));
     for(let i = 0; i < dutyRows.length; i += 50){
       const { error: dErr } = await sb.from('roster_duties').insert(dutyRows.slice(i, i+50));
       if(dErr) throw dErr;
