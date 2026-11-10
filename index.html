@@ -10020,15 +10020,26 @@ async function openPFROverlay(){
     _pfrId   = data[0].id;
     _pfrData = data[0];
     // Parse JSON string fields back to objects/arrays
-    try{ _pfrData.crew_list    = typeof _pfrData.crew_list==='string'    ? JSON.parse(_pfrData.crew_list)    : (_pfrData.crew_list||[]); }catch{ _pfrData.crew_list=[]; }
-    try{ _pfrData.sectors_data = typeof _pfrData.sectors_data==='string' ? JSON.parse(_pfrData.sectors_data) : (_pfrData.sectors_data||[]); }catch{ _pfrData.sectors_data=[]; }
-    try{ _pfrData.checklist    = typeof _pfrData.checklist==='string'    ? JSON.parse(_pfrData.checklist)    : (_pfrData.checklist||{}); }catch{ _pfrData.checklist={}; }
-    try{ _pfrData.recipients   = typeof _pfrData.recipients==='string'   ? JSON.parse(_pfrData.recipients)   : (_pfrData.recipients||[]); }catch{ _pfrData.recipients=[]; }
+    try{ _pfrData.crew_list             = typeof _pfrData.crew_list==='string'             ? JSON.parse(_pfrData.crew_list)             : (_pfrData.crew_list||[]); }catch{ _pfrData.crew_list=[]; }
+    try{ _pfrData.sectors_data          = typeof _pfrData.sectors_data==='string'          ? JSON.parse(_pfrData.sectors_data)          : (_pfrData.sectors_data||[]); }catch{ _pfrData.sectors_data=[]; }
+    try{ _pfrData.checklist             = typeof _pfrData.checklist==='string'             ? JSON.parse(_pfrData.checklist)             : (_pfrData.checklist||{}); }catch{ _pfrData.checklist={}; }
+    try{ _pfrData.recipients            = typeof _pfrData.recipients==='string'            ? JSON.parse(_pfrData.recipients)            : (_pfrData.recipients||[]); }catch{ _pfrData.recipients=[]; }
+    try{ _pfrData.sector_flight_numbers = typeof _pfrData.sector_flight_numbers==='string' ? JSON.parse(_pfrData.sector_flight_numbers) : (_pfrData.sector_flight_numbers||[]); }catch{ _pfrData.sector_flight_numbers=[]; }
+    // Migrate old single flight_number field to new sector_flight_numbers array
+    if(!_pfrData.sector_count) _pfrData.sector_count = _pfrData.sector_flight_numbers.length || 1;
+    if(!_pfrData.sector_flight_numbers.length && _pfrData.flight_number)
+      _pfrData.sector_flight_numbers = [_pfrData.flight_number];
     document.getElementById('pfr-status-badge').textContent = 'Draft';
   } else {
     _pfrId   = null;
-    _pfrData = { date:today, flight_number:'', sector:'', ac_type:'', ac_reg:'', captain:'',
+    // Pre-fill sector count + flight numbers from today's logged duty
+    const todayDuties = (cache.flights||[]).filter(f=>f.date===today);
+    const prefillNums = getAllSectorNums(todayDuties);
+    const prefillCount = Math.min(Math.max(prefillNums.length, 1), 4);
+    _pfrData = { date:today, sector:'', ac_type:'', ac_reg:'', captain:'',
       purser:localStorage.getItem('ccl_crew_name')||'',
+      sector_count: prefillCount,
+      sector_flight_numbers: prefillNums.slice(0, prefillCount),
       crew_list:[], sectors_data:[], checklist:{}, reason_for_change:'', general_remarks:'', total_block_time:'' };
     document.getElementById('pfr-status-badge').textContent = 'New';
   }
@@ -10053,18 +10064,7 @@ function renderPFRForm(){
     </tr>`;
   }).join('');
 
-  const sectorRows = Array.from({length:6},(_,i)=>{
-    const s = d.sectors_data?.[i] || {};
-    return `<tr>
-      <td style="padding:4px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
-      <td><input type="text" value="${escHtml(s.flight_number||'')}" oninput="pfrSectorUpdate(${i},'flight_number',this.value)" placeholder="UR110" style="width:90px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="text" value="${escHtml(s.sector||'')}" oninput="pfrSectorUpdate(${i},'sector',this.value)" placeholder="EBB→NBO" style="width:80px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="number" value="${s.j_pax||''}" oninput="pfrSectorUpdate(${i},'j_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="number" value="${s.y_pax||''}" oninput="pfrSectorUpdate(${i},'y_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
-      <td style="font-size:.75rem;font-weight:700;padding:4px;text-align:center">${(parseInt(s.j_pax||0)+parseInt(s.y_pax||0))||''}</td>
-      <td><input type="text" value="${escHtml(s.remarks||'')}" oninput="pfrSectorUpdate(${i},'remarks',this.value)" placeholder="Remarks" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-    </tr>`;
-  }).join('');
+  const sectorRows = pfrBuildSectorRows(d.sector_count||1);
 
   const checklistRows = PFR_CHECKLIST.map((item,i)=>{
     const val = d.checklist?.[i] || '';
@@ -10076,8 +10076,9 @@ function renderPFRForm(){
   }).join('');
 
   // Store PFR options globally — safe reference from event handlers
+  // flightNums: ALL individual sector numbers expanded from combined strings (UR206/7 → UR206, UR207)
   window._pfrOpts = {
-    flightNums: [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))],
+    flightNums: getAllSectorNums(cache.flights),
     acTypes:    [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))],
     acRegs:     [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))],
     captains:   [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))],
@@ -10109,8 +10110,17 @@ function renderPFRForm(){
         <input type="date" id="pfr-date" value="${escHtml(d.date||'')}" oninput="_pfrData.date=this.value"
           style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
       </div>
-      ${pfrCombo('Flight Number','pfr-flight_number',d.flight_number,'flightNums')}
-      ${pfrCombo('Sector','pfr-sector',d.sector,'sectors')}
+      <div class="field">
+        <label>No. of Sectors</label>
+        <select id="pfr-sector-count"
+          onchange="pfrSetSectorCount(parseInt(this.value))"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font);background:var(--color-input-bg);color:var(--color-text-primary)">
+          ${[1,2,3,4].map(n=>`<option value="${n}" ${(d.sector_count||1)===n?'selected':''}>${n} sector${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <!-- Per-sector flight number fields — rendered by pfrRenderSectorFlightNums() -->
+      <div id="pfr-sector-fltnums-wrap" style="display:contents"></div>
+      ${pfrCombo('Sector Route','pfr-sector',d.sector,'sectors')}
       ${pfrCombo('A/C Type','pfr-ac_type',d.ac_type,'acTypes')}
       ${pfrCombo('A/C Reg','pfr-ac_reg',d.ac_reg,'acRegs')}
       ${pfrCombo('Captain','pfr-captain',d.captain,'captains')}
@@ -10136,7 +10146,7 @@ function renderPFRForm(){
       </table>
     </div>
 
-    <!-- Sectors -->
+    <!-- Sectors — row count controlled by sector_count dropdown -->
     <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:6px">Flight Sectors</div>
     <div style="overflow-x:auto;margin-bottom:14px">
       <table style="width:100%;border-collapse:collapse;font-size:.72rem">
@@ -10145,7 +10155,7 @@ function renderPFRForm(){
           <th style="padding:5px">Sector</th><th style="padding:5px">J Pax</th>
           <th style="padding:5px">Y Pax</th><th style="padding:5px">Total</th><th style="padding:5px">Remarks</th>
         </tr></thead>
-        <tbody>${sectorRows}</tbody>
+        <tbody id="pfr-sector-tbody">${sectorRows}</tbody>
       </table>
     </div>
 
@@ -10171,6 +10181,99 @@ function renderPFRForm(){
       <textarea id="pfr-remarks" oninput="_pfrData.general_remarks=this.value" rows="6"
         style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:var(--font);resize:vertical;min-height:120px">${escHtml(d.general_remarks||'')}</textarea>
     </div>`;
+  // Render per-sector flight number fields into the placeholder wrap
+  pfrRenderSectorFlightNums(d.sector_count||1);
+}
+
+// ── PFR sector count helpers ──────────────────────────────
+
+// pfrBuildSectorRows(count) → HTML string for sector tbody
+// Called both on initial render and whenever the count changes.
+function pfrBuildSectorRows(count){
+  return Array.from({length: count}, (_, i) => {
+    const s          = _pfrData.sectors_data?.[i] || {};
+    const prefillFn  = _pfrData.sector_flight_numbers?.[i] || s.flight_number || '';
+    const total      = (parseInt(s.j_pax||0) + parseInt(s.y_pax||0)) || '';
+    return `<tr>
+      <td style="padding:4px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
+      <td><input type="text" value="${escHtml(prefillFn)}" oninput="pfrSectorUpdate(${i},'flight_number',this.value);_pfrData.sector_flight_numbers[${i}]=this.value" placeholder="UR110" style="width:90px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="text" value="${escHtml(s.sector||'')}" oninput="pfrSectorUpdate(${i},'sector',this.value)" placeholder="EBB→NBO" style="width:80px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="number" value="${s.j_pax||''}" oninput="pfrSectorUpdate(${i},'j_pax',this.value);this.closest('tr').cells[5].textContent=(parseInt(this.value||0)+parseInt(this.closest('tr').cells[4].querySelector('input').value||0))||''" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="number" value="${s.y_pax||''}" oninput="pfrSectorUpdate(${i},'y_pax',this.value);this.closest('tr').cells[5].textContent=(parseInt(this.value||0)+parseInt(this.closest('tr').cells[3].querySelector('input').value||0))||''" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
+      <td style="font-size:.75rem;font-weight:700;padding:4px;text-align:center">${total}</td>
+      <td><input type="text" value="${escHtml(s.remarks||'')}" oninput="pfrSectorUpdate(${i},'remarks',this.value)" placeholder="Remarks" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+    </tr>`;
+  }).join('');
+}
+
+// pfrRenderSectorFlightNums(count) — inserts N flight-number combo fields
+// into the #pfr-sector-fltnums-wrap placeholder inside the header grid.
+function pfrRenderSectorFlightNums(count){
+  const wrap = document.getElementById('pfr-sector-fltnums-wrap');
+  if(!wrap) return;
+  const inp_style = 'width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font);background:var(--color-input-bg);color:var(--color-text-primary)';
+  const labels = count === 1
+    ? ['Flight Number']
+    : Array.from({length: count}, (_, i) => `Flight No. ${i+1}`);
+  wrap.innerHTML = labels.map((lbl, i) => {
+    const val = _pfrData.sector_flight_numbers?.[i] || '';
+    return `<div class="field">
+      <label>${escHtml(lbl)}</label>
+      <div class="combo-wrap">
+        <input type="text" id="pfr-sfn-${i}" value="${escHtml(val)}" placeholder="e.g. UR206"
+          autocomplete="off" style="${inp_style}"
+          oninput="_pfrData.sector_flight_numbers[${i}]=this.value;pfrSyncSectorFltNum(${i},this.value);pfrComboFilter('pfr-sfn-${i}','flightNums')"
+          onfocus="pfrComboFilter('pfr-sfn-${i}','flightNums')"
+          onblur="setTimeout(()=>{const el=document.getElementById('pfr-sfn-${i}-dd');if(el)el.style.display='none'},200)"/>
+        <div class="combo-dropdown" id="pfr-sfn-${i}-dd"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// pfrSyncSectorFltNum(i, val) — mirrors the header flight number field down
+// into the matching sector table row's flight_number input (if it exists).
+function pfrSyncSectorFltNum(i, val){
+  if(!_pfrData.sector_flight_numbers) _pfrData.sector_flight_numbers = [];
+  _pfrData.sector_flight_numbers[i] = val;
+  const tbody = document.getElementById('pfr-sector-tbody');
+  if(!tbody) return;
+  const row = tbody.rows[i];
+  if(!row) return;
+  const fnInput = row.cells[1]?.querySelector('input');
+  if(fnInput && fnInput.value !== val) fnInput.value = val;
+  // Also keep sectors_data in sync
+  if(!_pfrData.sectors_data) _pfrData.sectors_data = [];
+  if(!_pfrData.sectors_data[i]) _pfrData.sectors_data[i] = {};
+  _pfrData.sectors_data[i].flight_number = val;
+}
+
+// pfrSetSectorCount(n) — called by the sector count dropdown.
+// Updates _pfrData.sector_count, re-expands flight numbers from the duty,
+// re-renders the header flight number fields and the sector table rows.
+function pfrSetSectorCount(n){
+  n = Math.min(Math.max(parseInt(n)||1, 1), 4);
+  _pfrData.sector_count = n;
+
+  // Expand sector numbers from the logged duty (live cache)
+  const allNums = getAllSectorNums(cache.flights||[]);
+  // Pad or truncate to n entries, keeping any manually-entered values already there
+  const existing = _pfrData.sector_flight_numbers || [];
+  _pfrData.sector_flight_numbers = Array.from({length: n}, (_, i) =>
+    existing[i] || allNums[i] || ''
+  );
+
+  // Truncate sectors_data so saved pax counts for removed sectors don't persist
+  if(_pfrData.sectors_data && _pfrData.sectors_data.length > n){
+    _pfrData.sectors_data = _pfrData.sectors_data.slice(0, n);
+  }
+
+  // Re-render header flight number fields
+  pfrRenderSectorFlightNums(n);
+
+  // Re-render sector table rows
+  const tbody = document.getElementById('pfr-sector-tbody');
+  if(tbody) tbody.innerHTML = pfrBuildSectorRows(n);
 }
 
 // PFR combo filter — reads options from window._pfrOpts[optKey], writes to _pfrData via data-dkey
@@ -10210,9 +10313,11 @@ function pfrChecklistUpdate(i, val){
 
 async function savePFRDraft(){
   const payload = { ..._pfrData, user_id: currentUser.id, status:'draft', updated_at: new Date().toISOString(),
-    crew_list:   JSON.stringify(_pfrData.crew_list||[]),
-    sectors_data:JSON.stringify(_pfrData.sectors_data||[]),
-    checklist:   JSON.stringify(_pfrData.checklist||{}) };
+    crew_list:              JSON.stringify(_pfrData.crew_list||[]),
+    sectors_data:           JSON.stringify(_pfrData.sectors_data||[]),
+    checklist:              JSON.stringify(_pfrData.checklist||{}),
+    sector_count:           _pfrData.sector_count || 1,
+    sector_flight_numbers:  JSON.stringify(_pfrData.sector_flight_numbers||[]) };
   if(_pfrId){
     const { error } = await sb.from('purser_reports').update(payload).eq('id',_pfrId);
     if(error){ toast('⚠ ' + error.message); return; }
