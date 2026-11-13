@@ -910,6 +910,27 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .rcs-status-btn.selected{border-color:var(--color-accent);background:rgba(79,142,247,.18);color:var(--color-text-primary)}
 .rcs-label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-muted);margin-bottom:4px}
 .rcs-time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.rsb-delayed{background:rgba(245,158,11,.15);color:#fde68a}
+.roster-card.rc-op.rc-delayed{border-left-color:#f59e0b}
+.roster-card.rc-struck .roster-card-flight,.roster-card.rc-struck .roster-card-route{text-decoration:line-through}
+.roster-change-note{font-size:.68rem;color:var(--color-text-muted);margin-top:7px;line-height:1.45}
+.roster-change-note b{color:#fde68a;font-weight:700}
+.roster-src-tag{display:inline-block;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;white-space:nowrap}
+.roster-src-crew{background:rgba(255,255,255,.08);color:var(--color-text-muted)}
+.roster-src-officer{background:rgba(79,142,247,.18);color:#a0bfff}
+.roster-card-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.roster-card-actions .roster-complete-btn{margin-top:0;flex:1 1 100%}
+.roster-change-btn{flex:1;font-size:.72rem;font-weight:700;padding:6px 10px;min-height:32px;background:transparent;color:var(--color-text-muted);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;white-space:nowrap}
+.roster-add-btn{width:100%;margin:10px 0 24px;padding:10px;font-size:.76rem;font-weight:700;background:transparent;color:var(--color-text-muted);border:1px dashed var(--color-border);border-radius:10px;cursor:pointer}
+.rch-action{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;margin-bottom:8px;border-radius:10px;border:1px solid var(--color-border);background:var(--color-card,#16213e);color:var(--color-text-primary);cursor:pointer;font-family:inherit}
+.rch-action-icon{font-size:1.05rem;width:24px;text-align:center;flex-shrink:0}
+.rch-action-title{font-size:.82rem;font-weight:700}
+.rch-action-sub{font-size:.68rem;color:var(--color-text-muted);margin-top:1px}
+.rch-input{width:100%;box-sizing:border-box;padding:9px 10px;font-size:.9rem;font-family:inherit;border-radius:8px;border:1.5px solid var(--color-border);background:var(--color-card,#16213e);color:var(--color-text-primary);color-scheme:dark}
+.rch-row{margin-bottom:12px}
+.rch-hist-item{padding:9px 0;border-top:1px solid var(--color-border);font-size:.72rem;color:var(--color-text-muted);line-height:1.5}
+.rch-hist-item strong{color:var(--color-text-primary);font-size:.78rem}
+.rch-hist-diff span{color:var(--color-text-primary);font-weight:700}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -1904,6 +1925,26 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
       <button onclick="closeRosterCompleteSheet()" class="btn" style="flex:1">Cancel</button>
       <button onclick="saveRosterComplete()" class="btn btn-primary" style="flex:1">Save & Complete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ROSTER CHANGE SHEET (report a change / add a duty / history)
+════════════════════════════════════════════════════════════ -->
+<div id="roster-change-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="min-width:0">
+        <div id="rch-title" style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)"></div>
+        <div id="rch-sub"   style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeRosterChangeSheet()" aria-label="Close" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div id="rch-body" style="flex:1;overflow-y:auto;padding:14px 16px 0"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button id="rch-back" onclick="rosterChangeBack()" class="btn" style="flex:1">Close</button>
+      <button id="rch-save" onclick="saveRosterChange()" class="btn btn-primary" style="flex:1;display:none">Save change</button>
     </div>
   </div>
 </div>
@@ -11938,6 +11979,8 @@ let _rosterState = {
   rosterId:  null,   // current crew_rosters.id being viewed
   duties:    [],     // roster_duties rows for current roster
   completeId: null,  // roster_duties.id being completed
+  changeId:   null,  // roster_duties.id whose change sheet is open
+  changeAction: null,// action key selected in the change sheet
 };
 
 /* ── Sub-tab switcher ───────────────────────────────────────── */
@@ -12038,6 +12081,8 @@ function renderRosterDuties(){
     }
     parts.push(rosterDutyCardHTML(d, today));
   }
+  if(rosterChangesEnabled())
+    parts.push(`<button class="roster-add-btn" onclick="openRosterAddDuty()">＋ Add a duty that is not on this roster</button>`);
   el.innerHTML = parts.join('');
 }
 
@@ -12069,6 +12114,8 @@ function dutyTypeLabel(type){
   if(t==='SBY')                   return { text:'Standby 📲', cls:'rct-dma' };
   if(t==='TRG')                   return { text:'Training 📚', cls:'rct-dma' };
   if(t==='GRD')                   return { text:'Ground Duty 🏢', cls:'rct-dma' };
+  if(t==='SICK')                  return { text:'Sick', cls:'rct-na' };
+  if(t==='LEAVE')                 return { text:'Leave', cls:'rct-woff' };
   return { text: escHtml(type), cls:'rct-dma' };
 }
 
@@ -12079,6 +12126,9 @@ function statusBadgeHTML(status){
     cancelled: { cls:'rsb-cancelled', text:'Cancelled' },
     diverted:  { cls:'rsb-diverted',  text:'Diverted' },
     standby:   { cls:'rsb-rostered',  text:'Standby' },
+    delayed:   { cls:'rsb-delayed',   text:'Delayed' },
+    removed:   { cls:'rsb-cancelled', text:'Removed' },
+    no_show:   { cls:'rsb-cancelled', text:'No-show' },
   };
   const s = map[status] || map.rostered;
   return `<span class="roster-status-badge ${s.cls}">${s.text}</span>`;
@@ -12104,7 +12154,9 @@ function rosterDutyCardHTML(d, today){
     cardCls += ' rc-op';
     if(isToday)                        cardCls += ' rc-today';
     if(d.status === 'completed')       cardCls += ' rc-completed';
-    if(d.status === 'cancelled')       cardCls += ' rc-cancelled';
+    if(d.status === 'cancelled')       cardCls += ' rc-cancelled rc-struck';
+    if(d.status === 'removed' || d.status === 'no_show') cardCls += ' rc-cancelled rc-struck';
+    if(d.status === 'delayed')         cardCls += ' rc-delayed';
     if(d.status === 'diverted')        cardCls += ' rc-diverted';
   } else {
     const tl = d.duty_type?.toUpperCase() || '';
@@ -12121,6 +12173,7 @@ function rosterDutyCardHTML(d, today){
         <span class="roster-card-type ${dtl.cls}">${dtl.text}</span>
         ${isToday ? '<span class="roster-today-pulse" style="margin-left:4px"></span>' : ''}
       </div>
+      ${rosterCardFooterHTML(d, false)}
     </div>`;
   }
 
@@ -12128,7 +12181,7 @@ function rosterDutyCardHTML(d, today){
   const route    = [d.origin, d.destination].filter(Boolean).join(' → ') || '–';
   const estBlock = d.block_scheduled_mins ? minsToHHMM(d.block_scheduled_mins) : '–';
   const actBlock = d.block_actual_mins    ? minsToHHMM(d.block_actual_mins)    : null;
-  const showComplete = d.status === 'rostered' && d.duty_date <= today;
+  const showComplete = (d.status === 'rostered' || d.status === 'delayed') && d.duty_date <= today;
 
   return `<div class="${cardCls}">
     <div class="roster-card-row">
@@ -12145,8 +12198,93 @@ function rosterDutyCardHTML(d, today){
       ${actBlock ? `<div class="roster-block-item">Actual Block <span style="color:#86efac">${actBlock}</span></div>` : ''}
       ${d.divert_airport ? `<div class="roster-block-item">Diverted → <span style="color:#fde68a">${escHtml(d.divert_airport)}</span></div>` : ''}
     </div>
-    ${showComplete ? `<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>` : ''}
+    ${rosterCardFooterHTML(d, showComplete)}
   </div>`;
+}
+
+/* ── Roster changes: shared labels and helpers ──────────────── */
+const ROSTER_CHANGE_LABELS = {
+  activated:'Standby activated', assigned:'Flight assigned', stood_down:'Taken off flight',
+  type_changed:'Duty changed', delayed:'Delayed', retimed:'Re-timed', postponed:'Moved to another date',
+  cancelled:'Cancelled', removed:'Removed from flight', reinstated:'Reinstated',
+  flight_changed:'Flight details changed', swapped:'Swapped', no_show:'No-show',
+  completed:'Marked complete', diverted:'Diverted', reopened:'Reopened',
+  added:'Added after publication', edited:'Edited',
+};
+const ROSTER_FIELD_LABELS = {
+  duty_type:'Duty', duty_date:'Date', flight_number:'Flight', origin:'From', destination:'To',
+  std_local:'STD', sta_local:'STA', block_scheduled_mins:'Est. block', status:'Status', remark:'Remark',
+  block_actual_mins:'Actual block', atd_local:'ATD', ata_local:'ATA', divert_airport:'Diverted to',
+  completion_note:'Note',
+};
+const ROSTER_GROUND_TYPES = [
+  ['SBY','Standby'], ['DMA','Duty May be Assigned'], ['WOFF','Weekly Off'], ['NA','Not Available'],
+  ['TRG','Training'], ['GRD','Ground Duty'], ['SICK','Sick'], ['LEAVE','Leave'],
+];
+
+function isRosterFlight(d){ return !!(d && d.duty_type && d.duty_type.toUpperCase().startsWith('OP')); }
+// Change tracking arrives with the roster database update (migration 17/18).
+function rosterChangesEnabled(){
+  const d = _rosterState.duties[0];
+  return !!d && d.revision !== undefined && d.officer_locked !== undefined;
+}
+function rosterCanChange(d){
+  return rosterChangesEnabled() && !d.officer_locked && d.status !== 'completed' && d.status !== 'diverted';
+}
+function rosterSourceTagHTML(source){
+  if(source === 'officer') return '<span class="roster-src-tag roster-src-officer">Roster officer</span>';
+  if(source === 'crew')    return '<span class="roster-src-tag roster-src-crew">Crew-reported</span>';
+  return '';
+}
+function rosterShortDate(iso){
+  if(!iso) return '–';
+  const p = String(iso).split('-');
+  return `${parseInt(p[2])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1]}`;
+}
+// One-line description of the duty as originally published. Returns safe HTML.
+function rosterPublishedSummaryHTML(pub){
+  if(!pub || pub.added) return '';
+  const isFlt = pub.duty_type && String(pub.duty_type).toUpperCase().startsWith('OP');
+  if(!isFlt) return `${dutyTypeLabel(pub.duty_type).text} · ${rosterShortDate(pub.duty_date)}`;
+  const route = [pub.origin, pub.destination].filter(Boolean).join(' → ');
+  return [pub.flight_number, route, rosterShortDate(pub.duty_date),
+          pub.std_local ? 'STD ' + pub.std_local : null]
+    .filter(Boolean).map(escHtml).join(' · ');
+}
+function rosterDiffersFromPublished(d){
+  const pub = d.published;
+  if(!pub || pub.added) return false;
+  return ['duty_type','duty_date','flight_number','origin','destination','std_local','sta_local']
+    .some(k => (pub[k] ?? null) !== (d[k] ?? null));
+}
+
+// Change note + action buttons shown at the bottom of every duty card.
+function rosterCardFooterHTML(d, showComplete){
+  if(d.revision === undefined){   // database update not applied yet: old behaviour
+    return showComplete ? `<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>` : '';
+  }
+  const flown   = d.status === 'completed' || d.status === 'diverted';
+  const added   = !!(d.published && d.published.added);
+  const changed = d.revision > 0 || added;
+  let note = '';
+  if(changed){
+    const lct   = d.last_change_type;
+    const label = (lct && lct !== 'completed' && lct !== 'diverted') ? ROSTER_CHANGE_LABELS[lct] : null;
+    const bits  = [];
+    if(label) bits.push(`<b>✎ ${escHtml(label)}</b>${rosterSourceTagHTML(d.last_change_source)}`
+                        + (d.last_change_reason ? ` — ${escHtml(d.last_change_reason)}` : ''));
+    else if(added) bits.push(`<b>✎ ${ROSTER_CHANGE_LABELS.added}</b>`);
+    if(rosterDiffersFromPublished(d)) bits.push(`Published as: ${rosterPublishedSummaryHTML(d.published)}`);
+    if(bits.length) note = `<div class="roster-change-note">${bits.join('<br>')}</div>`;
+  }
+  if(d.officer_locked && !flown)
+    note += `<div class="roster-change-note">🔒 Set by your roster officer — contact them to change it.</div>`;
+
+  const btns = [];
+  if(showComplete) btns.push(`<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>`);
+  if(rosterCanChange(d)) btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}')">✎ Report a change</button>`);
+  if(changed)            btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', true)">🕘 History</button>`);
+  return note + (btns.length ? `<div class="roster-card-actions">${btns.join('')}</div>` : '');
 }
 
 /* ── Upload PDF ─────────────────────────────────────────────── */
@@ -12639,6 +12777,358 @@ async function saveRosterComplete(){
     renderDash();
   }catch(e){
     toast('⚠ Could not save: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ROSTER CHANGES — report a change, add a duty, history
+// Every change goes through the roster_apply_change / roster_add_duty
+// database functions, which record it in the change history.
+// ═══════════════════════════════════════════════
+function rosterChangeActions(d){
+  const st = d.status;
+  if(isRosterFlight(d)){
+    if(st === 'cancelled' || st === 'removed' || st === 'no_show')
+      return [{ key:'reinstate', icon:'↩', title:'Flight is back on', sub:'Put this flight back on my roster' }];
+    return [
+      { key:'delay',     icon:'⏱', title:'Delayed',                   sub:'Later departure, same day' },
+      { key:'retime',    icon:'🕐', title:'Re-timed',                  sub:'Times changed, including an earlier departure' },
+      { key:'postpone',  icon:'📅', title:'Moved to another date',     sub:'Flight postponed or brought forward' },
+      { key:'flightchg', icon:'✈',  title:'Flight number or route changed', sub:'Different flight number, origin or destination' },
+      { key:'cancel',    icon:'❌', title:'Flight cancelled',          sub:'The flight will not operate' },
+      { key:'stooddown', icon:'⤵',  title:'Taken off this flight',     sub:'The flight operates, but I am no longer on it' },
+    ];
+  }
+  const isSby = (d.duty_type||'').toUpperCase() === 'SBY';
+  return [
+    { key:'assign',  icon:'✈', title: isSby ? 'Standby activated — flight assigned' : 'Flight assigned',
+      sub:'This day is now a flight duty' },
+    { key:'typechg', icon:'🔁', title:'Duty changed', sub:'Standby, DMA, day off, training, sick, leave…' },
+  ];
+}
+
+function rosterChangeSheetMode(mode, saveLabel){
+  document.getElementById('rch-back').textContent    = mode === 'form' ? 'Back' : 'Close';
+  const save = document.getElementById('rch-save');
+  save.style.display = mode === 'form' ? '' : 'none';
+  save.disabled = false;
+  save.textContent = saveLabel || 'Save change';
+}
+
+function openRosterChangeSheet(dutyId, historyOnly){
+  const d = _rosterState.duties.find(x => x.id === dutyId);
+  if(!d) return;
+  _rosterState.changeId = dutyId;
+  _rosterState.changeAction = null;
+  renderRosterChangeMenu(!!historyOnly);
+  document.getElementById('roster-change-sheet').style.display = 'flex';
+}
+
+function closeRosterChangeSheet(){
+  document.getElementById('roster-change-sheet').style.display = 'none';
+  _rosterState.changeId = null;
+  _rosterState.changeAction = null;
+}
+
+function rosterChangeBack(){
+  if(_rosterState.changeAction && _rosterState.changeAction !== 'add' && _rosterState.changeId){
+    _rosterState.changeAction = null;
+    renderRosterChangeMenu(false);
+  } else {
+    closeRosterChangeSheet();
+  }
+}
+
+function rosterDutyTitle(d){
+  if(isRosterFlight(d)) return `${d.flight_number||'Flight'} · ${d.origin||'–'} → ${d.destination||'–'}`;
+  const tmp = document.createElement('span');
+  tmp.innerHTML = dutyTypeLabel(d.duty_type).text;
+  return tmp.textContent;
+}
+
+function renderRosterChangeMenu(historyOnly){
+  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  if(!d) return;
+  document.getElementById('rch-title').textContent = rosterDutyTitle(d);
+  document.getElementById('rch-sub').textContent   = fmtRosterPeriod(d.duty_date, d.duty_date);
+  rosterChangeSheetMode('menu');
+
+  let html = '';
+  if(!historyOnly){
+    if(rosterCanChange(d)){
+      html += `<div class="rcs-label" style="margin-bottom:8px">What changed?</div>`;
+      html += rosterChangeActions(d).map(a => `
+        <button class="rch-action" onclick="selectRosterChangeAction('${a.key}')">
+          <span class="rch-action-icon">${a.icon}</span>
+          <span><div class="rch-action-title">${escHtml(a.title)}</div><div class="rch-action-sub">${escHtml(a.sub)}</div></span>
+        </button>`).join('');
+      html += `<div class="roster-change-note" style="margin:4px 0 14px">Your change is saved as crew-reported. Your roster officer's version takes priority if they update this duty.</div>`;
+    } else if(d.officer_locked){
+      html += `<div class="roster-change-note" style="margin-bottom:14px">🔒 This duty was set by your roster officer. Contact them to change it.</div>`;
+    }
+  }
+  html += `<div class="rcs-label">History</div><div id="rch-history"><div class="rch-hist-item">Loading…</div></div><div style="height:16px"></div>`;
+  document.getElementById('rch-body').innerHTML = html;
+  loadRosterDutyHistory(d);
+}
+
+function rosterHistValueHTML(key, v){
+  if(v === null || v === undefined || v === '') return '–';
+  if(key === 'duty_type') return dutyTypeLabel(v).text;
+  if(key === 'duty_date') return escHtml(rosterShortDate(v));
+  if(key === 'block_scheduled_mins' || key === 'block_actual_mins') return escHtml(minsToHHMM(Number(v)));
+  if(key === 'status') return escHtml(String(v).replace('_', '-'));
+  return escHtml(String(v).replace(/\/\d+$/, ''));
+}
+
+async function loadRosterDutyHistory(d){
+  const el = () => document.getElementById('rch-history');
+  const pubLine = d.published && !d.published.added
+    ? `<div class="rch-hist-item"><strong>Published</strong><br>${rosterPublishedSummaryHTML(d.published)}</div>` : '';
+  try{
+    const { data, error } = await sb.from('roster_duty_changes')
+      .select('revision, change_type, old_values, new_values, reason, source, changed_at')
+      .eq('duty_id', d.id)
+      .order('changed_at', { ascending: false });
+    if(error) throw error;
+    if(_rosterState.changeId !== d.id || !el()) return;   // sheet moved on
+    const items = (data||[]).map(c => {
+      const when = new Date(c.changed_at);
+      const whenTxt = `${when.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][when.getMonth()]} · ${String(when.getHours()).padStart(2,'0')}:${String(when.getMinutes()).padStart(2,'0')}`;
+      const diffs = Object.keys(c.new_values||{})
+        .filter(k => ROSTER_FIELD_LABELS[k])
+        .map(k => c.change_type === 'added'
+          ? ((c.new_values[k] === null || c.new_values[k] === '') ? null
+              : `${ROSTER_FIELD_LABELS[k]} <span>${rosterHistValueHTML(k, c.new_values[k])}</span>`)
+          : `${ROSTER_FIELD_LABELS[k]} ${rosterHistValueHTML(k, (c.old_values||{})[k])} → <span>${rosterHistValueHTML(k, c.new_values[k])}</span>`)
+        .filter(Boolean);
+      return `<div class="rch-hist-item">
+        <strong>${escHtml(ROSTER_CHANGE_LABELS[c.change_type] || c.change_type)}</strong>${rosterSourceTagHTML(c.source)}
+        <span style="float:right">${escHtml(whenTxt)}</span>
+        ${c.reason ? `<br>“${escHtml(c.reason)}”` : ''}
+        ${diffs.length ? `<div class="rch-hist-diff">${diffs.join('<br>')}</div>` : ''}
+      </div>`;
+    });
+    el().innerHTML = (items.join('') + pubLine) || `<div class="rch-hist-item">No changes — this duty is as published.</div>`;
+  }catch(e){
+    if(el()) el().innerHTML = `<div class="rch-hist-item">⚠ Could not load history: ${escHtml(e.message)}</div>`;
+  }
+}
+
+/* ── Forms ──────────────────────────────────────────────────── */
+function rchField(label, inner){ return `<div class="rch-row"><div class="rcs-label">${label}</div>${inner}</div>`; }
+// 24-hour time as text (a native time picker shows AM/PM on many phones).
+function rchTime(id, val){
+  return `<input id="${id}" class="rch-input rch-time" type="text" inputmode="numeric" maxlength="5" placeholder="e.g. 1430" value="${escHtml(val||'')}" autocomplete="off" style="text-align:center"/>`;
+}
+function rchText(id, val, ph, max){
+  return `<input id="${id}" class="rch-input" type="text" maxlength="${max||12}" placeholder="${ph||''}" value="${escHtml(val||'')}"
+            autocapitalize="characters" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>`;
+}
+function rchReason(){
+  return rchField('Reason / note (optional)',
+    `<input id="rch-reason" class="rch-input" type="text" maxlength="200" placeholder="e.g. Tech delay, called by crewing at 11:30" autocomplete="off"/>`);
+}
+// Accepts "8:05", "08:05", "0805" (and the roster's "06:45/19" next-day form).
+function rchCleanTime(t){
+  const m = String(t||'').replace(/\/\d+$/, '').trim().match(/^(\d{1,2})[:.]?(\d{2})$/);
+  if(!m || Number(m[2]) > 59) return '';
+  return `${m[1].padStart(2,'0')}:${m[2]}`;
+}
+function rchFlightFieldsHTML(d){
+  const blk = d && d.block_scheduled_mins
+    ? `${String(Math.floor(d.block_scheduled_mins/60)).padStart(2,'0')}:${String(d.block_scheduled_mins%60).padStart(2,'0')}` : '';
+  return rchField('Flight number', rchText('rch-flt', d?.flight_number, 'e.g. UR120', 12))
+    + `<div class="rcs-time-row">
+         <div><div class="rcs-label">From (IATA)</div>${rchText('rch-org', d?.origin, 'EBB', 4)}</div>
+         <div><div class="rcs-label">To (IATA)</div>${rchText('rch-dst', d?.destination, 'NBO', 4)}</div>
+       </div>
+       <div class="rcs-time-row">
+         <div><div class="rcs-label">STD (local)</div>${rchTime('rch-std', rchCleanTime(d?.std_local))}</div>
+         <div><div class="rcs-label">STA (local)</div>${rchTime('rch-sta', rchCleanTime(d?.sta_local))}</div>
+       </div>`
+    + rchField('Estimated block time (optional)', rchTime('rch-block', blk));
+}
+
+function selectRosterChangeAction(key){
+  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  if(!d) return;
+  _rosterState.changeAction = key;
+  const action = rosterChangeActions(d).find(a => a.key === key);
+  const std = rchCleanTime(d.std_local), sta = rchCleanTime(d.sta_local);
+  let html = `<div class="rcs-label" style="margin-bottom:10px;color:var(--color-text-primary)">${escHtml(action ? action.title : '')}</div>`;
+
+  if(key === 'delay' || key === 'retime'){
+    html += `<div class="rcs-time-row">
+        <div><div class="rcs-label">New STD (local)</div>${rchTime('rch-std', std)}</div>
+        <div><div class="rcs-label">New STA (local)</div>${rchTime('rch-sta', sta)}</div>
+      </div>`;
+  } else if(key === 'postpone'){
+    html += rchField('New date', `<input id="rch-date" class="rch-input" type="date" value="${escHtml(d.duty_date)}"/>`)
+      + `<div class="rcs-time-row">
+        <div><div class="rcs-label">STD (local)</div>${rchTime('rch-std', std)}</div>
+        <div><div class="rcs-label">STA (local)</div>${rchTime('rch-sta', sta)}</div>
+      </div>`;
+  } else if(key === 'flightchg'){
+    html += rchField('Flight number', rchText('rch-flt', d.flight_number, 'e.g. UR120', 12))
+      + `<div class="rcs-time-row">
+        <div><div class="rcs-label">From (IATA)</div>${rchText('rch-org', d.origin, 'EBB', 4)}</div>
+        <div><div class="rcs-label">To (IATA)</div>${rchText('rch-dst', d.destination, 'NBO', 4)}</div>
+      </div>`;
+  } else if(key === 'stooddown'){
+    html += rchField('What is this day now?', `<select id="rch-type" class="rch-input">
+        <option value="">Nothing assigned yet</option>
+        <option value="SBY">Standby</option>
+        <option value="DMA">Duty May be Assigned</option>
+        <option value="WOFF">Weekly Off</option>
+        <option value="NA">Not Available</option>
+      </select>`);
+  } else if(key === 'assign'){
+    html += rchFlightFieldsHTML(null);
+  } else if(key === 'typechg'){
+    const cur = (d.duty_type||'').toUpperCase();
+    html += rchField('New duty', `<select id="rch-type" class="rch-input">
+        ${ROSTER_GROUND_TYPES.filter(([v]) => v !== cur).map(([v,t]) => `<option value="${v}">${t}</option>`).join('')}
+      </select>`);
+  }
+  // cancel / reinstate need only a reason
+  html += rchReason() + '<div style="height:16px"></div>';
+  document.getElementById('rch-body').innerHTML = html;
+  rosterChangeSheetMode('form');
+}
+
+function openRosterAddDuty(){
+  if(!_rosterState.rosterId) return;
+  _rosterState.changeId = null;
+  _rosterState.changeAction = 'add';
+  document.getElementById('rch-title').textContent = 'Add a duty';
+  document.getElementById('rch-sub').textContent   = 'For a duty that is not on the published roster';
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('rch-body').innerHTML =
+    rchField('Date', `<input id="rch-date" class="rch-input" type="date" value="${today}"/>`)
+    + rchField('Duty', `<select id="rch-type" class="rch-input" onchange="document.getElementById('rch-add-flight').style.display = this.value==='OP' ? '' : 'none'">
+        <option value="OP">Flight</option>
+        ${ROSTER_GROUND_TYPES.map(([v,t]) => `<option value="${v}">${t}</option>`).join('')}
+      </select>`)
+    + `<div id="rch-add-flight">${rchFlightFieldsHTML(null)}</div>`
+    + rchReason() + '<div style="height:16px"></div>';
+  rosterChangeSheetMode('form', 'Add duty');
+  document.getElementById('roster-change-sheet').style.display = 'flex';
+}
+
+/* ── Save ───────────────────────────────────────────────────── */
+function rchVal(id){ return (document.getElementById(id)?.value || '').trim(); }
+
+// Reads the flight fields from the form. Returns null (after a toast) if invalid.
+function rchReadFlight(){
+  const flt = rchVal('rch-flt').toUpperCase(), org = rchVal('rch-org').toUpperCase(), dst = rchVal('rch-dst').toUpperCase();
+  if(!flt || !org || !dst){ toast('⚠ Enter the flight number, origin and destination.'); return null; }
+  const blk = rchVal('rch-block');
+  return {
+    flight_number: flt, origin: org, destination: dst,
+    std_local: rchVal('rch-std') || null, sta_local: rchVal('rch-sta') || null,
+    block_scheduled_mins: blk ? hhmmToMins(blk) : null,
+  };
+}
+
+async function saveRosterChange(){
+  const key = _rosterState.changeAction;
+  if(!key) return;
+  // Normalise every time field to HH:MM before reading the form
+  for(const inp of document.querySelectorAll('#rch-body .rch-time')){
+    const raw = inp.value.trim();
+    if(!raw) continue;
+    const clean = rchCleanTime(raw);
+    const isClock = inp.id !== 'rch-block';
+    if(!clean || (isClock && Number(clean.slice(0,2)) > 23)){
+      toast('⚠ Enter times as 24-hour HHMM, e.g. 1430.'); inp.focus(); return;
+    }
+    inp.value = clean;
+  }
+  const reason = rchVal('rch-reason') || null;
+  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  let type = null, changes = null, addDuty = null;
+
+  if(key === 'add'){
+    const date = rchVal('rch-date'), dutyType = rchVal('rch-type');
+    if(!date){ toast('⚠ Choose a date.'); return; }
+    addDuty = { duty_date: date, duty_type: dutyType };
+    if(dutyType === 'OP'){
+      const f = rchReadFlight(); if(!f) return;
+      Object.assign(addDuty, f);
+    }
+  } else {
+    if(!d) return;
+    const oldStd = rchCleanTime(d.std_local), oldSta = rchCleanTime(d.sta_local);
+    if(key === 'delay' || key === 'retime'){
+      const std = rchVal('rch-std'), sta = rchVal('rch-sta');
+      if(!std){ toast('⚠ Enter the new departure time.'); return; }
+      if(std === oldStd && sta === oldSta){ toast('⚠ The times are unchanged.'); return; }
+      type = key === 'delay' ? 'delayed' : 'retimed';
+      changes = { std_local: std, std_utc: null };
+      if(sta !== oldSta) Object.assign(changes, { sta_local: sta || null, sta_utc: null });
+      if(key === 'delay') changes.status = 'delayed';
+    } else if(key === 'postpone'){
+      const date = rchVal('rch-date'), std = rchVal('rch-std'), sta = rchVal('rch-sta');
+      if(!date){ toast('⚠ Choose the new date.'); return; }
+      if(date === d.duty_date){ toast('⚠ Choose a different date. For a time change use Delayed or Re-timed.'); return; }
+      type = 'postponed';
+      changes = { duty_date: date, status: 'rostered' };
+      if(std !== oldStd) Object.assign(changes, { std_local: std || null, std_utc: null });
+      if(sta !== oldSta) Object.assign(changes, { sta_local: sta || null, sta_utc: null });
+    } else if(key === 'flightchg'){
+      const flt = rchVal('rch-flt').toUpperCase(), org = rchVal('rch-org').toUpperCase(), dst = rchVal('rch-dst').toUpperCase();
+      if(!flt){ toast('⚠ Enter the flight number.'); return; }
+      changes = {};
+      if(flt !== (d.flight_number||'')) changes.flight_number = flt;
+      if(org !== (d.origin||''))        changes.origin = org || null;
+      if(dst !== (d.destination||''))   changes.destination = dst || null;
+      if(!Object.keys(changes).length){ toast('⚠ Nothing has changed.'); return; }
+      type = 'flight_changed';
+    } else if(key === 'cancel'){
+      type = 'cancelled'; changes = { status: 'cancelled' };
+    } else if(key === 'reinstate'){
+      type = 'reinstated'; changes = { status: 'rostered' };
+    } else if(key === 'stooddown'){
+      const nt = rchVal('rch-type');
+      if(!nt){ type = 'removed'; changes = { status: 'removed' }; }
+      else {
+        type = 'stood_down';
+        changes = { duty_type: nt, status: 'rostered', flight_number: null, origin: null, destination: null,
+                    std_local: null, std_utc: null, sta_local: null, sta_utc: null, block_scheduled_mins: null };
+      }
+    } else if(key === 'assign'){
+      const f = rchReadFlight(); if(!f) return;
+      type = (d.duty_type||'').toUpperCase() === 'SBY' ? 'activated' : 'assigned';
+      changes = { duty_type: 'OP', status: 'rostered', std_utc: null, sta_utc: null, ...f };
+    } else if(key === 'typechg'){
+      const nt = rchVal('rch-type');
+      if(!nt) return;
+      type = 'type_changed'; changes = { duty_type: nt };
+    } else return;
+  }
+
+  const btn = document.getElementById('rch-save');
+  btn.disabled = true;
+  try{
+    const { data, error } = addDuty
+      ? await sb.rpc('roster_add_duty',     { p_roster_id: _rosterState.rosterId, p_duty: addDuty, p_reason: reason })
+      : await sb.rpc('roster_apply_change', { p_duty_id: d.id, p_change_type: type, p_changes: changes, p_reason: reason });
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if(row && row.id){
+      const idx = _rosterState.duties.findIndex(x => x.id === row.id);
+      if(idx !== -1) _rosterState.duties[idx] = row; else _rosterState.duties.push(row);
+      _rosterState.duties.sort((a,b) => a.duty_date.localeCompare(b.duty_date) || ((a.s_no ?? 9999) - (b.s_no ?? 9999)));
+    }
+    toast(addDuty ? '✅ Duty added to your roster' : '✅ Change saved · ' + (ROSTER_CHANGE_LABELS[type] || type));
+    closeRosterChangeSheet();
+    renderRosterDuties();
+  }catch(e){
+    btn.disabled = false;
+    const missing = e.code === 'PGRST202' || /could not find the function/i.test(e.message||'');
+    toast(missing ? '⚠ Roster changes need a database update before they can be saved.'
+                  : '⚠ Could not save: ' + (e.message || 'unknown error'));
   }
 }
 
