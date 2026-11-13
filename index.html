@@ -9771,6 +9771,7 @@ async function openUserProfile(userId){
         style="border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:.82rem;font-family:var(--font);color:var(--color-text-primary)">
         <option value="crew" ${(u.role||'crew')==='crew'?'selected':''}>Crew</option>
         <option value="ops_manager" ${u.role==='ops_manager'?'selected':''}>Ops Manager</option>
+        <option value="roster_officer" ${u.role==='roster_officer'?'selected':''}>Roster Officer</option>
         <option value="check_in_agent" ${u.role==='check_in_agent'?'selected':''}>Check-in Agent</option>
       </select>
     </div>
@@ -11958,9 +11959,15 @@ async function initRosterTab(){
   }
   document.getElementById('roster-offline-notice').style.display = 'none';
   try{
-    const { data, error } = await sb.from('crew_rosters')
+    // "My Roster" lists only the signed-in crew member's own rosters.
+    // Roster officers and admins can read every roster in the airline (RLS),
+    // so the owner filter is applied here explicitly.
+    const rosterQuery = () => sb.from('crew_rosters')
       .select('id, crew_name, crew_code, period_from, period_to, source_filename')
       .order('period_from', { ascending: false });
+    let { data, error } = await rosterQuery().eq('crew_user_id', currentUser.id);
+    // Migration 17 not applied yet (no crew_user_id column): fall back.
+    if(error && error.code === '42703') ({ data, error } = await rosterQuery());
     if(error) throw error;
     const sel = document.getElementById('roster-period-select');
     if(!data || !data.length){
