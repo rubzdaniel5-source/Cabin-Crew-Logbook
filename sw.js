@@ -2,7 +2,7 @@
 // Crew Logbook Service Worker
 // Version bump here when you want clients to pick up a new shell.
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE = 'crew-logbook-v59';
+const CACHE = 'crew-logbook-v60';
 
 // ── Critical shell: must all succeed for the app to work offline ──────────────
 // supabase-js is included here because auth is gated on it — the app cannot

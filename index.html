@@ -952,6 +952,13 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .bulk-ctl{display:flex;gap:8px;margin-top:8px}
 .bulk-ctl select{flex:1;min-width:0;width:auto;font-size:.76rem;padding:7px 8px}
 .desk-pending{margin:12px 0 4px}
+.tab-badge{display:inline-block;min-width:16px;padding:0 5px;margin-left:5px;border-radius:9px;background:#ef4444;color:#fff;font-size:.62rem;font-weight:800;line-height:16px;text-align:center;vertical-align:middle}
+.tab-badge:empty{display:none}
+.act-item{display:block;width:100%;text-align:left;font-family:inherit;border:1px solid var(--color-border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:transparent;color:var(--color-text-primary);cursor:pointer}
+.act-item.new{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.06)}
+.act-top{display:flex;gap:6px;align-items:center;font-size:.82rem;font-weight:800}
+.act-when{margin-left:auto;font-size:.66rem;font-weight:600;color:var(--color-text-muted)}
+.act-sub{font-size:.74rem;margin-top:3px;color:var(--color-text-muted);line-height:1.45}
 .desk-seg{display:flex;gap:0;margin-top:12px;border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
 .desk-seg button{flex:1;padding:8px 6px;font-size:.78rem;font-weight:700;background:transparent;border:none;color:var(--color-text-muted);cursor:pointer;font-family:inherit}
 .desk-seg button.active{background:var(--color-primary,#2563eb);color:#fff}
@@ -1880,8 +1887,8 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   <!-- Log sub-tabs -->
   <div class="pd-view-tabs" id="log-sub-tabs" style="margin-bottom:0">
     <button class="pd-view-tab active" id="log-subtab-flights" onclick="switchLogView('flights')">✈️ Flight Logs</button>
-    <button class="pd-view-tab" id="log-subtab-roster" onclick="switchLogView('roster')">📋 My Roster</button>
-    <button class="pd-view-tab" id="log-subtab-desk" onclick="switchLogView('desk')" style="display:none">🗂 Roster Desk</button>
+    <button class="pd-view-tab" id="log-subtab-roster" onclick="switchLogView('roster')">📋 My Roster<span class="tab-badge" id="roster-badge"></span></button>
+    <button class="pd-view-tab" id="log-subtab-desk" onclick="switchLogView('desk')" style="display:none">🗂 Roster Desk<span class="tab-badge" id="desk-badge"></span></button>
   </div>
 
   <!-- ── FLIGHT LOGS VIEW ───────────────────────────── -->
@@ -1948,7 +1955,8 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <span class="search-ico">🔍</span>
         <input class="rch-input" type="text" id="desk-search" placeholder="Search crew name or code…" oninput="renderDeskCrewList()" autocomplete="off" style="padding-left:38px"/>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button class="roster-change-btn" onclick="openActivity()" style="flex:none;padding:6px 12px;white-space:nowrap">🔔 Activity<span class="tab-badge" id="desk-act-badge"></span></button>
         <button class="btn btn-primary btn-sm" onclick="openRosterBulk()" style="width:auto;flex:0 0 auto;white-space:nowrap">📚 Bulk upload PDFs</button>
       </div>
       <div id="desk-unassigned" class="desk-pending"></div>
@@ -2031,6 +2039,24 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <button onclick="closeRosterCompleteSheet()" class="btn" style="flex:1">Cancel</button>
       <button onclick="saveRosterComplete()" class="btn btn-primary" style="flex:1">Save & Complete</button>
     </div>
+  </div>
+</div>
+
+<!-- ROSTER ACTIVITY FEED (roster officers) -->
+<div id="activity-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div>
+        <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">🔔 Roster activity</div>
+        <div id="act-sub" style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeActivity()" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div class="desk-seg" style="margin:10px 16px 0;flex-shrink:0">
+      <button id="act-f-crew" class="active" onclick="setActivityFilter('crew')">Crew-reported</button>
+      <button id="act-f-all" onclick="setActivityFilter('all')">All changes</button>
+    </div>
+    <div id="act-body" style="flex:1;overflow-y:auto;padding:12px 16px 24px"></div>
   </div>
 </div>
 
@@ -11657,7 +11683,10 @@ async function onLoggedIn(){
   sb.rpc('roster_is_officer').then(({ data, error }) => {
     isRosterOfficer = !error && data === true;
     updateRosterDeskTab();
+    refreshRosterBadges();
   }).catch(()=>{});
+  refreshRosterBadges();
+  if(!window._rosterBadgeTimer) window._rosterBadgeTimer = setInterval(refreshRosterBadges, 120000);
 
   if(isAdmin){
     const pill = document.getElementById('user-pill');
@@ -13914,6 +13943,82 @@ async function saveSwap(){
   loadDeskDay();
 }
 
+// ═══════════════════════════════════════════════
+// NOTIFICATIONS — badges and the officer activity feed
+// ═══════════════════════════════════════════════
+function setBadge(id, n){
+  const el = document.getElementById(id);
+  if(el) el.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+}
+async function refreshRosterBadges(){
+  if(!isOnline || !currentUser) return;
+  try{
+    const { data: mine, error: e1 } = await sb.rpc('roster_my_unacked_count');
+    setBadge('roster-badge', e1 ? 0 : (mine || 0));
+    if(isRosterOfficer){
+      const { data: act, error: e2 } = await sb.rpc('roster_activity_count');
+      const n = e2 ? 0 : (act || 0);
+      setBadge('desk-badge', n); setBadge('desk-act-badge', n);
+    } else { setBadge('desk-badge', 0); setBadge('desk-act-badge', 0); }
+  }catch(_){ /* badges are a convenience */ }
+}
+
+function rosterAgo(iso){
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if(m < 1) return 'just now';
+  if(m < 60) return m + ' min ago';
+  if(m < 1440) return Math.round(m/60) + ' h ago';
+  return Math.round(m/1440) + ' d ago';
+}
+
+async function openActivity(){
+  _rosterState.actFilter = _rosterState.actFilter || 'crew';
+  document.getElementById('activity-sheet').style.display = 'flex';
+  const body = document.getElementById('act-body');
+  body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
+  const { data, error } = await sb.rpc('roster_activity', { p_limit: 100 });
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    body.innerHTML = `<div class="desk-warn">${missing ? 'Activity needs a database update (migration 23).' : '⚠ ' + escHtml(error.message)}</div>`;
+    return;
+  }
+  _rosterState.actRows = data || [];
+  renderActivity();
+  // Looking at the feed clears the badge (the highlights stay while it is open)
+  await sb.rpc('roster_activity_mark_seen');
+  setBadge('desk-badge', 0); setBadge('desk-act-badge', 0);
+}
+function closeActivity(){ document.getElementById('activity-sheet').style.display = 'none'; }
+function setActivityFilter(f){ _rosterState.actFilter = f; renderActivity(); }
+
+function renderActivity(){
+  const f = _rosterState.actFilter;
+  document.getElementById('act-f-crew').classList.toggle('active', f === 'crew');
+  document.getElementById('act-f-all').classList.toggle('active', f === 'all');
+  const rows = (_rosterState.actRows || []).filter(r => f === 'all' || r.source === 'crew');
+  const nNew = rows.filter(r => r.is_new).length;
+  document.getElementById('act-sub').textContent = nNew ? `${nNew} new` : 'Nothing new';
+  const body = document.getElementById('act-body');
+  if(!rows.length){ body.innerHTML = '<div class="empty" style="padding:28px 0;text-align:center">No changes to show.</div>'; return; }
+  const skip = new Set(['published']);
+  body.innerHTML = rows.map(r => {
+    const keys = Object.keys(r.new_values || {}).filter(k => !skip.has(k) && ROSTER_FIELD_LABELS[k]).slice(0, 3);
+    const diff = keys.map(k => `${ROSTER_FIELD_LABELS[k]}: ${rosterHistValueHTML(k, (r.old_values||{})[k])} → <b>${rosterHistValueHTML(k, r.new_values[k])}</b>`).join(' · ');
+    const what = (r.flight_number ? r.flight_number + ' · ' : '') + (r.duty_date ? rosterShortDate(r.duty_date) : '');
+    const ack = r.source === 'officer' ? (r.acknowledged_at ? ' · ✓ acknowledged' : ' · not yet acknowledged') : '';
+    return `<button class="act-item ${r.is_new ? 'new' : ''}" onclick="activityOpen(${JSON.stringify(r.crew_user_id||'').replace(/"/g,'&quot;')}, ${JSON.stringify(r.roster_id).replace(/"/g,'&quot;')})">
+      <div class="act-top">${escHtml(r.crew_name)}${rosterSourceTagHTML(r.source)}<span class="act-when">${escHtml(rosterAgo(r.changed_at))}</span></div>
+      <div class="act-sub"><b>${escHtml(ROSTER_CHANGE_LABELS[r.change_type] || r.change_type)}</b> · ${escHtml(what)}${diff ? '<br>' + diff : ''}${r.reason ? '<br>“' + escHtml(r.reason) + '”' : ''}${ack}</div>
+    </button>`;
+  }).join('');
+}
+async function activityOpen(userId, rosterId){
+  if(!userId){ toast('This roster has no crew member assigned yet.'); return; }
+  closeActivity();
+  setDeskMode('crew');
+  await openDeskCrew(userId, rosterId);
+}
+
 // Crew: officer changes the crew member has not yet acknowledged
 async function rosterShowAck(rosterId){
   const el = document.getElementById('roster-ack-banner');
@@ -13930,6 +14035,7 @@ async function rosterAckChanges(rosterId){
   if(error){ toast('⚠ ' + error.message); return; }
   document.getElementById('roster-ack-banner').innerHTML = '';
   toast('✅ Acknowledged');
+  refreshRosterBadges();
 }
 
 // ── Unassigned rosters (uploaded for a code nobody has yet) ──
@@ -13998,6 +14104,7 @@ async function deskDeleteUnassigned(id){
 // database; this screen is only shown when roster_is_officer() says yes.
 // ═══════════════════════════════════════════════
 async function initDeskTab(){
+  refreshRosterBadges();
   const off = document.getElementById('desk-offline-notice');
   if(!isOnline){ off.style.display = ''; return; }
   off.style.display = 'none';
