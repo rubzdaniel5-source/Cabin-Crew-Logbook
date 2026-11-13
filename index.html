@@ -636,6 +636,21 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .auth-card input::placeholder{color:var(--color-text-disabled)}
 .auth-card input:focus{outline:none;border-color:var(--color-focus);box-shadow:0 0 0 3px rgba(255,198,41,.15)}
 .auth-card .btn{width:100%}
+/* ── SIGNUP AIRLINE PICKER ────────────────────────────────── */
+#signup-airline-search-wrap input{margin-bottom:0}
+#signup-airline-dropdown::-webkit-scrollbar{width:6px}
+#signup-airline-dropdown::-webkit-scrollbar-track{background:transparent}
+#signup-airline-dropdown::-webkit-scrollbar-thumb{background:var(--color-border-strong);border-radius:3px}
+.signup-airline-row{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--color-border);transition:background .12s;text-align:left}
+.signup-airline-row:last-child{border-bottom:none}
+.signup-airline-row:hover,.signup-airline-row.focused{background:rgba(143,197,255,.08)}
+.signup-airline-row.selected{background:rgba(143,197,255,.14)}
+.signup-airline-row.disabled{opacity:.5;cursor:default}
+.signup-airline-iata{font-size:.7rem;font-weight:800;color:var(--color-accent);min-width:28px;text-align:center;letter-spacing:.04em}
+.signup-airline-name{font-size:.86rem;font-weight:600;color:var(--color-text-primary);flex:1}
+.signup-airline-badge{font-size:.64rem;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(143,197,255,.18);color:var(--color-accent);letter-spacing:.03em}
+#signup-airline-search-wrap.has-selection input{border-color:var(--color-accent);background:rgba(143,197,255,.06)}
+#signup-not-configured button:hover{opacity:.85}
 .auth-status{font-size:.8rem;margin-top:14px;min-height:18px;color:var(--color-text-secondary)}
 .auth-status.error{color:var(--color-error)}
 .auth-status.success{color:var(--color-success)}
@@ -858,6 +873,43 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 /* Served check mark on seat */
 .gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
 .gs-seat-allergen{position:absolute;top:2px;right:4px;font-size:.55rem;color:var(--color-warning);z-index:2;line-height:1}
+.gs-seat-pax{font-size:.5rem;color:rgba(255,255,255,.55);line-height:1;max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;z-index:1}
+
+/* ── MY ROSTER ─────────────────────────────────────────────── */
+.roster-card{background:var(--color-card,#16213e);border-radius:12px;padding:12px 14px;margin-bottom:9px;border-left:3px solid transparent;position:relative}
+.roster-card.rc-op{border-left-color:var(--color-accent,#4f8ef7)}
+.roster-card.rc-op.rc-today{border-left-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.2)}
+.roster-card.rc-op.rc-completed{border-left-color:#22c55e;opacity:.8}
+.roster-card.rc-op.rc-cancelled{border-left-color:#ef4444;opacity:.65}
+.roster-card.rc-op.rc-diverted{border-left-color:#f59e0b}
+.roster-card.rc-dma,.roster-card.rc-woff,.roster-card.rc-layover,.roster-card.rc-na{opacity:.7}
+.roster-card-row{display:flex;align-items:center;gap:10px}
+.roster-card-date{font-size:.68rem;font-weight:800;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:52px}
+.roster-card-type{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.rct-op{background:rgba(79,142,247,.18);color:#a0bfff}
+.rct-dma{background:rgba(255,255,255,.07);color:var(--color-text-muted)}
+.rct-woff{background:rgba(255,255,255,.07);color:var(--color-text-muted)}
+.rct-layover{background:rgba(245,158,11,.12);color:#fbbf24}
+.rct-na{background:rgba(239,68,68,.1);color:#fca5a5}
+.roster-card-flight{font-size:.88rem;font-weight:800;color:var(--color-text-primary)}
+.roster-card-route{font-size:.75rem;color:var(--color-text-muted)}
+.roster-status-badge{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:auto;white-space:nowrap}
+.rsb-rostered{background:rgba(79,142,247,.15);color:#93b4fd}
+.rsb-completed{background:rgba(34,197,94,.15);color:#86efac}
+.rsb-cancelled{background:rgba(239,68,68,.15);color:#fca5a5}
+.rsb-diverted{background:rgba(245,158,11,.15);color:#fde68a}
+.roster-block-row{display:flex;gap:16px;margin-top:7px;flex-wrap:wrap}
+.roster-block-item{font-size:.7rem}
+.roster-block-item span{font-weight:800;color:var(--color-text-primary)}
+.roster-week-heading{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--color-text-muted);padding:14px 2px 6px;border-top:1px solid var(--color-border);margin-top:4px}
+.roster-today-pulse{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:rosterPulse 1.4s ease-in-out infinite;flex-shrink:0}
+@keyframes rosterPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+.roster-complete-btn{font-size:.72rem;font-weight:700;padding:5px 12px;background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.3);border-radius:8px;cursor:pointer;margin-top:8px;width:100%}
+.rcs-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.rcs-status-btn{padding:9px 6px;border-radius:10px;border:1.5px solid var(--color-border);background:var(--color-card);font-size:.78rem;font-weight:700;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.rcs-status-btn.selected{border-color:var(--color-accent);background:rgba(79,142,247,.18);color:var(--color-text-primary)}
+.rcs-label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--color-text-muted);margin-bottom:4px}
+.rcs-time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -1256,12 +1308,60 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <button onclick="openContactAdmin('signup')" style="margin-top:10px;background:none;border:1.5px solid var(--sky);border-radius:8px;color:var(--sky);font-size:.78rem;font-weight:700;padding:7px 16px;cursor:pointer;font-family:var(--font)">✉ Contact Admin to Create Account</button>
       </div>
       <div id="signup-fields">
-        <input type="text"     id="signup-name"      placeholder="Full name *"                   autocomplete="name"/>
-        <input type="email"    id="signup-email"     placeholder="Email address *"              autocomplete="email"/>
-        <input type="tel"      id="signup-phone"     placeholder="Phone number * (e.g. +256 700 000000)" autocomplete="tel"/>
-        <input type="password" id="signup-password"  placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
-        <input type="password" id="signup-password2" placeholder="Confirm password"             autocomplete="new-password"/>
-        <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+        <input type="text"  id="signup-name"  placeholder="Full name *"  autocomplete="name"/>
+        <input type="email" id="signup-email" placeholder="Email address *" autocomplete="email"
+               oninput="onSignupEmailInput(this.value)"/>
+        <input type="tel"   id="signup-phone" placeholder="Phone number * (e.g. +256 700 000000)" autocomplete="tel"/>
+
+        <!-- ── Airline selector ─────────────────────────────────── -->
+        <div id="signup-airline-wrap" style="position:relative;margin-bottom:10px">
+          <!-- Domain-detected chip (hidden until recognised domain is typed) -->
+          <div id="signup-domain-chip" style="display:none;align-items:center;gap:8px;background:rgba(143,197,255,.1);border:1.5px solid rgba(143,197,255,.35);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+            <span style="font-size:1.1rem">✈</span>
+            <div style="flex:1;text-align:left">
+              <div id="signup-domain-chip-name" style="font-size:.85rem;font-weight:800;color:var(--color-text-primary)"></div>
+              <div style="font-size:.7rem;color:var(--muted)">Detected from your email domain</div>
+            </div>
+            <button onclick="clearAirlineSelection()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px;line-height:1">×</button>
+          </div>
+
+          <!-- Search input (shown when domain not detected) -->
+          <div id="signup-airline-search-wrap" style="position:relative">
+            <input type="text" id="signup-airline-search"
+                   placeholder="Search your airline (optional)"
+                   autocomplete="off"
+                   onfocus="onAirlineSearchFocus()"
+                   oninput="onAirlineSearch(this.value)"
+                   style="padding-right:32px"/>
+            <span id="signup-airline-search-icon" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none">✈</span>
+          </div>
+
+          <!-- Dropdown results list -->
+          <div id="signup-airline-dropdown" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--color-modal-bg);border:1.5px solid var(--color-border-strong);border-radius:10px;max-height:210px;overflow-y:auto;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.45)">
+            <div id="signup-airline-list"></div>
+          </div>
+        </div>
+
+        <!-- Not-yet-configured gate (shown when airline is selected but enabled=false) -->
+        <div id="signup-not-configured" style="display:none;background:rgba(255,198,41,.07);border:1.5px solid rgba(255,198,41,.4);border-radius:10px;padding:14px;margin-bottom:10px;text-align:center">
+          <div style="font-size:1.3rem;margin-bottom:6px">🛫</div>
+          <div style="font-weight:800;color:var(--color-accent);font-size:.9rem" id="signup-not-configured-name"></div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:6px;line-height:1.5">
+            This airline is not yet on Crew Logbook.<br>
+            You can still create an independent account — you'll be migrated automatically when your airline joins.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button onclick="proceedAsIndependent()" class="btn btn-primary" style="flex:1;font-size:.8rem">Continue as Independent</button>
+            <button onclick="clearAirlineSelection()" style="flex:1;background:none;border:1.5px solid var(--color-border);border-radius:8px;color:var(--color-text-secondary);font-size:.8rem;cursor:pointer;font-family:var(--font);padding:8px">Choose Different</button>
+          </div>
+        </div>
+
+        <!-- Password fields (hidden while not-yet-configured gate is showing) -->
+        <div id="signup-password-fields">
+          <input type="password" id="signup-password"  placeholder="Choose a password (min 8 chars)" autocomplete="new-password"/>
+          <input type="password" id="signup-password2" placeholder="Confirm password"             autocomplete="new-password"/>
+          <button class="btn btn-primary" id="auth-signup-btn" onclick="doSignUp()">✈ Create Account</button>
+        </div>
       </div>
     </div>
 
@@ -1496,7 +1596,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <!-- 3. Number of Sectors -->
       <div class="field full">
         <label>Number of Sectors</label>
-        <select id="f-sector-count" onchange="buildRouteFields();buildSectorDetails(null,document.getElementById('f-actype').value);updateFlightNumFields()">
+        <select id="f-sector-count" onchange="buildRouteFields();updateFlightNumFields()">
           <option value="1">1 Sector — e.g. EBB → NBO</option>
           <option value="2">2 Sectors — e.g. EBB → NBO → EBB</option>
           <option value="3">3 Sectors — e.g. EBB → ZNZ → JRO → EBB</option>
@@ -1723,19 +1823,89 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
      3. LOGBOOK
 ════════════════════════════════════════════════════════════ -->
 <div class="section" id="tab-log">
-  <div class="search-wrap">
-    <span class="search-ico">🔍</span>
-    <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
+  <!-- Log sub-tabs -->
+  <div class="pd-view-tabs" id="log-sub-tabs" style="margin-bottom:0">
+    <button class="pd-view-tab active" id="log-subtab-flights" onclick="switchLogView('flights')">✈️ Flight Logs</button>
+    <button class="pd-view-tab" id="log-subtab-roster" onclick="switchLogView('roster')">📋 My Roster</button>
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+
+  <!-- ── FLIGHT LOGS VIEW ───────────────────────────── -->
+  <div id="log-view-flights">
+    <div class="search-wrap" style="margin-top:12px">
+      <span class="search-ico">🔍</span>
+      <input class="field" type="text" placeholder="Search flight, route, captain, crew…" id="searchInput" oninput="renderLog()"/>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-excel')">📊 Flights Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('flights-pdf')">📄 Flights PDF</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-excel')">📊 Per Diem Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="openExportPicker('perdiem-pdf')">📄 Per Diem PDF</button>
     </div>
+    <div id="log-list"></div>
   </div>
-  <div id="log-list"></div>
+
+  <!-- ── MY ROSTER VIEW ────────────────────────────── -->
+  <div id="log-view-roster" style="display:none">
+    <!-- Header bar: period selector + upload -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;gap:8px">
+      <select id="roster-period-select" class="field" style="flex:1;font-size:.8rem;padding:7px 10px"
+              onchange="loadRosterDuties(this.value)">
+        <option value="">— No roster uploaded —</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="triggerRosterUpload()" style="white-space:nowrap;flex-shrink:0">
+        ⬆ Upload PDF
+      </button>
+    </div>
+    <input type="file" id="roster-file-input" accept="application/pdf" style="display:none" onchange="handleRosterFile(event)"/>
+
+    <!-- Offline notice -->
+    <div id="roster-offline-notice" style="display:none;text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:.82rem">
+      📡 My Roster requires a connection to load.
+    </div>
+
+    <!-- Duty list -->
+    <div id="roster-duty-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ROSTER IMPORT PREVIEW MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="roster-preview-modal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:90vh;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">📋 Roster Preview</div>
+      <div id="roster-preview-meta" style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px"></div>
+    </div>
+    <!-- Body -->
+    <div id="roster-preview-body" style="flex:1;overflow-y:auto;padding:12px 16px"></div>
+    <!-- Footer -->
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeRosterPreview()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="confirmRosterImport()" class="btn btn-primary" style="flex:1" id="roster-import-btn">Import Roster</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ROSTER DUTY COMPLETE SHEET
+════════════════════════════════════════════════════════════ -->
+<div id="roster-complete-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div>
+        <div id="rcs-title" style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)"></div>
+        <div id="rcs-sub"   style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeRosterCompleteSheet()" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div id="rcs-body" style="flex:1;overflow-y:auto;padding:14px 16px 0"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeRosterCompleteSheet()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="saveRosterComplete()" class="btn btn-primary" style="flex:1">Save & Complete</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -2062,6 +2232,35 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <button onclick="gaCloseItemModal()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer">×</button>
     </div>
     <div id="ga-item-modal-body"></div>
+  </div>
+</div>
+
+<!-- ── Seat map preview modal (admin — read-only full fuselage view) ──────────── -->
+<div id="ga-seatmap-preview-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="background:var(--color-modal-bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div>
+        <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)" id="ga-preview-modal-title">Seat Map Preview</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:2px" id="ga-preview-modal-sub">All seats shown empty</div>
+      </div>
+      <button onclick="gaClosePreviewModal()" style="background:none;border:none;color:var(--muted);font-size:1.6rem;line-height:1;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    <!-- Cabin tab strip (shown when >1 cabin) -->
+    <div id="ga-preview-cabin-tabs" style="display:none;flex-shrink:0;border-bottom:1px solid var(--color-border);overflow-x:auto;white-space:nowrap;padding:0 8px"></div>
+    <!-- Legend -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2)"></div>Empty</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(201,124,10,.35);border:1.5px solid #c97c0a"></div>Order</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(26,122,69,.35);border:1.5px solid #1a7a45"></div>Served</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--color-text-muted)"><div style="width:14px;height:14px;border-radius:4px;background:rgba(184,41,42,.35);border:1.5px solid #b8292a"></div>Special</div>
+    </div>
+    <!-- Scrollable seat map -->
+    <div id="ga-preview-seatmap-body" style="flex:1;overflow-y:auto;padding:0"></div>
+    <!-- Footer -->
+    <div style="padding:14px 16px;border-top:1px solid var(--color-border);flex-shrink:0">
+      <button onclick="gaClosePreviewModal()" class="btn" style="width:100%;font-size:.85rem;padding:12px">Close Preview</button>
+    </div>
   </div>
 </div>
 
@@ -3194,6 +3393,14 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <div class="gs-hdr-sub" id="gs-seatmap-sub"></div>
       </div>
     </div>
+    <!-- Meal inventory strip (hidden when no inventory set) -->
+    <div id="gs-inventory-strip" style="display:none;padding:7px 14px 6px;border-bottom:1px solid var(--color-border);background:rgba(0,0,0,.18)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:.68rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">Meal Uplift</span>
+        <button onclick="gsOpenInventoryModal()" style="font-size:.65rem;color:var(--color-accent);background:none;border:none;cursor:pointer;padding:0">Edit</button>
+      </div>
+      <div id="gs-inventory-pills" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    </div>
     <!-- Legend -->
     <div class="gs-seatmap-legend">
       <div class="gs-legend-item"><div class="gs-legend-dot" style="background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2)"></div>Empty</div>
@@ -3205,6 +3412,27 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     <div class="gs-body" id="gs-seatmap-body" style="padding:0;overflow-y:auto"></div>
   </div>
 
+  <!-- ── Meal Inventory Entry Modal ─────────────────────────────────────── -->
+  <div id="gs-inventory-modal" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.72);z-index:800;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)">
+    <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+        <div>
+          <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">🍽️ Meal Uplift Count</div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Enter how many of each item came on board</div>
+        </div>
+        <button onclick="gsCloseInventoryModal()" style="background:rgba(255,255,255,.08);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1.1rem;color:var(--color-text-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+      </div>
+      <!-- Body -->
+      <div id="gs-inventory-modal-body" style="flex:1;overflow-y:auto;padding:12px 16px 0"></div>
+      <!-- Footer -->
+      <div style="padding:12px 16px 20px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+        <button onclick="gsSkipInventory()" class="btn" style="flex:1;font-size:.82rem">Skip (Unlimited)</button>
+        <button onclick="gsSaveInventory()" class="btn btn-primary" style="flex:1;font-size:.82rem">Save Counts</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Order sheet (slide-up) and backdrop ──────────────────────────── -->
   <div class="gs-sheet-backdrop" id="gs-sheet-backdrop" onclick="gsCloseOrderSheet()"></div>
   <div class="gs-order-sheet" id="gs-order-sheet">
@@ -3213,6 +3441,8 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <div class="gs-sheet-seat" id="gs-sheet-seat-label">Seat –</div>
       <div id="gs-status-pill-wrap"></div>
     </div>
+    <!-- PAX info bar — shown when manifest is loaded for this flight -->
+    <div id="gs-sheet-pax-info" style="display:none;padding:8px 16px 6px;border-bottom:1px solid var(--color-border);background:rgba(255,255,255,.04)"></div>
     <div class="gs-sheet-body" id="gs-sheet-body">
       <!-- populated by gsOpenOrderSheet() -->
     </div>
@@ -3234,7 +3464,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // OFFLINE STORAGE (IndexedDB) — local mirror for flights & per_diem
 // ═══════════════════════════════════════════════
 const IDB_NAME = 'ccl_offline_db';
-const IDB_VERSION = 3;
+const IDB_VERSION = 4;
 let idb = null;
 let isOnline = navigator.onLine;
 let isSyncing = false;
@@ -3271,6 +3501,15 @@ function openIDB(){
         const mnStore = db.createObjectStore('guestora_menus',{keyPath:'id'});
         mnStore.createIndex('by_active','isActive',{unique:false});
       }
+      // ── GUESTORA v4 stores: shared session workspace ──────────────────────
+      if(e.oldVersion < 4){
+        // guestora_sessions: one per individual sector (flight_number + flight_date)
+        // Mirrors server guestora_sessions table; used for status caching and
+        // offline session-open check before queueing orders.
+        const ssStore = db.createObjectStore('guestora_sessions',{keyPath:'id'});
+        ssStore.createIndex('by_flight_date',['flightNumber','flightDate'],{unique:false});
+        ssStore.createIndex('by_status','status',{unique:false});
+      }
     };
     req.onsuccess = (e)=>resolve(e.target.result);
     req.onerror = (e)=>reject(e.target.error);
@@ -3281,6 +3520,14 @@ function idbAll(store){
     const tx = idb.transaction(store,'readonly');
     const req = tx.objectStore(store).getAll();
     req.onsuccess = ()=>resolve(req.result||[]);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function idbGet(store, key){
+  return new Promise((resolve, reject)=>{
+    const tx = idb.transaction(store,'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = ()=>resolve(req.result||null);
     req.onerror = ()=>reject(req.error);
   });
 }
@@ -3314,6 +3561,49 @@ function uuid(){
  *   requested → exception    (future: crew records a service exception)
  * Transitions that require server involvement are defined in Phase 2.
  */
+// ── Flight-number parsing utilities ──────────────────────────────────────────
+/**
+ * parseCombinedFlightNum(raw) → string[]
+ * Splits a combined flight-number string into individual sector numbers.
+ *
+ * Rules (confirmed by Uganda Airlines operational data):
+ *   'UR110'    → ['UR110']           1-sector: single number
+ *   'UR206/7'  → ['UR206', 'UR207']  2-sector pair: base + suffix replaces last N digits
+ *   'UR334'    → ['UR334']           3-sector: same number throughout
+ *   'UR202/3'  → ['UR202', 'UR203']  4-sector fn2: same logic
+ *
+ * Returns the raw string in a 1-element array if the format is unrecognised.
+ */
+function parseCombinedFlightNum(raw){
+  if(!raw) return [];
+  const str = raw.trim().toUpperCase();
+  const slashIdx = str.indexOf('/');
+  if(slashIdx === -1) return [str];                 // single number
+  const base   = str.slice(0, slashIdx);            // e.g. 'UR206'
+  const suffix = str.slice(slashIdx + 1);           // e.g. '7'
+  const baseMatch = base.match(/^([A-Z]+)(\d+)$/);
+  if(!baseMatch) return [str];                      // unexpected format — return as-is
+  const prefix   = baseMatch[1];                    // 'UR'
+  const baseNum  = baseMatch[2];                    // '206'
+  if(suffix.length >= baseNum.length) return [str]; // suffix longer than digits — guard
+  const secondNum = baseNum.slice(0, baseNum.length - suffix.length) + suffix;
+  return [base, prefix + secondNum];                // ['UR206', 'UR207']
+}
+
+/**
+ * getAllSectorNums(flights) → string[]
+ * Returns all individual sector flight numbers from the crew's cached duty records.
+ * Used by the manifest filter and sector picker.
+ */
+function getAllSectorNums(flights){
+  const nums = new Set();
+  for(const f of flights){
+    if(f.flightNum)  parseCombinedFlightNum(f.flightNum).forEach(n => nums.add(n));
+    if(f.flightNum2) parseCombinedFlightNum(f.flightNum2).forEach(n => nums.add(n));
+  }
+  return [...nums];
+}
+
 const GUESTORA_ORDER_STATUS = Object.freeze({
   REQUESTED: 'requested',  // order taken; service not yet confirmed
   SERVED:    'served',     // crew has delivered the order
@@ -3821,6 +4111,7 @@ async function gaRenderAircraftList(){
             <div style="font-size:.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cabinLabels} · ${totalSeats} seats</div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
+            <button onclick="gaPreviewAircraftSeatMap('${cfg.id}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">Preview</button>
             <button onclick="gaOpenAircraftEditor('${cfg.id}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px">Edit</button>
             <button onclick="gaDeleteAircraft('${cfg.id}','${cfg.actype}')" class="btn btn-sm" style="font-size:.75rem;padding:6px 12px;color:var(--color-error);border-color:var(--color-error)">Delete</button>
           </div>
@@ -3923,6 +4214,7 @@ async function gaOpenAircraftEditor(configId){
     <div id="ga-cabins-wrap"></div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button onclick="gaSaveAircraftConfig()" class="btn btn-primary" style="flex:1">Save</button>
+      <button onclick="gaPreviewFromEditor()" class="btn" style="flex:1">Preview Map</button>
       <button onclick="gaCloseAircraftModal()" class="btn" style="flex:1">Cancel</button>
     </div>`;
   renderCabinRows();
@@ -4064,6 +4356,208 @@ function gaCloseAircraftModal(){
   if(modal) modal.style.display = 'none';
   _gaEditCabins = [];
   _gaEditConfigId = null;
+}
+
+// ── Seat map preview (admin read-only) ───────────────────────────────────────
+
+let _gaPreviewCfg = null;    // current config being previewed
+let _gaPreviewCabinIdx = 0;  // which cabin tab is active
+
+/**
+ * Preview from within the editor — reads the current DOM state (unsaved)
+ * and renders a preview without saving to IDB.
+ */
+function gaPreviewFromEditor(){
+  _gaReadCabinsFromDOM();
+  const actype = document.getElementById('ga-actype-input')?.value.trim() || 'Preview';
+  if(!_gaEditCabins.length){ toast('Add at least one cabin first'); return; }
+  // Build a temporary cfg object (same shape as an IDB record)
+  const tempCfg = {
+    id:      _gaEditConfigId || '_preview',
+    actype,
+    aliases: [],
+    cabins:  JSON.parse(JSON.stringify(_gaEditCabins))
+  };
+  // Open the preview using the in-memory config directly
+  _gaPreviewCfg = tempCfg;
+  _gaPreviewCabinIdx = 0;
+
+  document.getElementById('ga-preview-modal-title').textContent = actype + ' — Seat Map (Unsaved Preview)';
+  document.getElementById('ga-preview-modal-sub').textContent =
+    tempCfg.cabins.map(c=>`${c.label||'Cabin'} (${c.seatCount||0} seats)`).join('  ·  ') +
+    '  ·  Unsaved — changes reflected here';
+
+  const tabsEl = document.getElementById('ga-preview-cabin-tabs');
+  if(tempCfg.cabins.length > 1){
+    tabsEl.style.display = 'block';
+    tabsEl.innerHTML = tempCfg.cabins.map((c,i)=>`
+      <button id="ga-prev-tab-${i}" onclick="gaPreviewSwitchCabin(${i})"
+        style="display:inline-block;padding:10px 16px;border:none;background:none;font-size:.8rem;font-weight:700;cursor:pointer;
+               color:${i===0?'var(--color-accent)':'var(--muted)'};
+               border-bottom:2px solid ${i===0?'var(--color-accent)':'transparent'}">
+        ${escHtml(c.label||'Cabin '+(i+1))}
+      </button>`).join('');
+  } else {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+  }
+
+  gsRenderSeatMapPreview(tempCfg.cabins[0]);
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'flex';
+}
+
+async function gaPreviewAircraftSeatMap(configId){
+  const all = await idbAll('guestora_aircraft_configs');
+  const cfg = all.find(r=>r.id===configId);
+  if(!cfg){ toast('Config not found'); return; }
+  _gaPreviewCfg = cfg;
+  _gaPreviewCabinIdx = 0;
+
+  document.getElementById('ga-preview-modal-title').textContent = cfg.actype + ' — Seat Map';
+  document.getElementById('ga-preview-modal-sub').textContent =
+    (cfg.cabins||[]).map(c=>`${c.label} (${c.seatCount||0} seats)`).join('  ·  ') +
+    '  ·  All seats shown empty';
+
+  // Build cabin tabs
+  const tabsEl = document.getElementById('ga-preview-cabin-tabs');
+  if((cfg.cabins||[]).length > 1){
+    tabsEl.style.display = 'block';
+    tabsEl.innerHTML = cfg.cabins.map((c,i)=>`
+      <button id="ga-prev-tab-${i}" onclick="gaPreviewSwitchCabin(${i})"
+        style="display:inline-block;padding:10px 16px;border:none;background:none;font-size:.8rem;font-weight:700;cursor:pointer;
+               color:${i===0?'var(--color-accent)':'var(--muted)'};
+               border-bottom:2px solid ${i===0?'var(--color-accent)':'transparent'};
+               transition:color .15s">
+        ${escHtml(c.label)}
+      </button>`).join('');
+  } else {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+  }
+
+  gsRenderSeatMapPreview(cfg.cabins[0]);
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'flex';
+}
+
+function gaPreviewSwitchCabin(idx){
+  if(!_gaPreviewCfg) return;
+  _gaPreviewCabinIdx = idx;
+  // Update tab styles
+  (_gaPreviewCfg.cabins||[]).forEach((_,i)=>{
+    const btn = document.getElementById(`ga-prev-tab-${i}`);
+    if(!btn) return;
+    btn.style.color = i===idx ? 'var(--color-accent)' : 'var(--muted)';
+    btn.style.borderBottomColor = i===idx ? 'var(--color-accent)' : 'transparent';
+  });
+  gsRenderSeatMapPreview(_gaPreviewCfg.cabins[idx]);
+}
+
+function gaClosePreviewModal(){
+  document.getElementById('ga-seatmap-preview-modal').style.display = 'none';
+  _gaPreviewCfg = null;
+}
+
+/**
+ * Renders a full fuselage view of a cabin into #ga-preview-seatmap-body.
+ * Read-only: all seats shown empty. No click handlers (or shows label on tap).
+ * Reuses the same layout logic as gsRenderSeatMap() but without order state.
+ */
+function gsRenderSeatMapPreview(cabin){
+  const body = document.getElementById('ga-preview-seatmap-body');
+  if(!body || !cabin) return;
+  body.innerHTML = '';
+
+  // Scroll back to top when switching cabins
+  body.scrollTop = 0;
+
+  // Fuselage wrapper
+  const fuselage = document.createElement('div');
+  fuselage.className = 'gs-fuselage';
+
+  // Nose nub
+  const nose = document.createElement('div');
+  nose.className = 'gs-nose';
+  fuselage.appendChild(nose);
+
+  // Cabin tube
+  const tube = document.createElement('div');
+  tube.className = 'gs-cabin-tube';
+
+  // FRONT label
+  const frontLbl = document.createElement('div');
+  frontLbl.className = 'gs-cabin-label-strip';
+  frontLbl.textContent = '▲  FRONT  ▲';
+  tube.appendChild(frontLbl);
+
+  // columns: stored right→left; reverse for screen left→right display
+  const displayCols = [...cabin.columns].reverse();
+
+  // Rows bottom-first (row 1 at bottom — crew face aft)
+  const rowsBottomFirst = [...cabin.rows].reverse();
+
+  rowsBottomFirst.forEach(rowNum=>{
+    const rowEl = document.createElement('div');
+    rowEl.className = 'gs-row';
+
+    // Row number left
+    const numL = document.createElement('div');
+    numL.className = 'gs-row-num';
+    numL.textContent = rowNum;
+    rowEl.appendChild(numL);
+
+    displayCols.forEach((group, gi)=>{
+      if(gi > 0){
+        const aisleEl = document.createElement('div');
+        aisleEl.className = 'gs-aisle';
+        const aisleInner = document.createElement('div');
+        aisleInner.className = 'gs-aisle-line';
+        aisleEl.appendChild(aisleInner);
+        rowEl.appendChild(aisleEl);
+      }
+      const groupEl = document.createElement('div');
+      groupEl.className = 'gs-col-group';
+      group.forEach(letter=>{
+        const seatNum = String(rowNum)+letter;
+        const seatEl  = document.createElement('div');
+        seatEl.className = 'gs-seat empty';
+        seatEl.dataset.seat = seatNum;
+        seatEl.title = seatNum;
+
+        const numSpan = document.createElement('div');
+        numSpan.className = 'gs-seat-num';
+        numSpan.textContent = seatNum;
+
+        const dot = document.createElement('div');
+        dot.className = 'gs-seat-dot';
+
+        seatEl.appendChild(numSpan);
+        seatEl.appendChild(dot);
+
+        // Preview-mode: tap shows seat label as toast (no order sheet)
+        seatEl.onclick = ()=>toast(seatNum);
+
+        groupEl.appendChild(seatEl);
+      });
+      rowEl.appendChild(groupEl);
+    });
+
+    // Row number right
+    const numR = document.createElement('div');
+    numR.className = 'gs-row-num';
+    numR.textContent = rowNum;
+    rowEl.appendChild(numR);
+
+    tube.appendChild(rowEl);
+  });
+
+  // REAR label
+  const rearLbl = document.createElement('div');
+  rearLbl.className = 'gs-cabin-label-strip';
+  rearLbl.textContent = '▼  REAR  ▼';
+  tube.appendChild(rearLbl);
+
+  fuselage.appendChild(tube);
+  body.appendChild(fuselage);
 }
 
 // ── Menu tab ──────────────────────────────────────────────────────────────────
@@ -4291,59 +4785,226 @@ async function gaPublishNewMenuVersion(){
   } catch(e){ alert('Publish failed: '+e.message); }
 }
 
-// ── GUESTORA outbox processor
-// Phase 1: reads the outbox and reports counts. Does NOT mutate any record,
-// does NOT call the server, does NOT mark anything as synced.
+// ── GUESTORA outbox processor — Phase 2
 //
-// Phase 2 will replace the inner loop body with real server calls. The required
-// Supabase tables are documented below for the schema design phase.
+// Flushes pending outbox entries to Supabase, in order.
+// Idempotency: every order write uses operation_id as the unique conflict key,
+// so retries after a network drop are safe — the server ignores duplicates.
 //
-// Required server tables (Phase 2 — not yet created):
-//   guestora_service_packages(id UUID PK, flight_number TEXT, date DATE, actype TEXT,
-//                             created_by UUID REFERENCES profiles, created_at TIMESTAMPTZ)
-//   guestora_service_orders(id UUID PK, package_id UUID REFERENCES guestora_service_packages,
-//                           seat_num TEXT, cabin TEXT, selections JSONB, meal_note TEXT,
-//                           drink_note TEXT, special_note TEXT, status TEXT,
-//                           operation_id UUID UNIQUE,   ← idempotency key
-//                           schema_version INT,
-//                           created_by UUID REFERENCES profiles,
-//                           created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)
-// RLS (Phase 2): authenticated user whose profile.flights contains (flight_number, date)
-//                can read/write orders for that package.
+// Package upsert: packages stored with syncStatus='local' are pushed first
+// (UPSERT on tenant_id + flight_number + date). The server-assigned id may
+// differ from the local uuid if another device created the package first;
+// when that happens we rewrite the local package and all its child orders to
+// use the server id before syncing orders.
+//
+// Max retries: 5 attempts with exponential back-off (2^n seconds). After 5
+// failures the entry is marked FAILED and excluded from future sync cycles
+// until the user manually retries (future: retry-failed button).
+//
+// Operation types handled:
+//   CREATE_ORDER  — INSERT order; conflict on operation_id → ignore (already synced)
+//   UPDATE_ORDER  — UPSERT order snapshot; conflict on package_id+seat_num → replace
+//   DELETE_ORDER  — soft-delete: UPDATE status='deleted' server-side (no hard deletes)
+
+const GUESTORA_MAX_RETRY = 5;
+
+/**
+ * Ensure a package exists server-side. Upserts on (tenant_id, flight_number, date).
+ * Returns the server package id (may differ from local id on conflict).
+ * @param {object} pkg — local guestora_packages IDB record
+ * @returns {Promise<string>} server uuid for this package
+ */
+async function guestoraSyncPackage(pkg){
+  const { data, error } = await sb
+    .from('guestora_service_packages')
+    .upsert({
+      flight_number: pkg.flightNum,
+      date:          pkg.date,
+      actype:        pkg.actype,
+      created_by:    (await sb.auth.getUser()).data.user.id,
+    }, {
+      onConflict:    'tenant_id,flight_number,date',
+      ignoreDuplicates: false,   // return existing row on conflict
+    })
+    .select('id')
+    .single();
+
+  if(error) throw new Error(`[GUESTORA] package upsert failed: ${error.message}`);
+  return data.id;
+}
+
+/**
+ * Send one outbox entry to the server.
+ * Idempotent: CREATE_ORDER uses operation_id conflict key; UPDATE uses seat conflict key.
+ * @param {object} entry — outbox record from guestora_outbox IDB store
+ * @param {string} serverPackageId — resolved server-side package uuid
+ */
+async function guestoraSendToServer(entry, serverPackageId){
+  const uid = (await sb.auth.getUser()).data.user.id;
+
+  if(entry.type === 'CREATE_ORDER' || entry.type === 'UPDATE_ORDER'){
+    const p = entry.payload;
+    const { error } = await sb
+      .from('guestora_service_orders')
+      .upsert({
+        id:             p.id,
+        package_id:     serverPackageId,
+        operation_id:   entry.operationId,
+        schema_version: entry.schemaVersion || 1,
+        seat_num:       p.seatNum,
+        cabin:          p.cabin,
+        selections:          p.selections         || [],
+        meal_note:           p.mealNote           || null,
+        drink_note:          p.drinkNote          || null,
+        special_note:        p.specialNote        || null,
+        additional_request:  p.additionalRequest  || null,
+        status:              p.status             || GUESTORA_ORDER_STATUS.REQUESTED,
+        created_by:     uid,
+        updated_by:     uid,
+      }, {
+        onConflict:        'package_id,seat_num',
+        ignoreDuplicates:  false,
+      });
+    if(error) throw new Error(`[GUESTORA] ${entry.type} failed: ${error.message}`);
+
+  } else if(entry.type === 'DELETE_ORDER'){
+    // Soft-delete: mark status as 'deleted' server-side rather than removing the row.
+    // This preserves the audit trail while excluding the seat from active renders.
+    const { error } = await sb
+      .from('guestora_service_orders')
+      .update({ status: 'deleted', updated_by: uid })
+      .eq('id', entry.orderId)
+      .eq('package_id', serverPackageId);
+    // If row doesn't exist yet (never synced before delete), silently ignore.
+    if(error && !error.message.includes('0 rows')) throw new Error(`[GUESTORA] DELETE_ORDER failed: ${error.message}`);
+
+  } else {
+    console.warn('[GUESTORA] unknown outbox entry type:', entry.type);
+  }
+}
+
+/**
+ * Main outbox flush. Called from the sync cycle whenever the app is online.
+ * Processes entries in createdAt order (oldest first) so server state is
+ * consistent with the sequence of local crew actions.
+ */
 async function guestoraSyncOutbox(){
+  if(!isOnline) return { pending: 0, synced: 0, failed: 0 };
+
   try {
-    const all     = await idbAll('guestora_outbox');
-    const pending = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.PENDING
-                                 || e.status     === 'pending');  // compat: old field name
-    const synced  = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.SYNCED);
-    const failed  = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.FAILED);
+    const all = await idbAll('guestora_outbox');
 
-    console.log(
-      `[GUESTORA] outbox: ${pending.length} pending, ${synced.length} synced, `
-      + `${failed.length} failed — server sync PENDING (Phase 2)`
-    );
+    // Normalise old 'status' field name (pre-Phase-2 entries)
+    const pending = all.filter(e =>
+      e.syncStatus === GUESTORA_SYNC_STATUS.PENDING || e.status === 'pending'
+    ).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 
-    // Phase 2 implementation point:
-    // for (const entry of pending) {
-    //   try {
-    //     await guestoraSendToServer(entry);          // idempotent via operationId
-    //     await idbPut('guestora_outbox', {           // mark synced only on server ack
-    //       ...entry, syncStatus: GUESTORA_SYNC_STATUS.SYNCED
-    //     });
-    //   } catch (err) {
-    //     const attempts = (entry.attempts || 0) + 1;
-    //     const nextStatus = attempts >= 5
-    //       ? GUESTORA_SYNC_STATUS.FAILED
-    //       : GUESTORA_SYNC_STATUS.PENDING;
-    //     await idbPut('guestora_outbox', {
-    //       ...entry, attempts, syncStatus: nextStatus,
-    //       lastError: err.message,
-    //       retryAt: new Date(Date.now() + Math.pow(2, attempts) * 1000).toISOString()
-    //     });
-    //   }
-    // }
+    const synced = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.SYNCED);
+    const failed = all.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.FAILED);
 
-    return { pending: pending.length, synced: synced.length, failed: failed.length };
+    if(pending.length === 0){
+      return { pending: 0, synced: synced.length, failed: failed.length };
+    }
+
+    console.log(`[GUESTORA] syncing ${pending.length} pending entries…`);
+
+    // Cache resolved server package ids keyed by local package id
+    const serverPkgMap = {};
+
+    for(const entry of pending){
+      // Respect retryAt back-off window
+      if(entry.retryAt && new Date(entry.retryAt) > new Date()) continue;
+
+      try {
+        // Resolve (and upsert if needed) the server package for this entry
+        if(!serverPkgMap[entry.packageId]){
+          const localPkg = await idbGet('guestora_packages', entry.packageId);
+          if(!localPkg) throw new Error(`local package ${entry.packageId} not found`);
+
+          // ── Session-open gate ──────────────────────────────────────────
+          // Before syncing, verify the corresponding session is still open.
+          // If closed, hold the entry with a named reason instead of failing.
+          const { data: sessCheck } = await sb.from('guestora_sessions')
+            .select('status, id')
+            .eq('flight_number', localPkg.flightNum)
+            .eq('flight_date',   localPkg.date)
+            .single();
+          if(sessCheck && sessCheck.status === 'closed'){
+            await idbPut('guestora_outbox', {
+              ...entry,
+              syncStatus:  GUESTORA_SYNC_STATUS.PENDING,
+              heldReason:  'session_closed',
+              sessionId:   sessCheck.id,
+              lastError:   'Session is closed — reopen session to sync this order.',
+            });
+            console.warn(`[GUESTORA] entry ${entry.operationId} held — session for ${localPkg.flightNum}/${localPkg.date} is closed`);
+            continue;
+          }
+          if(!sessCheck){
+            await idbPut('guestora_outbox', {
+              ...entry,
+              syncStatus: GUESTORA_SYNC_STATUS.PENDING,
+              heldReason: 'session_not_found',
+              lastError:  'Session not found on server — contact crew or admin.',
+            });
+            console.warn(`[GUESTORA] entry ${entry.operationId} held — no session found for ${localPkg.flightNum}/${localPkg.date}`);
+            continue;
+          }
+          // ── Session is open — proceed with package sync ────────────────
+          serverPkgMap[entry.packageId] = await guestoraSyncPackage(localPkg);
+
+          // If server assigned a different id (another device created it first),
+          // mark the local package as synced so UI can reconcile on next open
+          if(serverPkgMap[entry.packageId] !== entry.packageId){
+            await idbPut('guestora_packages', {
+              ...localPkg,
+              serverPackageId: serverPkgMap[entry.packageId],
+              syncStatus: GUESTORA_SYNC_STATUS.SYNCED,
+            });
+          } else {
+            await idbPut('guestora_packages', {
+              ...localPkg,
+              syncStatus: GUESTORA_SYNC_STATUS.SYNCED,
+            });
+          }
+        }
+
+        await guestoraSendToServer(entry, serverPkgMap[entry.packageId]);
+
+        // Mark synced only after server ack
+        await idbPut('guestora_outbox', {
+          ...entry,
+          syncStatus: GUESTORA_SYNC_STATUS.SYNCED,
+          lastError:  null,
+        });
+
+      } catch(err){
+        const attempts   = (entry.attempts || 0) + 1;
+        const nextStatus = attempts >= GUESTORA_MAX_RETRY
+          ? GUESTORA_SYNC_STATUS.FAILED
+          : GUESTORA_SYNC_STATUS.PENDING;
+        const backoffMs  = Math.pow(2, attempts) * 1000;
+
+        await idbPut('guestora_outbox', {
+          ...entry,
+          attempts,
+          syncStatus: nextStatus,
+          lastError:  err.message,
+          retryAt:    new Date(Date.now() + backoffMs).toISOString(),
+        });
+
+        console.warn(`[GUESTORA] entry ${entry.operationId} attempt ${attempts}/${GUESTORA_MAX_RETRY} failed:`, err.message);
+      }
+    }
+
+    // Recount for return value
+    const updated = await idbAll('guestora_outbox');
+    return {
+      pending: updated.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.PENDING).length,
+      synced:  updated.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.SYNCED).length,
+      failed:  updated.filter(e => e.syncStatus === GUESTORA_SYNC_STATUS.FAILED).length,
+    };
+
   } catch(e){
     console.error('[GUESTORA] guestoraSyncOutbox error:', e);
     return { pending: 0, synced: 0, failed: 0 };
@@ -4352,15 +5013,43 @@ async function guestoraSyncOutbox(){
 
 // ── GUESTORA UI state ────────────────────────────────────────────────────────
 let _gs = {
-  pkg:         null,  // current guestora_packages record
-  cabin:       null,  // selected cabin config object
-  orders:      [],    // guestora_orders for current pkg
-  editOrder:   null,  // order being edited / viewed in sheet
-  sheetMode:   null,  // 'new' | 'view' | 'edit'
-  selectedSeat:null,  // seat number string (e.g. '2G')
-  selectedCat: null,  // 'Meal' | 'Drink' | 'Special Request'
-  activeMenu:  null,  // cached active menu (invalidated on publish)
+  pkg:           null,  // current guestora_packages record
+  session:       null,  // current guestora_sessions record (server or IDB-cached)
+  cabin:         null,  // selected cabin config object
+  orders:        [],    // guestora_orders for current pkg
+  editOrder:     null,  // order being edited / viewed in sheet
+  sheetMode:     null,  // 'new' | 'view' | 'edit'
+  selectedSeat:  null,  // seat number string (e.g. '2G')
+  selectedCat:   null,  // 'Meal' | 'Drink' | 'Special Request'
+  activeMenu:    null,  // cached active menu (invalidated on publish)
+  mealInventory: null,  // { [itemId]: { name, total, remaining } } or null if not entered
+  paxManifest:   null,  // array of pax objects from passenger_manifests for current flight, or null
 };
+
+// ── Brand application — swaps 'GUESTORA' label for tenant's dining_brand ─────
+// Called once after tenant config loads. Updates every crew-visible element;
+// leaves internal admin labels ("GUESTORA Settings") unchanged.
+function guestoraApplyBrand(brand){
+  if(!brand || brand === 'GUESTORA') return; // nothing to swap
+
+  // 1. Overlay header title (all views with .gs-hdr-title show the brand)
+  document.querySelectorAll('.gs-hdr-title').forEach(el => {
+    if(el.textContent.trim() === 'GUESTORA') el.textContent = brand;
+  });
+
+  // 2. Hub card array entry — update in-memory data so any re-render is correct
+  const entry = HUB_CARDS?.find?.(h => h.id === 'guestora');
+  if(entry){
+    entry.title = brand;
+    entry.sub   = `${brand} · Business-class order pad`;
+  }
+
+  // 3. Re-render hub grid if it is currently visible so the tile updates now
+  const hubGrid = document.getElementById('hub-card-grid');
+  if(hubGrid && hubGrid.children.length > 0) renderCrewHub();
+
+  console.log(`[GUESTORA] brand applied: ${brand}`);
+}
 
 // ── Open / close overlay ─────────────────────────────────────────────────────
 async function openGuestoraOverlay(){
@@ -4372,7 +5061,9 @@ async function openGuestoraOverlay(){
 function closeGuestoraOverlay(){
   document.getElementById('guestora-overlay').classList.remove('open');
   gsCloseOrderSheet();
-  _gs.activeMenu = null; // reset so next open fetches fresh menu
+  _gs.activeMenu    = null; // reset so next open fetches fresh menu
+  _gs.mealInventory = null; // reset so next session prompts fresh counts
+  _gs.paxManifest   = null; // reset so next session fetches fresh manifest
 }
 
 // ── View navigation ───────────────────────────────────────────────────────────
@@ -4382,48 +5073,178 @@ function gsShowView(viewName){
 }
 
 // ── Sector Picker ─────────────────────────────────────────────────────────────
+
+/**
+ * Merge server flight rows into IDB, preserving locally-created unsync'd duties.
+ * Server rows overwrite IDB rows only when the IDB row is marked synced.
+ */
+async function gsMergeServerFlights(serverRows){
+  for(const row of serverRows){
+    const existing = await idbGet('flights', row.id);
+    // Only overwrite if already synced — preserve LOCAL entries
+    if(!existing || existing.synced !== false){
+      await idbPut('flights', rowToFlight(row));
+    }
+  }
+}
+
+/**
+ * Build the list of individual sectors to display in the picker.
+ * Each duty is expanded using parseCombinedFlightNum() so multi-sector duties
+ * show as separate rows — one per individual passenger-carrying sector.
+ * Returns array of { flightNum, date, actype, dutyId, dep, arr }
+ */
+function gsExpandDutiesToSectors(duties){
+  const sectors = [];
+  for(const f of duties){
+    if(!f.flightNum) continue;
+    // fn1 always present
+    const fn1Nums = parseCombinedFlightNum(f.flightNum);
+    fn1Nums.forEach(num => sectors.push({
+      flightNum: num,
+      date:      f.date,
+      actype:    f.actype || f.aircraft_type || '',
+      dep:       f.dep || '',
+      arr:       f.arr || '',
+      dutyId:    f.id,
+    }));
+    // fn2 present only for 4-sector duties
+    if(f.flightNum2){
+      const fn2Nums = parseCombinedFlightNum(f.flightNum2);
+      fn2Nums.forEach(num => sectors.push({
+        flightNum: num,
+        date:      f.date,
+        actype:    f.actype || f.aircraft_type || '',
+        dep:       f.dep || '',
+        arr:       f.arr || '',
+        dutyId:    f.id,
+      }));
+    }
+  }
+  // Deduplicate by (flightNum, date) — a 3-sector duty has the same number 3 times
+  const seen = new Set();
+  return sectors.filter(s=>{
+    const key = s.flightNum + '|' + s.date;
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function gsLoadSectorList(){
   const container = document.getElementById('gs-sector-list');
   container.innerHTML = '<div class="gs-empty">Loading…</div>';
   try {
-    // Pull today's flights from IDB logbook
+    // ── 1. Fetch flights from server in parallel with IDB read ────────────
+    // Runs every time the picker opens — not conditional on IDB being empty.
+    const serverFetchPromise = (async ()=>{
+      if(!isOnline) return [];
+      try{
+        const { data } = await sb.from('flights')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .gte('date', (() => {
+            const d = new Date(); d.setDate(d.getDate() - 1);
+            return d.toISOString().slice(0,10);
+          })())
+          .order('date', { ascending: false });
+        return data || [];
+      }catch(e){
+        console.warn('[GUESTORA] server flight fetch failed:', e.message);
+        return [];
+      }
+    })();
+
     const allFlights = await idbAll('flights');
-    const todayStr   = new Date().toISOString().slice(0,10);   // YYYY-MM-DD
-    // Show flights from today ±1 day (duty can span midnight)
-    const window1d   = 86400000;
-    const relevant   = allFlights.filter(f=>{
-      if(!f.date) return false;
+
+    // ── 2. Merge server results into IDB ──────────────────────────────────
+    const serverRows = await serverFetchPromise;
+    if(serverRows.length) await gsMergeServerFlights(serverRows);
+
+    // ── 3. Build the working set from IDB (now merged) ────────────────────
+    const merged = await idbAll('flights');
+    const window1d = 86400000;
+    const relevant = merged.filter(f=>{
+      if(!f.date || f._deleted) return false;
       const diff = Math.abs(new Date(f.date).getTime() - Date.now());
       return diff < window1d * 2;
     }).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
-    if(!relevant.length){
+    // ── 4. Expand duties into individual sectors ──────────────────────────
+    const sectors = gsExpandDutiesToSectors(relevant);
+
+    if(!sectors.length){
       container.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">✈️</div>No flights found for today.<br><span style="font-size:.72rem">Log a flight first to start a service session.</span></div>`;
       return;
     }
-    container.innerHTML = '';
-    // Resolve seat configs in parallel (IDB-first) for cabin hints
+
+    // ── 5. Fetch session status for all sectors in one query ──────────────
+    const sessionStatusMap = {}; // key: 'flightNum|date' → 'open'|'closed'|null
+    if(isOnline){
+      try{
+        const flightNums = sectors.map(s => s.flightNum);
+        const { data: sessions } = await sb.from('guestora_sessions')
+          .select('flight_number, flight_date, status')
+          .in('flight_number', flightNums);
+        if(sessions){
+          sessions.forEach(sess=>{
+            sessionStatusMap[sess.flight_number + '|' + sess.flight_date] = sess.status;
+          });
+        }
+        // Also cache into IDB for offline use
+        for(const sess of (sessions||[])){
+          await idbPut('guestora_sessions', {
+            id:           sess.id || (sess.flight_number + '_' + sess.flight_date),
+            flightNumber: sess.flight_number,
+            flightDate:   sess.flight_date,
+            status:       sess.status,
+            cachedAt:     new Date().toISOString(),
+          });
+        }
+      }catch(e){
+        console.warn('[GUESTORA] session status fetch failed:', e.message);
+        // Fall back to IDB cached sessions
+        const cachedSessions = await idbAll('guestora_sessions');
+        cachedSessions.forEach(s=>{
+          sessionStatusMap[s.flightNumber + '|' + s.flightDate] = s.status;
+        });
+      }
+    } else {
+      // Offline: use IDB cached sessions
+      const cachedSessions = await idbAll('guestora_sessions');
+      cachedSessions.forEach(s=>{
+        sessionStatusMap[s.flightNumber + '|' + s.flightDate] = s.status;
+      });
+    }
+
+    // ── 6. Resolve seat configs for cabin hints ───────────────────────────
     const cfgMap = {};
-    await Promise.all(relevant.map(async f=>{
-      const actype = f.actype || f.aircraft_type || '';
-      if(actype && !cfgMap[actype]){
-        cfgMap[actype] = await guestoraResolveSeatConfigAsync(actype);
+    await Promise.all(sectors.map(async s=>{
+      if(s.actype && !cfgMap[s.actype]){
+        cfgMap[s.actype] = await guestoraResolveSeatConfigAsync(s.actype);
       }
     }));
-    relevant.forEach(f=>{
-      const actype    = f.actype || f.aircraft_type || '—';
-      const cfg       = cfgMap[actype];
-      const cabinHint = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
+
+    // ── 7. Render sector rows ─────────────────────────────────────────────
+    container.innerHTML = '';
+    sectors.forEach(s=>{
+      const cfg         = cfgMap[s.actype];
+      const cabinHint   = cfg ? cfg.cabins.map(c=>c.label).join(' · ') : 'Unknown aircraft';
+      const sessStatus  = sessionStatusMap[s.flightNum + '|' + s.date] || null;
+      const statusBadge = sessStatus === 'open'   ? `<span style="font-size:.68rem;background:var(--color-success,#22c55e);color:#000;border-radius:10px;padding:1px 8px;font-weight:700;margin-left:6px">OPEN</span>`
+                        : sessStatus === 'closed' ? `<span style="font-size:.68rem;background:var(--color-text-muted,#888);color:#fff;border-radius:10px;padding:1px 8px;font-weight:700;margin-left:6px">CLOSED</span>`
+                        : `<span style="font-size:.68rem;border:1px solid var(--color-border,#444);color:var(--color-text-muted,#888);border-radius:10px;padding:1px 8px;margin-left:6px">NEW</span>`;
       const div = document.createElement('div');
       div.className = 'gs-list-item';
       div.innerHTML = `
-        <div class="gs-list-label">${escHtml(f.flightNum||f.flight_number||'—')}  ·  ${escHtml(f.date||'')}</div>
-        <div class="gs-list-sub">${escHtml(actype)}  ·  ${escHtml(cabinHint)}</div>
+        <div class="gs-list-label">${escHtml(s.flightNum)}  ·  ${escHtml(s.date)}${statusBadge}</div>
+        <div class="gs-list-sub">${escHtml(s.actype||'—')}  ·  ${escHtml(cabinHint)}</div>
       `;
-      div.onclick = ()=>gsSelectSector(f);
+      div.onclick = ()=>gsSelectSector(s);
       container.appendChild(div);
     });
   } catch(err){
+    console.error('[GUESTORA] gsLoadSectorList error:', err);
     container.innerHTML = `<div class="gs-empty">Error loading flights: ${escHtml(err.message)}</div>`;
   }
 }
@@ -4432,6 +5253,77 @@ async function gsSelectSector(flight){
   const flightNum = flight.flightNum || flight.flight_number || String(flight.id);
   const date      = flight.date;
   const actype    = flight.actype || flight.aircraft_type || '';
+
+  // ── 1. Server-first session get-or-create ──────────────────────────────
+  // The session is the shared workspace. All crew members on this flight join
+  // the same session. If offline, we work with the IDB-cached session status.
+  let sessionStatus = 'open'; // default: assume open if we cannot reach server
+  if(isOnline){
+    try{
+      // Upsert: creates session if none exists, returns existing if already there.
+      // ON CONFLICT (tenant_id, flight_number, flight_date) DO NOTHING — then re-select.
+      const { error: insertErr } = await sb.from('guestora_sessions').insert({
+        flight_number: flightNum,
+        flight_date:   date,
+        status:        'open',
+        opened_by:     currentUser.id,
+      }, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: true });
+      // Insert may be ignored (conflict) — that's correct. Now read the session.
+      const { data: sessData, error: selErr } = await sb.from('guestora_sessions')
+        .select('id, status, opened_by, opened_at, closed_by, closed_at, meal_inventory')
+        .eq('flight_number', flightNum)
+        .eq('flight_date',   date)
+        .single();
+      if(selErr) throw selErr;
+      sessionStatus     = sessData.status;
+      _gs.session       = sessData;
+      _gs.mealInventory = sessData.meal_inventory || null;
+      // Cache in IDB for offline use (include meal_inventory for offline continuity)
+      await idbPut('guestora_sessions', {
+        id:            sessData.id,
+        flightNumber:  flightNum,
+        flightDate:    date,
+        status:        sessData.status,
+        mealInventory: sessData.meal_inventory || null,
+        cachedAt:      new Date().toISOString(),
+      });
+    }catch(e){
+      console.warn('[GUESTORA] session get-or-create failed:', e.message);
+      // Fall back to IDB cached status
+      const cached = (await idbAll('guestora_sessions'))
+        .find(s => s.flightNumber === flightNum && s.flightDate === date);
+      sessionStatus     = cached?.status || 'open';
+      _gs.session       = cached || null;
+      _gs.mealInventory = cached?.mealInventory || null;
+      toast('⚠ Offline — using cached session state.');
+    }
+  } else {
+    const cached = (await idbAll('guestora_sessions'))
+      .find(s => s.flightNumber === flightNum && s.flightDate === date);
+    sessionStatus     = cached?.status || 'open';
+    _gs.session       = cached || null;
+    _gs.mealInventory = cached?.mealInventory || null;
+  }
+
+  // ── 2. If session is closed, show read-only notice ─────────────────────
+  if(sessionStatus === 'closed'){
+    // Show cabin view but with a prominent closed banner and Reopen button
+    _gs.pkg = await guestoraGetOrCreatePackage(flightNum, date, actype);
+    _gs.orders = await guestoraGetOrdersByPackage(_gs.pkg.id);
+    document.getElementById('gs-cabin-hdr-sub').textContent = `${flightNum}  ·  ${date}`;
+    const cabinList = document.getElementById('gs-cabin-list');
+    cabinList.innerHTML = `
+      <div style="margin:16px;padding:14px 16px;background:rgba(136,136,136,.12);border:1px solid var(--color-border);border-radius:10px;text-align:center">
+        <div style="font-size:1.1rem;margin-bottom:6px">🔒 Service Session Closed</div>
+        <div style="font-size:.8rem;color:var(--color-text-muted);margin-bottom:14px">This session has been closed. Orders are read-only.</div>
+        <button style="padding:8px 20px;border-radius:8px;border:1px solid var(--color-accent);background:transparent;color:var(--color-accent);font-size:.85rem;cursor:pointer"
+          onclick="gsReopenSession('${flightNum}','${date}')">Reopen Session</button>
+      </div>`;
+    gsShowView('cabin');
+    return;
+  }
+
+  // ── 3. Session is open — proceed normally ─────────────────────────────
   // Get-or-create the package record
   _gs.pkg = await guestoraGetOrCreatePackage(flightNum, date, actype);
   // Load orders for this package
@@ -4457,16 +5349,64 @@ async function gsSelectSector(flight){
       cabinList.appendChild(div);
     });
   }
+  // Load pax manifest for this flight (best-effort, non-blocking)
+  gsLoadPaxManifest(flightNum, date);
+
   gsShowView('cabin');
 }
 
+// ── Session lifecycle helpers ─────────────────────────────────────────────────
+async function gsReopenSession(flightNum, date){
+  if(!_gs.session?.id){ toast('⚠ Session ID not found — please reload.'); return; }
+  try{
+    const { error } = await sb.rpc('guestora_set_session_status', {
+      p_session_id: _gs.session.id,
+      p_new_status: 'open',
+    });
+    if(error) throw error;
+    toast('✅ Session reopened.');
+    // Reload the sector list so the status badge updates
+    await gsLoadSectorList();
+  }catch(e){
+    toast('⚠ Could not reopen session: ' + e.message);
+  }
+}
+
+async function gsCloseSession(){
+  if(!_gs.session?.id){ toast('⚠ No active session.'); return; }
+  if(!confirm('Close the service session for this flight? No new orders can be taken until it is reopened.')) return;
+  try{
+    const { error } = await sb.rpc('guestora_set_session_status', {
+      p_session_id: _gs.session.id,
+      p_new_status: 'closed',
+    });
+    if(error) throw error;
+    toast('✅ Session closed.');
+    gsShowView('sector');
+    await gsLoadSectorList();
+  }catch(e){
+    toast('⚠ Could not close session: ' + e.message);
+  }
+}
+
 // ── Cabin Picker ──────────────────────────────────────────────────────────────
-function gsSelectCabin(cabin, cfg){
+async function gsSelectCabin(cabin, cfg){
   _gs.cabin = cabin;
   document.getElementById('gs-seatmap-title').textContent = cabin.label;
   document.getElementById('gs-seatmap-sub').textContent   = _gs.pkg.flightNum + '  ·  ' + _gs.pkg.date;
   gsRenderSeatMap(cabin);
+  gsRenderInventoryStrip();
   gsShowView('seatmap');
+  // On first entry to seatmap for a session with no inventory set, prompt crew to enter counts.
+  // We only do this once per session (mealInventory stays set even if all items are 0).
+  if(_gs.mealInventory === null){
+    const menu = _gs.activeMenu || await guestoraGetActiveMenu().catch(()=>null);
+    _gs.activeMenu = menu;
+    if(menu && menu.categories && menu.categories.length){
+      // Slight delay so the seat map is visible behind the modal
+      setTimeout(() => gsOpenInventoryModal(), 180);
+    }
+  }
 }
 
 // ── Seat Map renderer ─────────────────────────────────────────────────────────
@@ -4565,6 +5505,18 @@ function gsRenderSeatMap(cabin){
           seatEl.classList.add('empty');
         }
 
+        // PAX name label — show surname if manifest loaded for this flight
+        const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+        if(pax){
+          const nameEl = document.createElement('div');
+          nameEl.className = 'gs-seat-pax';
+          // Show first word of surname (before '/') truncated to 5 chars
+          const raw = (pax.name||'').split('/')[0].trim();
+          nameEl.textContent = raw.length > 5 ? raw.slice(0,5)+'…' : (raw||'PAX');
+          nameEl.title = pax.name || '';
+          seatEl.appendChild(nameEl);
+        }
+
         seatEl.onclick = ()=>gsOpenOrderSheet(seatNum, order||null);
         groupEl.appendChild(seatEl);
       });
@@ -4605,6 +5557,25 @@ async function gsOpenOrderSheet(seatNum, existingOrder){
   _gs.sheetMode    = existingOrder ? 'view' : 'new';
 
   document.getElementById('gs-sheet-seat-label').textContent = 'Seat ' + seatNum;
+
+  // Show pax name in sheet header if manifest is loaded
+  const paxInfoEl = document.getElementById('gs-sheet-pax-info');
+  if(paxInfoEl){
+    const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+    if(pax){
+      const statusBadge = pax.status === 'checked_in'
+        ? '<span style="font-size:.6rem;background:rgba(26,122,69,.35);color:#2ecc71;border:1px solid #1a7a45;border-radius:4px;padding:1px 5px;margin-left:4px">✓ Checked In</span>'
+        : '<span style="font-size:.6rem;background:rgba(255,255,255,.08);color:var(--muted);border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:1px 5px;margin-left:4px">Pending</span>';
+      const cabinLabel = pax.cabin === 'JC' ? 'Business' : pax.cabin === 'PYC' ? 'Premium Econ' : 'Economy';
+      paxInfoEl.innerHTML = `
+        <div style="font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${escHtml(pax.name||'Unknown')}${statusBadge}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:1px">${cabinLabel}${pax.arr?' · → '+escHtml(pax.arr):''}${pax.gender?' · '+escHtml(pax.gender):''}</div>`;
+      paxInfoEl.style.display = 'block';
+    } else {
+      paxInfoEl.innerHTML = '';
+      paxInfoEl.style.display = 'none';
+    }
+  }
 
   const pillWrap = document.getElementById('gs-status-pill-wrap');
   if(existingOrder){
@@ -4665,10 +5636,11 @@ function gsRenderSheetBody(existingOrder){
     const legacyHtml = [
       existingOrder.mealNote?.trim()    ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🍽️ Meal note</div><div class="gs-view-cat-text">${escHtml(existingOrder.mealNote)}</div></div>` : '',
       existingOrder.drinkNote?.trim()   ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">🥤 Drink note</div><div class="gs-view-cat-text">${escHtml(existingOrder.drinkNote)}</div></div>` : '',
-      existingOrder.specialNote?.trim() ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">⭐ Special request</div><div class="gs-view-cat-text">${escHtml(existingOrder.specialNote)}</div></div>` : ''
+      existingOrder.specialNote?.trim()       ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">⭐ Special request / Allergy alert</div><div class="gs-view-cat-text">${escHtml(existingOrder.specialNote)}</div></div>` : '',
+      existingOrder.additionalRequest?.trim() ? `<div class="gs-view-cat-block"><div class="gs-view-cat-label">➕ Additional request</div><div class="gs-view-cat-text">${escHtml(existingOrder.additionalRequest)}</div></div>` : '',
     ].join('');
 
-    const empty = !selections.length && !existingOrder.mealNote?.trim() && !existingOrder.drinkNote?.trim() && !existingOrder.specialNote?.trim();
+    const empty = !selections.length && !existingOrder.mealNote?.trim() && !existingOrder.drinkNote?.trim() && !existingOrder.specialNote?.trim() && !existingOrder.additionalRequest?.trim();
 
     body.innerHTML = `
       ${hasAllergen ? `<div style="background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin-bottom:12px">⚠ Allergen alert — verify with passenger before service</div>` : ''}
@@ -4768,7 +5740,7 @@ function gsRenderSheetBody(existingOrder){
       }).join('');
     }
 
-    // Special request section always present (free-text)
+    // Special request section — allergy alerts and pre-ordered meals
     const spVal    = escHtml(vals.specialNote||'');
     const spHasVal = !!(vals.specialNote?.trim());
     const specialHtml = `
@@ -4779,10 +5751,28 @@ function gsRenderSheetBody(existingOrder){
           <span class="gs-cat-chevron">▼</span>
         </div>
         <div class="gs-cat-body">
-          <textarea class="gs-cat-textarea" id="gs-inp-specialNote" maxlength="120"
-            placeholder="e.g. Allergy alert, anniversary cake, extra blanket, KSML preordered…"
+          <textarea class="gs-cat-textarea" id="gs-inp-specialNote" maxlength="200"
+            placeholder="e.g. Nut allergy — no nut products, KSML pre-ordered, anniversary cake arranged with catering…"
             oninput="gsOnCatInput('specialNote',this)">${spVal}</textarea>
-          <div class="gs-cat-count" id="gs-cnt-specialNote">${spVal.length}/120</div>
+          <div class="gs-cat-count" id="gs-cnt-specialNote">${spVal.length}/200</div>
+        </div>
+      </div>`;
+
+    // Additional request section — available off-menu items the passenger wants
+    const arVal    = escHtml(vals.additionalRequest||'');
+    const arHasVal = !!(vals.additionalRequest?.trim());
+    const additionalHtml = `
+      <div class="gs-cat-section${arHasVal?' open has-content':''}" id="gs-cat-sec-additionalRequest">
+        <div class="gs-cat-header" onclick="gsToggleCatSection('additionalRequest')">
+          <span class="gs-cat-icon">➕</span>
+          <span class="gs-cat-title">Additional Request</span>
+          <span class="gs-cat-chevron">▼</span>
+        </div>
+        <div class="gs-cat-body">
+          <textarea class="gs-cat-textarea" id="gs-inp-additionalRequest" maxlength="200"
+            placeholder="e.g. Extra bread roll, specific soft drink, additional snack available on board…"
+            oninput="gsOnCatInput('additionalRequest',this)">${arVal}</textarea>
+          <div class="gs-cat-count" id="gs-cnt-additionalRequest">${arVal.length}/200</div>
         </div>
       </div>`;
 
@@ -4790,6 +5780,7 @@ function gsRenderSheetBody(existingOrder){
       <p style="font-size:.75rem;color:var(--color-text-muted);margin:0 0 14px">${menu ? 'Select from the menu — tick all that apply.' : 'Fill in any category that applies.'}</p>
       ${menuSectionsHtml}
       ${specialHtml}
+      ${additionalHtml}
       <div id="gs-allergen-warning" style="display:none;background:rgba(245,185,66,.12);border:1px solid var(--color-warning);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--color-warning);margin:10px 0">⚠ One or more selected items contain allergens — confirm with passenger.</div>
       <button class="gs-save-btn" id="gs-save-btn" onclick="gsSaveOrder()">Save Order</button>`;
 
@@ -4856,12 +5847,13 @@ async function gsSaveOrder(){
     };
   });
 
-  // Legacy free-text (shown when no menu, or always for special note)
-  const mealNote    = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,120).trim();
-  const drinkNote   = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,120).trim();
-  const specialNote = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,120).trim();
+  // Legacy free-text (shown when no menu, or always for special/additional notes)
+  const mealNote          = (document.getElementById('gs-inp-mealNote')?.value||'').slice(0,200).trim();
+  const drinkNote         = (document.getElementById('gs-inp-drinkNote')?.value||'').slice(0,200).trim();
+  const specialNote       = (document.getElementById('gs-inp-specialNote')?.value||'').slice(0,200).trim();
+  const additionalRequest = (document.getElementById('gs-inp-additionalRequest')?.value||'').slice(0,200).trim();
 
-  if(!selections.length && !mealNote && !drinkNote && !specialNote){
+  if(!selections.length && !mealNote && !drinkNote && !specialNote && !additionalRequest){
     toast('Select at least one item or add a note before saving.');
     return;
   }
@@ -4872,8 +5864,15 @@ async function gsSaveOrder(){
 
   try {
     if(_gs.editOrder && _gs.sheetMode==='edit'){
+      // On edit: reverse old meal selections from inventory, apply new ones
+      if(_gs.mealInventory){
+        const oldSels = _gs.editOrder.selections || [];
+        oldSels.forEach(s=>{ if(_gs.mealInventory[s.id]) _gs.mealInventory[s.id].remaining = Math.min(_gs.mealInventory[s.id].total, (_gs.mealInventory[s.id].remaining||0)+1); });
+        selections.forEach(s=>{ if(_gs.mealInventory[s.id]) _gs.mealInventory[s.id].remaining = Math.max(0, (_gs.mealInventory[s.id].remaining||0)-1); });
+        await gsPersistInventory();
+      }
       const updated = await guestoraUpdateOrder(_gs.editOrder.id, {
-        selections, mealNote, drinkNote, specialNote
+        selections, mealNote, drinkNote, specialNote, additionalRequest
       });
       const idx = _gs.orders.findIndex(o=>o.id===_gs.editOrder.id);
       if(idx!==-1) _gs.orders[idx] = updated;
@@ -4884,7 +5883,7 @@ async function gsSaveOrder(){
         packageId:   _gs.pkg.id,
         cabin:       _gs.cabin.id,
         seatNum:     _gs.selectedSeat,
-        selections, mealNote, drinkNote, specialNote,
+        selections, mealNote, drinkNote, specialNote, additionalRequest,
         status:      GUESTORA_ORDER_STATUS.REQUESTED,  // order lifecycle
         createdAt:   now,
         updatedAt:   now
@@ -4904,10 +5903,20 @@ async function gsSaveOrder(){
       };
       await guestoraAtomicWrite(order, outboxEntry);
       _gs.orders.push(order);
+      // Decrement meal inventory for each selected item
+      if(_gs.mealInventory){
+        selections.forEach(s=>{
+          if(_gs.mealInventory[s.id]){
+            _gs.mealInventory[s.id].remaining = Math.max(0, (_gs.mealInventory[s.id].remaining||0)-1);
+          }
+        });
+        await gsPersistInventory();
+      }
       toast('✅ Order saved');
     }
     gsCloseOrderSheet();
     gsRenderSeatMap(_gs.cabin);
+    gsRenderInventoryStrip();
   } catch(err){
     toast('⚠ Could not save: ' + err.message);
     if(saveBtn) saveBtn.disabled = false;
@@ -4933,11 +5942,25 @@ async function gsMarkServed(orderId){
 async function gsConfirmDelete(orderId){
   if(!confirm('Delete this order?')) return;
   try {
+    const deletedOrder = _gs.orders.find(o=>o.id===orderId);
     await guestoraDeleteOrder(orderId, _gs.pkg.id);
     _gs.orders = _gs.orders.filter(o=>o.id!==orderId);
+    // Restore inventory for items on the deleted order
+    if(_gs.mealInventory && deletedOrder?.selections?.length){
+      deletedOrder.selections.forEach(s=>{
+        if(_gs.mealInventory[s.id]){
+          _gs.mealInventory[s.id].remaining = Math.min(
+            _gs.mealInventory[s.id].total,
+            (_gs.mealInventory[s.id].remaining||0)+1
+          );
+        }
+      });
+      await gsPersistInventory();
+    }
     toast('🗑 Order deleted');
     gsCloseOrderSheet();
     gsRenderSeatMap(_gs.cabin);
+    gsRenderInventoryStrip();
   } catch(err){ toast('⚠ ' + err.message); }
 }
 
@@ -4949,6 +5972,196 @@ function gsCloseOrderSheet(){
   _gs.selectedSeat = null;
   // Keep activeMenu cached across sheet opens within same session;
   // cleared on gaPublishNewMenuVersion so next open picks up the new menu.
+}
+
+// ── Meal Inventory helpers ─────────────────────────────────────────────────────
+
+/**
+ * Open the inventory entry modal.
+ * Shows all available Meals items from the active menu with number steppers.
+ * Called automatically on first seat-map entry if no inventory set;
+ * also called via "Edit" button on the inventory strip.
+ */
+async function gsOpenInventoryModal(){
+  const menu = _gs.activeMenu || await guestoraGetActiveMenu().catch(()=>null);
+  if(!menu || !menu.categories || !menu.categories.length){
+    toast('No menu configured. Add a menu in GUESTORA Admin first.');
+    return;
+  }
+  // Build list of all available items (across all categories)
+  const allItems = [];
+  menu.categories.forEach(cat=>{
+    cat.subcategories.forEach(sub=>{
+      sub.items.filter(it=>it.available).forEach(it=>{
+        allItems.push({ id:it.id, name:it.name, catLabel:cat.label, subLabel:sub.label });
+      });
+    });
+  });
+  if(!allItems.length){
+    toast('No available menu items to track.');
+    return;
+  }
+  // Build modal body
+  const body = document.getElementById('gs-inventory-modal-body');
+  body.innerHTML = allItems.map(item=>{
+    const current = _gs.mealInventory?.[item.id]?.total ?? '';
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;color:var(--color-text-primary);font-weight:600">${escHtml(item.name)}</div>
+        <div style="font-size:.68rem;color:var(--muted)">${escHtml(item.catLabel)} · ${escHtml(item.subLabel)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+        <button onclick="gsInventoryStep('${item.id}',-1)"
+          style="width:34px;height:34px;border-radius:8px 0 0 8px;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+        <input type="number" id="gs-inv-${item.id}" value="${current}" min="0" max="999"
+          style="width:52px;height:34px;border:1px solid var(--color-border);border-left:none;border-right:none;background:rgba(255,255,255,.04);color:var(--color-text-primary);text-align:center;font-size:.88rem;-moz-appearance:textfield"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        <button onclick="gsInventoryStep('${item.id}',+1)"
+          style="width:34px;height:34px;border-radius:0 8px 8px 0;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+      </div>
+    </div>`;
+  }).join('');
+  // Store item list in modal for gsSaveInventory to read
+  body.dataset.itemIds = JSON.stringify(allItems.map(i=>({id:i.id,name:i.name})));
+  document.getElementById('gs-inventory-modal').style.display = 'flex';
+}
+
+/** Increment / decrement a stepper without opening keyboard on mobile */
+function gsInventoryStep(itemId, delta){
+  const inp = document.getElementById('gs-inv-'+itemId);
+  if(!inp) return;
+  const cur = parseInt(inp.value,10)||0;
+  inp.value = Math.max(0, cur+delta);
+}
+
+/** Crew chose "Skip" — set all items to unlimited (Infinity sentinel: -1) */
+function gsSkipInventory(){
+  _gs.mealInventory = {}; // empty object = "entered but unlimited"
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+  gsRenderInventoryStrip();
+  gsPersistInventory();
+}
+
+/** Read the stepper values and save to _gs.mealInventory + IDB + server */
+async function gsSaveInventory(){
+  const body = document.getElementById('gs-inventory-modal-body');
+  let items;
+  try { items = JSON.parse(body.dataset.itemIds||'[]'); } catch(e){ items=[]; }
+  const inv = {};
+  items.forEach(({id,name})=>{
+    const inp = document.getElementById('gs-inv-'+id);
+    const val = inp ? Math.max(0,parseInt(inp.value,10)||0) : 0;
+    // Work out how many have already been ordered so "remaining" is correct
+    const alreadyOrdered = _gs.orders.filter(o=>
+      Array.isArray(o.selections) && o.selections.some(s=>s.id===id)
+    ).length;
+    inv[id] = { name, total: val, remaining: Math.max(0, val - alreadyOrdered) };
+  });
+  _gs.mealInventory = inv;
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+  gsRenderInventoryStrip();
+  await gsPersistInventory();
+  toast('✅ Meal counts saved');
+}
+
+function gsCloseInventoryModal(){
+  document.getElementById('gs-inventory-modal').style.display = 'none';
+}
+
+// ── PAX manifest pre-fill ─────────────────────────────────────────────────────
+
+/**
+ * Fetch the passenger manifest for a given flight+date into _gs.paxManifest.
+ * Called non-blocking from gsSelectSector(); failures are silent.
+ * Builds a seat→pax lookup used by the seat map renderer and order sheet.
+ */
+async function gsLoadPaxManifest(flightNum, date){
+  _gs.paxManifest = null;
+  if(!isOnline) return; // offline: no manifest (future: could cache in IDB)
+  try{
+    const { data, error } = await sb.from('passenger_manifests')
+      .select('passengers')
+      .eq('flight_number', flightNum)
+      .eq('flight_date', date)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if(error || !data) return; // no manifest for this flight — silently skip
+    const pax = data.passengers
+      ? (typeof data.passengers === 'string' ? JSON.parse(data.passengers) : data.passengers)
+      : [];
+    _gs.paxManifest = pax.length ? pax : null;
+    // Refresh seat map if it's already visible (crew had it open while manifest loaded)
+    if(_gs.cabin && document.getElementById('gs-view-seatmap')?.classList.contains('active')){
+      gsRenderSeatMap(_gs.cabin);
+    }
+  }catch(e){
+    console.warn('[GUESTORA] pax manifest fetch failed:', e.message);
+  }
+}
+
+/**
+ * Persist `_gs.mealInventory` to:
+ *   1. IDB guestora_sessions cache (always)
+ *   2. Supabase guestora_sessions.meal_inventory (when online and session id known)
+ */
+async function gsPersistInventory(){
+  // 1. IDB update
+  if(_gs.session){
+    const sessionId = _gs.session.id;
+    if(sessionId){
+      const existing = await idbGet('guestora_sessions', sessionId).catch(()=>null);
+      if(existing){
+        await idbPut('guestora_sessions', { ...existing, mealInventory: _gs.mealInventory });
+      }
+    }
+  }
+  // 2. Server sync (best-effort)
+  if(isOnline && _gs.session?.id){
+    try{
+      await sb.from('guestora_sessions')
+        .update({ meal_inventory: _gs.mealInventory })
+        .eq('id', _gs.session.id);
+    }catch(e){
+      console.warn('[GUESTORA] meal_inventory server sync failed (will retry on next save):', e.message);
+    }
+  }
+}
+
+/**
+ * Render the compact inventory strip above the seat map legend.
+ * Shows each item as a pill: "🍽️ Beef Stew 8/24" with a low-stock warning.
+ * Hides the strip if no inventory has been entered.
+ */
+function gsRenderInventoryStrip(){
+  const strip = document.getElementById('gs-inventory-strip');
+  const pills = document.getElementById('gs-inventory-pills');
+  if(!strip || !pills) return;
+  if(!_gs.mealInventory || Object.keys(_gs.mealInventory).length===0){
+    strip.style.display = 'none';
+    return;
+  }
+  strip.style.display = 'block';
+  const entries = Object.entries(_gs.mealInventory);
+  if(!entries.length){
+    pills.innerHTML = '<span style="font-size:.7rem;color:var(--muted)">Unlimited (no counts set)</span>';
+    return;
+  }
+  pills.innerHTML = entries.map(([id,item])=>{
+    const rem  = item.remaining ?? item.total;
+    const tot  = item.total;
+    const pct  = tot > 0 ? rem/tot : 1;
+    const low  = pct <= 0.25 && tot > 0;
+    const out  = rem === 0 && tot > 0;
+    const color = out ? '#b8292a' : low ? '#c97c0a' : 'rgba(255,255,255,.55)';
+    const bg    = out ? 'rgba(184,41,42,.18)' : low ? 'rgba(201,124,10,.18)' : 'rgba(255,255,255,.07)';
+    const label = item.name.length > 18 ? item.name.slice(0,17)+'…' : item.name;
+    return `<span title="${escHtml(item.name)}: ${rem} remaining of ${tot}"
+      style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;border:1px solid ${color};background:${bg};font-size:.68rem;color:${color};white-space:nowrap">
+      🍽️ ${escHtml(label)}&nbsp;<strong>${rem}/${tot}</strong>${out?'&nbsp;⚠':''}
+    </span>`;
+  }).join('');
 }
 
 // ── Utility: HTML-escape ──────────────────────────────────────────────────────
@@ -5039,7 +6252,7 @@ async function syncToCloud(){
     // ── PULL: notes sync ────────────────────────────────────
     await syncNotes();
 
-    // ── GUESTORA outbox — reads and counts pending entries; no server calls in Phase 1
+    // ── GUESTORA outbox — Phase 2: flush pending entries to Supabase
     await guestoraSyncOutbox();
 
     // Refresh UI
@@ -5147,6 +6360,11 @@ let selectedCrew   = [];
 let currentUser    = null;
 let isAdmin        = false;
 let sectorFieldCount = 2;
+
+// ── Tenant config — resolved after login from guestora_tenants ──────────────
+// dining_brand: 'CRANE CUISINE' for Uganda Airlines, 'Menuva' for independent.
+// Falls back to 'GUESTORA' until loaded so offline/pre-fetch paths are safe.
+window._tenantConfig = { dining_brand: 'GUESTORA' };
 let editingFlightId = null;
 
 // In-memory caches, refreshed from Supabase on load / after writes
@@ -5204,7 +6422,7 @@ async function initAuth(){
 
   // Retrieve current session with a bounded timeout so offline users are not
   // left waiting on the loading screen indefinitely.
-    let session = null;
+  let session = null;
   let sessionFetchFailed = false;
   try{
     const SESSION_TIMEOUT_MS = 8000;
@@ -5214,10 +6432,7 @@ async function initAuth(){
     ]);
     session = sessionResult?.data?.session ?? null;
   }catch(err){
-    // Timed out or network error — treat as unauthenticated.
-    // A previously authenticated user will see the auth screen; they can sign in
-    // again when online, or if connectivity returns the page auto-syncs.
-        console.warn('getSession failed or timed out:', err.message);
+    console.warn('getSession failed or timed out:', err.message);
     session = null;
     sessionFetchFailed = true;
   }
@@ -5226,24 +6441,41 @@ async function initAuth(){
     currentUser = session.user;
     await onLoggedIn();
   } else {
+    // ── Offline cold-start recovery ──────────────────────────────────────────
+    // getSession() returns null when:
+    //   (a) the user was never logged in, OR
+    //   (b) the access token expired and a refresh network call failed (offline)
+    //
+    // Case (b) must NOT show the login screen — the user was already authenticated
+    // and their data lives in IndexedDB. We detect it by reading the Supabase
+    // session key from localStorage directly: if it's there with a user object,
+    // we're in case (b) and can boot from IDB data.
+    //
+    // The Supabase JS v2 localStorage key format:
+    //   sb-<supabase-project-ref>-auth-token
     let offlineUser = null;
     try{
       const SB_STORAGE_KEY = `sb-${SUPABASE_URL.split('.')[0].split('//')[1]}-auth-token`;
       const rawSession = localStorage.getItem(SB_STORAGE_KEY);
       if(rawSession){
         const parsed = JSON.parse(rawSession);
+        // The stored object has { access_token, refresh_token, user, expires_at }
         if(parsed?.user?.id) offlineUser = parsed.user;
       }
     }catch(_){}
 
     if(offlineUser && !navigator.onLine){
+      // Previously authenticated, currently offline — boot from IDB
       console.info('Offline cold-start: using cached session identity for', offlineUser.email);
       currentUser = offlineUser;
+      // When connectivity returns, onAuthStateChange will fire TOKEN_REFRESHED
+      // and onLoggedIn will re-run, pulling fresh data from the server.
       await onLoggedIn();
     } else {
+      // Genuinely not logged in, or online but session is invalid → login screen
       document.getElementById('app-loading').style.display='none';
       document.getElementById('auth-screen').style.display='flex';
-      checkSignupsEnabled();
+      checkSignupsEnabled(); // lock/grey tab if signups closed
     }
   }
 
@@ -5253,8 +6485,12 @@ async function initAuth(){
       document.getElementById('auth-screen').style.display='none';
       onLoggedIn();
     }
+    // TOKEN_REFRESHED fires when connectivity returns after an offline cold-start.
+    // At that point currentUser is already set (from the cached identity), so we
+    // just re-fetch the profile + cloud data without re-rendering the whole UI.
     if(event === 'TOKEN_REFRESHED' && session && currentUser){
       currentUser = session.user;
+      // Re-run the cloud sync portion; onLoggedIn is idempotent for the UI parts
       syncToCloud().catch(()=>{});
     }
     if(event === 'SIGNED_OUT'){
@@ -5365,6 +6601,156 @@ async function initAuth(){
 }
 
 // ── Auth tab switcher ─────────────────────────────────────
+// ── Guestora signup airline state ───────────────────────
+let _guestoraTenants        = [];   // [{id, slug, airline_name, iata_code, enabled}]
+let _signupSelectedTenant   = null; // the chosen tenant row (or null)
+let _signupIsIndependent    = false;// true after "Continue as Independent" is clicked
+let _airlineDropdownOpen    = false;
+
+async function loadTenantsForSignup(){
+  if(_guestoraTenants.length) return; // already loaded
+  try{
+    const { data } = await sb.from('guestora_tenants')
+      .select('id, slug, airline_name, iata_code, enabled')
+      .neq('slug','independent')
+      .order('airline_name', { ascending:true });
+    if(data) _guestoraTenants = data;
+  }catch(e){ console.warn('[GUESTORA] loadTenantsForSignup failed:', e); }
+}
+
+function onSignupEmailInput(val){
+  const domain = val.split('@')[1]?.toLowerCase() || '';
+  if(!domain) return;
+  // Uganda Airlines domain detection
+  const ugDomains = ['crew.ugandairlines.com','ugandairlines.com'];
+  if(ugDomains.some(d => domain === d)){
+    const ugTenant = _guestoraTenants.find(t => t.slug === 'uganda-airlines');
+    if(ugTenant) { selectAirlineTenant(ugTenant, true); return; }
+  }
+  // If a domain-detected chip was showing for a different airline, clear it
+  const chip = document.getElementById('signup-domain-chip');
+  if(chip && chip.style.display !== 'none' && _signupSelectedTenant?.slug !== 'uganda-airlines'){
+    clearAirlineSelection();
+  }
+}
+
+function onAirlineSearchFocus(){
+  if(!_signupSelectedTenant && !_signupIsIndependent) openAirlineDropdown('');
+}
+
+function onAirlineSearch(val){
+  openAirlineDropdown(val);
+}
+
+function openAirlineDropdown(query){
+  const dropdown = document.getElementById('signup-airline-dropdown');
+  const list     = document.getElementById('signup-airline-list');
+  if(!dropdown||!list) return;
+
+  const q = query.toLowerCase().trim();
+  const filtered = _guestoraTenants.filter(t =>
+    !q || t.airline_name.toLowerCase().includes(q) || (t.iata_code||'').toLowerCase().includes(q)
+  ).slice(0, 40);
+
+  if(!filtered.length){
+    list.innerHTML = `<div style="padding:14px;text-align:center;color:var(--muted);font-size:.82rem">No airlines found</div>`;
+  } else {
+    list.innerHTML = filtered.map(t => `
+      <div class="signup-airline-row ${t.slug===_signupSelectedTenant?.slug?'selected':''}"
+           onclick="selectAirlineTenant(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <span class="signup-airline-iata">${t.iata_code||'–'}</span>
+        <span class="signup-airline-name">${t.airline_name}</span>
+        ${t.enabled?'<span class="signup-airline-badge">✓ On Platform</span>':''}
+      </div>`).join('');
+  }
+
+  dropdown.style.display = 'block';
+  _airlineDropdownOpen = true;
+
+  if(!document._signupDropdownListener){
+    document._signupDropdownListener = (e) => {
+      if(!document.getElementById('signup-airline-wrap')?.contains(e.target)){
+        closeAirlineDropdown();
+      }
+    };
+    document.addEventListener('click', document._signupDropdownListener);
+  }
+}
+
+function closeAirlineDropdown(){
+  const d = document.getElementById('signup-airline-dropdown');
+  if(d) d.style.display='none';
+  _airlineDropdownOpen = false;
+}
+
+function selectAirlineTenant(tenant, fromDomain=false){
+  _signupSelectedTenant = tenant;
+  _signupIsIndependent  = false;
+  closeAirlineDropdown();
+
+  const searchWrap = document.getElementById('signup-airline-search-wrap');
+  const searchInput= document.getElementById('signup-airline-search');
+  const chip       = document.getElementById('signup-domain-chip');
+  const chipName   = document.getElementById('signup-domain-chip-name');
+  const notCfg     = document.getElementById('signup-not-configured');
+  const pwdFields  = document.getElementById('signup-password-fields');
+  const notCfgName = document.getElementById('signup-not-configured-name');
+
+  if(fromDomain || tenant.enabled){
+    // Show domain chip (or just update search to show selection)
+    if(fromDomain && chip){
+      chipName.textContent = tenant.airline_name;
+      chip.style.display   = 'flex';
+      if(searchWrap) searchWrap.style.display = 'none';
+    } else {
+      // enabled airline selected from search — show name in input
+      if(searchInput) searchInput.value = tenant.airline_name;
+      if(searchWrap)  searchWrap.classList.add('has-selection');
+    }
+    // Show password fields, hide not-configured gate
+    if(notCfg)    notCfg.style.display = 'none';
+    if(pwdFields) pwdFields.style.display = 'block';
+  } else {
+    // enabled=false — show not-yet-configured gate, hide password fields
+    if(searchInput) searchInput.value = '';
+    if(searchWrap)  searchWrap.classList.remove('has-selection');
+    if(chip)        chip.style.display = 'none';
+    if(notCfgName)  notCfgName.textContent = tenant.airline_name;
+    if(notCfg)      notCfg.style.display = 'block';
+    if(pwdFields)   pwdFields.style.display = 'none';
+  }
+}
+
+function clearAirlineSelection(){
+  _signupSelectedTenant = null;
+  _signupIsIndependent  = false;
+  const chip      = document.getElementById('signup-domain-chip');
+  const searchWrap= document.getElementById('signup-airline-search-wrap');
+  const searchInput=document.getElementById('signup-airline-search');
+  const notCfg    = document.getElementById('signup-not-configured');
+  const pwdFields = document.getElementById('signup-password-fields');
+  if(chip)       { chip.style.display='none'; }
+  if(searchWrap) { searchWrap.style.display='block'; searchWrap.classList.remove('has-selection'); }
+  if(searchInput){ searchInput.value=''; }
+  if(notCfg)     { notCfg.style.display='none'; }
+  if(pwdFields)  { pwdFields.style.display='block'; }
+}
+
+function proceedAsIndependent(){
+  // User chose "Continue as Independent" from not-configured gate
+  _signupIsIndependent = true;
+  const notCfg    = document.getElementById('signup-not-configured');
+  const pwdFields = document.getElementById('signup-password-fields');
+  const searchWrap= document.getElementById('signup-airline-search-wrap');
+  const searchInput=document.getElementById('signup-airline-search');
+  if(notCfg)     notCfg.style.display='none';
+  if(pwdFields)  pwdFields.style.display='block';
+  if(searchInput) searchInput.value = _signupSelectedTenant?.airline_name || '';
+  if(searchWrap) searchWrap.classList.add('has-selection');
+}
+
+// ─────────────────────────────────────────────────────────
+
 function switchAuthTab(tab){
   const isSignIn = tab==='signin';
   document.getElementById('auth-signin-form').style.display = isSignIn?'block':'none';
@@ -5376,7 +6762,7 @@ function switchAuthTab(tab){
   document.getElementById('auth-status').textContent='';
   document.getElementById('auth-status').className='auth-status';
   // Check signup status when switching to signup tab
-  if(!isSignIn) checkSignupsEnabled();
+  if(!isSignIn){ checkSignupsEnabled(); loadTenantsForSignup(); }
 }
 
 async function checkSignupsEnabled(){
@@ -5482,12 +6868,64 @@ async function doSignUp(){
     statusEl.className='auth-status error'; return;
   }
 
+  // ── Resolve tenant assignment ─────────────────────────────
+  // Priority 1: enabled airline selected (or domain-detected)
+  // Priority 2: independent — stated_airline_id if airline in directory
+  // Priority 3: pure independent — no airline
+  let profileExtra = {};
+  const selTenant = _signupSelectedTenant;
+
+  if(selTenant && selTenant.enabled && !_signupIsIndependent){
+    // Adopted airline — user_class='airline', tenant resolved from selection
+    profileExtra = { user_class: 'airline', stated_airline_id: null, stated_airline_name: null };
+    // tenant_id resolved server-side from email domain by RLS/trigger,
+    // but we set it explicitly here as a convenience upsert (server still verifies via RLS)
+    profileExtra._tenant_slug = selTenant.slug; // used below to look up id
+  } else if(selTenant && !selTenant.enabled){
+    // Airline exists in directory but not adopted
+    profileExtra = {
+      user_class:       'independent',
+      stated_airline_id: selTenant.id,
+      stated_airline_name: null
+    };
+  } else {
+    // No airline selected — pure independent
+    profileExtra = {
+      user_class:          'independent',
+      stated_airline_id:   null,
+      stated_airline_name: null
+    };
+  }
+
+  // Look up independent pseudo-tenant id for fallback and airline users
+  let resolvedTenantId = null;
+  try{
+    if(profileExtra._tenant_slug){
+      // Airline user: use the selected tenant's id
+      const { data: t } = await sb.from('guestora_tenants')
+        .select('id').eq('slug', profileExtra._tenant_slug).single();
+      resolvedTenantId = t?.id || null;
+      delete profileExtra._tenant_slug;
+    }
+    if(!resolvedTenantId){
+      // Independent: use the pseudo-tenant
+      const { data: t } = await sb.from('guestora_tenants')
+        .select('id').eq('slug','independent').single();
+      resolvedTenantId = t?.id || null;
+    }
+  }catch(e){ console.warn('[GUESTORA] tenant id lookup failed:', e); }
+
   // Save name, email and phone to profiles
   localStorage.setItem('ccl_user_name', name);
-  await sb.from('profiles').upsert({
+  const upsertPayload = {
     id: data.user.id,
-    email, full_name: name, phone: phone || null
-  }, { onConflict:'id' });
+    email, full_name: name, phone: phone || null,
+    tenant_id:          resolvedTenantId,
+    user_class:         profileExtra.user_class         ?? 'independent',
+    stated_airline_id:  profileExtra.stated_airline_id  ?? null,
+    stated_airline_name:profileExtra.stated_airline_name?? null,
+  };
+  await sb.from('profiles').upsert(upsertPayload, { onConflict:'id' });
   currentUser = data.user;
   // onAuthStateChange SIGNED_IN fires → onLoggedIn()
 }
@@ -7962,26 +9400,25 @@ async function agentUploadManifest(){
     summary    = res.summary;
   }catch(e){ toast('⚠ Parse error: '+e.message); btn.textContent='⬆ Upload Manifest'; btn.disabled=false; return; }
 
-  // Upsert: update if exists, insert if new
-  const { data:existing } = await sb.from('passenger_manifests')
-    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
-
+  // Single upsert — tenant_id resolved server-side by RLS / trigger.
+  // UNIQUE constraint (tenant_id, flight_number, flight_date) makes this safe.
   const payload = {
-    flight_number:flightNum, flight_date:date,
-    dep: summary.dep||'', arr:'',
+    flight_number:  flightNum,
+    flight_date:    date,
+    dep:            summary.dep || '',
+    arr:            '',
     passengers:     JSON.stringify(passengers),
     flight_summary: JSON.stringify(summary),
     raw_text,
-    uploaded_by:    currentUser.id,
-    upload_method:  'agent',
+    uploaded_by:     currentUser.id,
+    uploaded_by_name: currentUser.user_metadata?.full_name || currentUser.email || '',
+    upload_method:   'agent',
+    // tenant_id is NOT supplied by the client — it is set via a BEFORE INSERT trigger
+    // that calls guestora_resolve_tenant_id() server-side (see migration 8).
   };
 
-  let error;
-  if(existing?.length){
-    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
-  } else {
-    ({ error } = await sb.from('passenger_manifests').insert(payload));
-  }
+  const { error } = await sb.from('passenger_manifests')
+    .upsert(payload, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: false });
 
   btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
   if(error){ toast('⚠ '+error.message); return; }
@@ -7998,9 +9435,11 @@ async function loadAgentRecentUploads(){
   if(!el) return;
   // Last 48 hours
   const since = new Date(Date.now()-48*3600000).toISOString();
+  // RLS (tenant_id policy) already scopes results to this tenant.
+  // No .eq('uploaded_by') filter — agents should see all recent uploads
+  // for their tenant, not only their own.
   const { data, error } = await sb.from('passenger_manifests')
-    .select('id,flight_number,flight_date,dep,arr,created_at,passengers')
-    .eq('uploaded_by', currentUser.id)
+    .select('id,flight_number,flight_date,dep,arr,created_at,passengers,uploaded_by_name')
     .gte('created_at', since)
     .order('created_at',{ascending:false});
 
@@ -8745,7 +10184,9 @@ function amadeusClassToDisplay(code){
 // ── Manifest combo filter ─────────────────────────────────
 const _mfstOpts = {};
 function mfstBuildOpts(){
-  _mfstOpts.flightNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
+  // Use getAllSectorNums() so multi-sector duties (UR206/7 → UR206, UR207)
+  // appear as individual entries in the autocomplete.
+  _mfstOpts.flightNums = getAllSectorNums(cache.flights);
   _mfstOpts.airports   = [...new Set(cache.flights.flatMap(f=>[f.dep,f.arr]).filter(Boolean))];
 }
 function mfstFilterCombo(inputId, ddId, optKey){
@@ -8890,10 +10331,81 @@ async function uploadManifest(){
 
   try{
     if(fname.endsWith('.pdf')){
-      // PDF: store as-is, no auto-parse
-      passengers = [];
-      summary    = { note:'PDF upload — passenger data not auto-parsed' };
-      raw_text   = 'PDF file';
+      btn.textContent = 'Reading PDF…';
+      // ── Step 1: Load PDF.js from CDN (lazy — only when a PDF is uploaded) ──
+      if(!window.pdfjsLib){
+        await new Promise((resolve, reject)=>{
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload = resolve;
+          s.onerror = ()=>reject(new Error('Could not load PDF reader. Check your internet connection.'));
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      // ── Step 2: Extract text from all pages via PDF.js ───────────────────
+      const arrayBuffer = await _manifestFile.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for(let i = 1; i <= pdf.numPages; i++){
+        const page        = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        // Items have .str (text) and .hasEOL; join with space, newline at page end
+        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+      }
+
+      // ── Step 3: If text layer is empty → scanned PDF → try OCR via Tesseract.js
+      if(fullText.trim().length < 50){
+        btn.textContent = 'Running OCR…';
+        toast('⏳ Scanned PDF detected — running OCR. This may take a moment…');
+
+        // Lazy-load Tesseract.js (≈10 MB; cached by browser after first load)
+        if(!window.Tesseract){
+          await new Promise((resolve, reject)=>{
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+            s.onload = resolve;
+            s.onerror = ()=>reject(new Error('Could not load OCR engine. Check your internet connection.'));
+            document.head.appendChild(s);
+          });
+        }
+
+        const worker = await window.Tesseract.createWorker('eng');
+        let ocrText = '';
+        for(let i = 1; i <= pdf.numPages; i++){
+          const page     = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 }); // 1.5× good for manifest text
+          const canvas   = document.createElement('canvas');
+          canvas.width   = viewport.width;
+          canvas.height  = viewport.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          const { data: { text } } = await worker.recognize(canvas);
+          ocrText += text + '\n';
+        }
+        await worker.terminate();
+        fullText = ocrText;
+      }
+
+      raw_text = fullText;
+
+      // ── Step 4: Parse extracted text with existing PNL parser ─────────────
+      if(fullText.trim().length < 50){
+        passengers = [];
+        summary    = { note: 'Could not extract text from this PDF. It may be a scanned image with low quality. Try a CSV export from your DCS system.' };
+        toast('⚠ Could not read passenger data from this PDF. Try a CSV export instead.');
+      } else {
+        const parsed = parsePNLText(fullText);
+        passengers   = parsed.passengers;
+        summary      = parsed.summary;
+        if(summary.flight_number && !flightNum){
+          document.getElementById('mfst-flightnum').value = summary.flight_number;
+        }
+        if(!passengers.length){
+          toast('⚠ PDF read but no passenger rows matched expected format. Check the file is an Amadeus PNL export.');
+        }
+      }
     } else {
       // Text or CSV
       raw_text = await _manifestFile.text();
@@ -8925,25 +10437,22 @@ async function uploadManifest(){
     return;
   }
 
-  // Check if manifest already exists for this flight+date — update instead of insert
-  const { data: existing } = await sb.from('passenger_manifests')
-    .select('id').eq('flight_number',flightNum).eq('flight_date',date).limit(1);
-
+  // Single upsert on (tenant_id, flight_number, flight_date) — race-safe.
+  // tenant_id is set by a BEFORE INSERT trigger server-side; never supplied by client.
   const payload = {
-    flight_number:flightNum, flight_date:date, dep, arr,
-    passengers:   JSON.stringify(passengers),
-    flight_summary: JSON.stringify(summary),
+    flight_number:   flightNum,
+    flight_date:     date,
+    dep, arr,
+    passengers:      JSON.stringify(passengers),
+    flight_summary:  JSON.stringify(summary),
     raw_text,
-    uploaded_by:  currentUser.id,
-    upload_method: isAdmin ? 'admin' : getUserRole(),
+    uploaded_by:     currentUser.id,
+    uploaded_by_name: currentUser.user_metadata?.full_name || currentUser.email || '',
+    upload_method:   isAdmin ? 'admin' : getUserRole(),
   };
 
-  let error;
-  if(existing?.length){
-    ({ error } = await sb.from('passenger_manifests').update(payload).eq('id',existing[0].id));
-  } else {
-    ({ error } = await sb.from('passenger_manifests').insert(payload));
-  }
+  const { error } = await sb.from('passenger_manifests')
+    .upsert(payload, { onConflict: 'tenant_id,flight_number,flight_date', ignoreDuplicates: false });
 
   btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
   if(error){ toast('⚠ '+error.message); return; }
@@ -8968,10 +10477,10 @@ async function loadManifests(){
 
   try{
     let query = sb.from('passenger_manifests').select('*').order('created_at',{ascending:false});
-    // Crew: filter to their own flights by number AND date
+    // Crew: pre-filter server query to individual sector numbers from their duties.
+    // getAllSectorNums() expands combined strings (UR206/7 → UR206, UR207).
     if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
-      const myNums  = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-      const myDates = [...new Set(cache.flights.map(f=>f.date).filter(Boolean))];
+      const myNums = getAllSectorNums(cache.flights);
       if(!myNums.length){
         el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests yet</h3><p>Manifests for your flights will appear here once uploaded.</p></div>';
         return;
@@ -8983,13 +10492,18 @@ async function loadManifests(){
     if(error){ el.innerHTML=`<div style="color:var(--muted);padding:20px;text-align:center">Could not load manifests: ${escHtml(error.message)}</div>`; return; }
     if(!data?.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests</h3><p>No manifests have been uploaded yet.</p></div>'; return; }
 
-    // For crew: only show manifests matching both flight_number AND date
+    // For crew: only show manifests matching both flight_number AND date.
+    // getAllSectorNums() expands combined strings (UR206/7 → UR206, UR207) so manifests
+    // for all individual sectors on a multi-sector duty are visible.
     let manifests = data;
     if(!isAdmin && getUserRole()!=='ops_manager' && getUserRole()!=='check_in_agent'){
-      manifests = data.filter(m => cache.flights.some(f=>f.flightNum===m.flight_number && f.date===m.flight_date));
+      const myNums  = new Set(getAllSectorNums(cache.flights));
+      const myDates = new Set(cache.flights.map(f=>f.date).filter(Boolean));
+      manifests = data.filter(m => myNums.has(m.flight_number) && myDates.has(m.flight_date));
       if(!manifests.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><h3>No manifests for your flights</h3><p>Your flights do not have uploaded manifests yet.</p></div>'; return; }
     }
 
+    const canManage = isAdmin || getUserRole() === 'ops_manager';
     el.innerHTML = manifests.map(m=>{
       const pax      = m.passengers ? (typeof m.passengers==='string' ? JSON.parse(m.passengers) : m.passengers) : [];
       const summary  = m.flight_summary ? (typeof m.flight_summary==='string' ? JSON.parse(m.flight_summary) : m.flight_summary) : {};
@@ -8998,21 +10512,31 @@ async function loadManifests(){
       const py = pax.filter(p=>p.cabin==='PYC').length;
       const yc = pax.filter(p=>p.cabin==='YC').length;
       const methodBadge = m.upload_method ? `<span class="mfst-upload-method ${m.upload_method}">${m.upload_method==='api'?'🔗 API':m.upload_method==='agent'?'🎫 Agent':'👤 Admin'}</span>` : '';
+      const deleteBtn = canManage
+        ? `<button onclick="event.stopPropagation();deleteManifest('${m.id}','${escHtml(m.flight_number)}','${m.flight_date}')"
+            style="padding:5px 10px;border-radius:7px;border:1px solid rgba(184,41,42,.5);background:rgba(184,41,42,.12);color:#ff6b6b;font-size:.7rem;cursor:pointer;flex-shrink:0">🗑 Delete</button>`
+        : '';
       return `
-      <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="viewManifest('${m.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <div>
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;cursor:pointer" onclick="viewManifest('${m.id}')">
+          <div style="flex:1;min-width:0">
             <div style="font-weight:800;color:var(--color-text-primary)">${escHtml(m.flight_number)} ${methodBadge}</div>
             <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${m.flight_date} · ${escHtml(m.dep||'?')} → ${escHtml(m.arr||'?')} · Uploaded ${uploaded}</div>
+            ${m.uploaded_by_name ? `<div style="font-size:.68rem;color:var(--muted)">By ${escHtml(m.uploaded_by_name)}</div>` : ''}
           </div>
-          <div style="text-align:right;font-size:.72rem;color:var(--muted)">
+          <div style="text-align:right;font-size:.72rem;color:var(--muted);flex-shrink:0;margin-left:10px">
             ${pax.length > 0
               ? `<div style="font-weight:700;color:var(--color-text-primary)">${pax.length} pax</div>
                  <div>${jc?`JC:${jc} ·`:''} ${py?`PYC:${py} ·`:''} YC:${yc}</div>`
               : '<div>No pax data</div>'}
           </div>
         </div>
-        ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted)">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
+        ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button onclick="viewManifest('${m.id}')"
+            style="flex:1;padding:6px 10px;border-radius:7px;border:1px solid var(--color-border);background:rgba(255,255,255,.06);color:var(--color-text-primary);font-size:.75rem;cursor:pointer">View Manifest</button>
+          ${deleteBtn}
+        </div>
       </div>`;
     }).join('');
   }catch(e){
@@ -9058,8 +10582,13 @@ async function viewManifest(id){
     <div class="mfst-section-hdr">→ ${dest} (${passengers.length} passengers)</div>
     ${paxRowHtml(passengers)}`).join('');
 
+  const canManage = isAdmin || getUserRole() === 'ops_manager';
   el.innerHTML = `
-    <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">← Back to list</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button onclick="loadManifests()" class="btn btn-ghost btn-sm" style="flex:1;text-align:left">← Back to list</button>
+      ${canManage ? `<button onclick="deleteManifest('${id}','${escHtml(data.flight_number)}','${data.flight_date}')"
+        style="padding:6px 12px;border-radius:7px;border:1px solid rgba(184,41,42,.5);background:rgba(184,41,42,.12);color:#ff6b6b;font-size:.75rem;cursor:pointer;flex-shrink:0">🗑 Delete</button>` : ''}
+    </div>
 
     <!-- Flight header -->
     <div class="mfst-header">
@@ -9122,6 +10651,19 @@ function mfstSearchFilter(q, manifestId){
       </div>`).join('')}`).join('');
 }
 
+// ── Manifest delete ───────────────────────────────────────────────────────────
+async function deleteManifest(id, flightNum, date){
+  if(!confirm(`Delete manifest for ${flightNum} on ${date}?\n\nThis cannot be undone.`)) return;
+  try{
+    const { error } = await sb.from('passenger_manifests').delete().eq('id', id);
+    if(error) throw error;
+    toast(`🗑 Manifest for ${flightNum} deleted`);
+    loadManifests();
+  }catch(e){
+    toast('⚠ Could not delete: ' + e.message);
+  }
+}
+
 // ═══════════════════════════════════════════════
 // PURSER FLIGHT REPORT (UGD-CAB-F-010)
 // ═══════════════════════════════════════════════
@@ -9152,15 +10694,26 @@ async function openPFROverlay(){
     _pfrId   = data[0].id;
     _pfrData = data[0];
     // Parse JSON string fields back to objects/arrays
-    try{ _pfrData.crew_list    = typeof _pfrData.crew_list==='string'    ? JSON.parse(_pfrData.crew_list)    : (_pfrData.crew_list||[]); }catch{ _pfrData.crew_list=[]; }
-    try{ _pfrData.sectors_data = typeof _pfrData.sectors_data==='string' ? JSON.parse(_pfrData.sectors_data) : (_pfrData.sectors_data||[]); }catch{ _pfrData.sectors_data=[]; }
-    try{ _pfrData.checklist    = typeof _pfrData.checklist==='string'    ? JSON.parse(_pfrData.checklist)    : (_pfrData.checklist||{}); }catch{ _pfrData.checklist={}; }
-    try{ _pfrData.recipients   = typeof _pfrData.recipients==='string'   ? JSON.parse(_pfrData.recipients)   : (_pfrData.recipients||[]); }catch{ _pfrData.recipients=[]; }
+    try{ _pfrData.crew_list             = typeof _pfrData.crew_list==='string'             ? JSON.parse(_pfrData.crew_list)             : (_pfrData.crew_list||[]); }catch{ _pfrData.crew_list=[]; }
+    try{ _pfrData.sectors_data          = typeof _pfrData.sectors_data==='string'          ? JSON.parse(_pfrData.sectors_data)          : (_pfrData.sectors_data||[]); }catch{ _pfrData.sectors_data=[]; }
+    try{ _pfrData.checklist             = typeof _pfrData.checklist==='string'             ? JSON.parse(_pfrData.checklist)             : (_pfrData.checklist||{}); }catch{ _pfrData.checklist={}; }
+    try{ _pfrData.recipients            = typeof _pfrData.recipients==='string'            ? JSON.parse(_pfrData.recipients)            : (_pfrData.recipients||[]); }catch{ _pfrData.recipients=[]; }
+    try{ _pfrData.sector_flight_numbers = typeof _pfrData.sector_flight_numbers==='string' ? JSON.parse(_pfrData.sector_flight_numbers) : (_pfrData.sector_flight_numbers||[]); }catch{ _pfrData.sector_flight_numbers=[]; }
+    // Migrate old single flight_number field to new sector_flight_numbers array
+    if(!_pfrData.sector_count) _pfrData.sector_count = _pfrData.sector_flight_numbers.length || 1;
+    if(!_pfrData.sector_flight_numbers.length && _pfrData.flight_number)
+      _pfrData.sector_flight_numbers = [_pfrData.flight_number];
     document.getElementById('pfr-status-badge').textContent = 'Draft';
   } else {
     _pfrId   = null;
-    _pfrData = { date:today, flight_number:'', sector:'', ac_type:'', ac_reg:'', captain:'',
+    // Pre-fill sector count + flight numbers from today's logged duty
+    const todayDuties = (cache.flights||[]).filter(f=>f.date===today);
+    const prefillNums = getAllSectorNums(todayDuties);
+    const prefillCount = Math.min(Math.max(prefillNums.length, 1), 4);
+    _pfrData = { date:today, sector:'', ac_type:'', ac_reg:'', captain:'',
       purser:localStorage.getItem('ccl_crew_name')||'',
+      sector_count: prefillCount,
+      sector_flight_numbers: prefillNums.slice(0, prefillCount),
       crew_list:[], sectors_data:[], checklist:{}, reason_for_change:'', general_remarks:'', total_block_time:'' };
     document.getElementById('pfr-status-badge').textContent = 'New';
   }
@@ -9185,18 +10738,7 @@ function renderPFRForm(){
     </tr>`;
   }).join('');
 
-  const sectorRows = Array.from({length:6},(_,i)=>{
-    const s = d.sectors_data?.[i] || {};
-    return `<tr>
-      <td style="padding:4px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
-      <td><input type="text" value="${escHtml(s.flight_number||'')}" oninput="pfrSectorUpdate(${i},'flight_number',this.value)" placeholder="UR110" style="width:90px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="text" value="${escHtml(s.sector||'')}" oninput="pfrSectorUpdate(${i},'sector',this.value)" placeholder="EBB→NBO" style="width:80px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="number" value="${s.j_pax||''}" oninput="pfrSectorUpdate(${i},'j_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
-      <td><input type="number" value="${s.y_pax||''}" oninput="pfrSectorUpdate(${i},'y_pax',this.value)" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
-      <td style="font-size:.75rem;font-weight:700;padding:4px;text-align:center">${(parseInt(s.j_pax||0)+parseInt(s.y_pax||0))||''}</td>
-      <td><input type="text" value="${escHtml(s.remarks||'')}" oninput="pfrSectorUpdate(${i},'remarks',this.value)" placeholder="Remarks" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
-    </tr>`;
-  }).join('');
+  const sectorRows = pfrBuildSectorRows(d.sector_count||1);
 
   const checklistRows = PFR_CHECKLIST.map((item,i)=>{
     const val = d.checklist?.[i] || '';
@@ -9208,8 +10750,9 @@ function renderPFRForm(){
   }).join('');
 
   // Store PFR options globally — safe reference from event handlers
+  // flightNums: ALL individual sector numbers expanded from combined strings (UR206/7 → UR206, UR207)
   window._pfrOpts = {
-    flightNums: [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))],
+    flightNums: getAllSectorNums(cache.flights),
     acTypes:    [...new Set(cache.flights.map(f=>f.actype).filter(Boolean))],
     acRegs:     [...new Set(cache.flights.map(f=>f.reg).filter(Boolean))],
     captains:   [...new Set(cache.flights.map(f=>f.captain).filter(Boolean))],
@@ -9241,8 +10784,17 @@ function renderPFRForm(){
         <input type="date" id="pfr-date" value="${escHtml(d.date||'')}" oninput="_pfrData.date=this.value"
           style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font)"/>
       </div>
-      ${pfrCombo('Flight Number','pfr-flight_number',d.flight_number,'flightNums')}
-      ${pfrCombo('Sector','pfr-sector',d.sector,'sectors')}
+      <div class="field">
+        <label>No. of Sectors</label>
+        <select id="pfr-sector-count"
+          onchange="pfrSetSectorCount(parseInt(this.value))"
+          style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font);background:var(--color-input-bg);color:var(--color-text-primary)">
+          ${[1,2,3,4].map(n=>`<option value="${n}" ${(d.sector_count||1)===n?'selected':''}>${n} sector${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <!-- Per-sector flight number fields — rendered by pfrRenderSectorFlightNums() -->
+      <div id="pfr-sector-fltnums-wrap" style="display:contents"></div>
+      ${pfrCombo('Sector Route','pfr-sector',d.sector,'sectors')}
       ${pfrCombo('A/C Type','pfr-ac_type',d.ac_type,'acTypes')}
       ${pfrCombo('A/C Reg','pfr-ac_reg',d.ac_reg,'acRegs')}
       ${pfrCombo('Captain','pfr-captain',d.captain,'captains')}
@@ -9268,7 +10820,7 @@ function renderPFRForm(){
       </table>
     </div>
 
-    <!-- Sectors -->
+    <!-- Sectors — row count controlled by sector_count dropdown -->
     <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--sky);margin-bottom:6px">Flight Sectors</div>
     <div style="overflow-x:auto;margin-bottom:14px">
       <table style="width:100%;border-collapse:collapse;font-size:.72rem">
@@ -9277,7 +10829,7 @@ function renderPFRForm(){
           <th style="padding:5px">Sector</th><th style="padding:5px">J Pax</th>
           <th style="padding:5px">Y Pax</th><th style="padding:5px">Total</th><th style="padding:5px">Remarks</th>
         </tr></thead>
-        <tbody>${sectorRows}</tbody>
+        <tbody id="pfr-sector-tbody">${sectorRows}</tbody>
       </table>
     </div>
 
@@ -9303,6 +10855,99 @@ function renderPFRForm(){
       <textarea id="pfr-remarks" oninput="_pfrData.general_remarks=this.value" rows="6"
         style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:var(--font);resize:vertical;min-height:120px">${escHtml(d.general_remarks||'')}</textarea>
     </div>`;
+  // Render per-sector flight number fields into the placeholder wrap
+  pfrRenderSectorFlightNums(d.sector_count||1);
+}
+
+// ── PFR sector count helpers ──────────────────────────────
+
+// pfrBuildSectorRows(count) → HTML string for sector tbody
+// Called both on initial render and whenever the count changes.
+function pfrBuildSectorRows(count){
+  return Array.from({length: count}, (_, i) => {
+    const s          = _pfrData.sectors_data?.[i] || {};
+    const prefillFn  = _pfrData.sector_flight_numbers?.[i] || s.flight_number || '';
+    const total      = (parseInt(s.j_pax||0) + parseInt(s.y_pax||0)) || '';
+    return `<tr>
+      <td style="padding:4px;font-size:.72rem;color:var(--muted);font-weight:700">${i+1}</td>
+      <td><input type="text" value="${escHtml(prefillFn)}" oninput="pfrSectorUpdate(${i},'flight_number',this.value);_pfrData.sector_flight_numbers[${i}]=this.value" placeholder="UR110" style="width:90px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="text" value="${escHtml(s.sector||'')}" oninput="pfrSectorUpdate(${i},'sector',this.value)" placeholder="EBB→NBO" style="width:80px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="number" value="${s.j_pax||''}" oninput="pfrSectorUpdate(${i},'j_pax',this.value);this.closest('tr').cells[5].textContent=(parseInt(this.value||0)+parseInt(this.closest('tr').cells[4].querySelector('input').value||0))||''" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
+      <td><input type="number" value="${s.y_pax||''}" oninput="pfrSectorUpdate(${i},'y_pax',this.value);this.closest('tr').cells[5].textContent=(parseInt(this.value||0)+parseInt(this.closest('tr').cells[3].querySelector('input').value||0))||''" placeholder="0" style="width:40px;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.75rem;font-family:var(--font);text-align:center;background:transparent;color:var(--color-text-primary)"/></td>
+      <td style="font-size:.75rem;font-weight:700;padding:4px;text-align:center">${total}</td>
+      <td><input type="text" value="${escHtml(s.remarks||'')}" oninput="pfrSectorUpdate(${i},'remarks',this.value)" placeholder="Remarks" style="width:100%;border:none;border-bottom:1px solid var(--border);padding:4px;font-size:.72rem;font-family:var(--font);background:transparent;color:var(--color-text-primary)"/></td>
+    </tr>`;
+  }).join('');
+}
+
+// pfrRenderSectorFlightNums(count) — inserts N flight-number combo fields
+// into the #pfr-sector-fltnums-wrap placeholder inside the header grid.
+function pfrRenderSectorFlightNums(count){
+  const wrap = document.getElementById('pfr-sector-fltnums-wrap');
+  if(!wrap) return;
+  const inp_style = 'width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:.88rem;font-family:var(--font);background:var(--color-input-bg);color:var(--color-text-primary)';
+  const labels = count === 1
+    ? ['Flight Number']
+    : Array.from({length: count}, (_, i) => `Flight No. ${i+1}`);
+  wrap.innerHTML = labels.map((lbl, i) => {
+    const val = _pfrData.sector_flight_numbers?.[i] || '';
+    return `<div class="field">
+      <label>${escHtml(lbl)}</label>
+      <div class="combo-wrap">
+        <input type="text" id="pfr-sfn-${i}" value="${escHtml(val)}" placeholder="e.g. UR206"
+          autocomplete="off" style="${inp_style}"
+          oninput="_pfrData.sector_flight_numbers[${i}]=this.value;pfrSyncSectorFltNum(${i},this.value);pfrComboFilter('pfr-sfn-${i}','flightNums')"
+          onfocus="pfrComboFilter('pfr-sfn-${i}','flightNums')"
+          onblur="setTimeout(()=>{const el=document.getElementById('pfr-sfn-${i}-dd');if(el)el.style.display='none'},200)"/>
+        <div class="combo-dropdown" id="pfr-sfn-${i}-dd"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// pfrSyncSectorFltNum(i, val) — mirrors the header flight number field down
+// into the matching sector table row's flight_number input (if it exists).
+function pfrSyncSectorFltNum(i, val){
+  if(!_pfrData.sector_flight_numbers) _pfrData.sector_flight_numbers = [];
+  _pfrData.sector_flight_numbers[i] = val;
+  const tbody = document.getElementById('pfr-sector-tbody');
+  if(!tbody) return;
+  const row = tbody.rows[i];
+  if(!row) return;
+  const fnInput = row.cells[1]?.querySelector('input');
+  if(fnInput && fnInput.value !== val) fnInput.value = val;
+  // Also keep sectors_data in sync
+  if(!_pfrData.sectors_data) _pfrData.sectors_data = [];
+  if(!_pfrData.sectors_data[i]) _pfrData.sectors_data[i] = {};
+  _pfrData.sectors_data[i].flight_number = val;
+}
+
+// pfrSetSectorCount(n) — called by the sector count dropdown.
+// Updates _pfrData.sector_count, re-expands flight numbers from the duty,
+// re-renders the header flight number fields and the sector table rows.
+function pfrSetSectorCount(n){
+  n = Math.min(Math.max(parseInt(n)||1, 1), 4);
+  _pfrData.sector_count = n;
+
+  // Expand sector numbers from the logged duty (live cache)
+  const allNums = getAllSectorNums(cache.flights||[]);
+  // Pad or truncate to n entries, keeping any manually-entered values already there
+  const existing = _pfrData.sector_flight_numbers || [];
+  _pfrData.sector_flight_numbers = Array.from({length: n}, (_, i) =>
+    existing[i] || allNums[i] || ''
+  );
+
+  // Truncate sectors_data so saved pax counts for removed sectors don't persist
+  if(_pfrData.sectors_data && _pfrData.sectors_data.length > n){
+    _pfrData.sectors_data = _pfrData.sectors_data.slice(0, n);
+  }
+
+  // Re-render header flight number fields
+  pfrRenderSectorFlightNums(n);
+
+  // Re-render sector table rows
+  const tbody = document.getElementById('pfr-sector-tbody');
+  if(tbody) tbody.innerHTML = pfrBuildSectorRows(n);
 }
 
 // PFR combo filter — reads options from window._pfrOpts[optKey], writes to _pfrData via data-dkey
@@ -9342,9 +10987,11 @@ function pfrChecklistUpdate(i, val){
 
 async function savePFRDraft(){
   const payload = { ..._pfrData, user_id: currentUser.id, status:'draft', updated_at: new Date().toISOString(),
-    crew_list:   JSON.stringify(_pfrData.crew_list||[]),
-    sectors_data:JSON.stringify(_pfrData.sectors_data||[]),
-    checklist:   JSON.stringify(_pfrData.checklist||{}) };
+    crew_list:              JSON.stringify(_pfrData.crew_list||[]),
+    sectors_data:           JSON.stringify(_pfrData.sectors_data||[]),
+    checklist:              JSON.stringify(_pfrData.checklist||{}),
+    sector_count:           _pfrData.sector_count || 1,
+    sector_flight_numbers:  JSON.stringify(_pfrData.sector_flight_numbers||[]) };
   if(_pfrId){
     const { error } = await sb.from('purser_reports').update(payload).eq('id',_pfrId);
     if(error){ toast('⚠ ' + error.message); return; }
@@ -9786,7 +11433,7 @@ async function onLoggedIn(){
   // ── Step 1: profile fetch (unavoidable — needed for blocked check + role) ──
   // This is the only network call that must complete before anything renders.
   const { data: profile } = await sb.from('profiles')
-    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email')
+    .select('full_name, is_admin, crew_name, position, blocked, has_reviewed, created_at, email, tenant_id')
     .eq('id', currentUser.id).single();
 
   // ── BLOCKED CHECK — must happen before anything else ──
@@ -9905,6 +11552,24 @@ async function onLoggedIn(){
 
   loadManualsMetadata();    // fire and forget regardless of online state
   preloadNexaChunks();      // fire and forget
+
+  // ── Tenant config: load dining_brand so Guestora shows the right brand name ──
+  // Runs non-blocking; falls back to 'GUESTORA' if offline or not found.
+  if(isOnline && profile?.tenant_id){
+    (async () => {
+      try {
+        const { data: tenant } = await sb
+          .from('guestora_tenants')
+          .select('dining_brand, slug')
+          .eq('id', profile.tenant_id)
+          .single();
+        if(tenant?.dining_brand){
+          window._tenantConfig = { ...window._tenantConfig, ...tenant };
+          guestoraApplyBrand(tenant.dining_brand);
+        }
+      } catch(e){ console.warn('[GUESTORA] tenant config fetch failed:', e); }
+    })();
+  }
 
   // Full sync every 60s
   setInterval(()=>{ if(isOnline && !isSyncing) syncToCloud(); }, 60000);
@@ -10054,7 +11719,7 @@ function showTab(name){
   if(tabEl) tabEl.classList.add('active');
   document.getElementById('fab').classList.toggle('fab-hide', name==='add');
   if(name==='dash')    renderDash();
-  if(name==='log')     renderLog();
+  if(name==='log'){    renderLog(); initRosterTab(); }
   if(name==='hub')     renderCrewHub();
   if(name==='db'){
     loadAdminUsers().then(()=>{
@@ -10259,6 +11924,654 @@ function renderLog(){
   el.innerHTML = parts.join('');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MY ROSTER
+// ═══════════════════════════════════════════════════════════════
+
+/* ── State ─────────────────────────────────────────────────── */
+let _rosterState = {
+  parsed:    null,   // { meta, duties } from parseRosterPDF()
+  rosterId:  null,   // current crew_rosters.id being viewed
+  duties:    [],     // roster_duties rows for current roster
+  completeId: null,  // roster_duties.id being completed
+};
+
+/* ── Sub-tab switcher ───────────────────────────────────────── */
+function switchLogView(tab){
+  document.getElementById('log-view-flights').style.display = tab==='flights' ? '' : 'none';
+  document.getElementById('log-view-roster').style.display  = tab==='roster'  ? '' : 'none';
+  document.getElementById('log-subtab-flights').classList.toggle('active', tab==='flights');
+  document.getElementById('log-subtab-roster').classList.toggle('active',  tab==='roster');
+  if(tab==='roster') initRosterTab();
+}
+
+/* ── Init: populate period selector ────────────────────────── */
+async function initRosterTab(){
+  if(!isOnline){
+    document.getElementById('roster-offline-notice').style.display = '';
+    document.getElementById('roster-duty-list').innerHTML = '';
+    document.getElementById('roster-period-select').innerHTML = '<option value="">— Offline —</option>';
+    return;
+  }
+  document.getElementById('roster-offline-notice').style.display = 'none';
+  try{
+    const { data, error } = await sb.from('crew_rosters')
+      .select('id, crew_name, crew_code, period_from, period_to, source_filename')
+      .order('period_from', { ascending: false });
+    if(error) throw error;
+    const sel = document.getElementById('roster-period-select');
+    if(!data || !data.length){
+      sel.innerHTML = '<option value="">— No roster uploaded yet —</option>';
+      document.getElementById('roster-duty-list').innerHTML =
+        `<div class="empty" style="padding:32px 0;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">📋</div>
+          <div style="font-size:.9rem;font-weight:700;color:var(--color-text-primary);margin-bottom:4px">No roster yet</div>
+          <div style="font-size:.78rem;color:var(--color-text-muted)">Upload your ARMS® Crew Daily Roster PDF to get started.</div>
+        </div>`;
+      return;
+    }
+    sel.innerHTML = data.map(r =>
+      `<option value="${r.id}">${fmtRosterPeriod(r.period_from, r.period_to)} — ${r.crew_code||r.crew_name||''}</option>`
+    ).join('');
+    // Auto-select: prefer the roster that covers today, else first
+    const today = new Date().toISOString().slice(0,10);
+    const covering = data.find(r => r.period_from <= today && r.period_to >= today);
+    sel.value = covering ? covering.id : data[0].id;
+    await loadRosterDuties(sel.value);
+  }catch(e){
+    console.warn('[ROSTER] init failed:', e.message);
+  }
+}
+
+function fmtRosterPeriod(from, to){
+  if(!from) return '—';
+  const f = d => { const p=d.split('-'); return `${parseInt(p[2])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1]} ${p[0]}`; };
+  return `${f(from)}${to && to!==from ? ' – '+f(to) : ''}`;
+}
+
+/* ── Load duties for a roster ───────────────────────────────── */
+async function loadRosterDuties(rosterId){
+  if(!rosterId) return;
+  _rosterState.rosterId = rosterId;
+  document.getElementById('roster-duty-list').innerHTML =
+    `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
+  try{
+    const { data, error } = await sb.from('roster_duties')
+      .select('*')
+      .eq('roster_id', rosterId)
+      .order('duty_date', { ascending: true });
+    if(error) throw error;
+    _rosterState.duties = data || [];
+    renderRosterDuties();
+  }catch(e){
+    document.getElementById('roster-duty-list').innerHTML =
+      `<div style="text-align:center;padding:24px;color:var(--color-warning);font-size:.82rem">⚠ Could not load duties: ${e.message}</div>`;
+  }
+}
+
+/* ── Render duty list ───────────────────────────────────────── */
+function renderRosterDuties(){
+  const duties = _rosterState.duties;
+  const el = document.getElementById('roster-duty-list');
+  if(!duties.length){ el.innerHTML = '<div class="empty" style="padding:24px 0;text-align:center">No duties found.</div>'; return; }
+
+  const today = new Date().toISOString().slice(0,10);
+  const parts = [];
+  let lastWeek = '';
+
+  for(const d of duties){
+    // Week heading
+    const weekKey = getISOWeek(d.duty_date);
+    if(weekKey !== lastWeek){
+      parts.push(`<div class="roster-week-heading">${weekHeadingLabel(d.duty_date)}</div>`);
+      lastWeek = weekKey;
+    }
+    parts.push(rosterDutyCardHTML(d, today));
+  }
+  el.innerHTML = parts.join('');
+}
+
+function getISOWeek(dateStr){
+  const d = new Date(dateStr);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  const y = d.getFullYear();
+  const w = Math.ceil((((d - new Date(y,0,1))/86400000)+1)/7);
+  return `${y}-W${w}`;
+}
+
+function weekHeadingLabel(dateStr){
+  const d = new Date(dateStr);
+  const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const fmt = x => `${x.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]}`;
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+function dutyTypeLabel(type){
+  if(!type) return { text:'Unknown', cls:'rct-dma' };
+  const t = type.toUpperCase();
+  if(t.startsWith('OP'))          return { text:'Operating ✈️', cls:'rct-op' };
+  if(t==='DMA')                   return { text:'Duty May be Assigned', cls:'rct-dma' };
+  if(t==='WOFF')                  return { text:'Weekly Off', cls:'rct-woff' };
+  if(t.includes('LAYOVER'))       return { text:'Layover 🏨', cls:'rct-layover' };
+  if(t==='NA')                    return { text:'Not Available', cls:'rct-na' };
+  if(t==='SBY')                   return { text:'Standby 📲', cls:'rct-dma' };
+  if(t==='TRG')                   return { text:'Training 📚', cls:'rct-dma' };
+  if(t==='GRD')                   return { text:'Ground Duty 🏢', cls:'rct-dma' };
+  return { text: escHtml(type), cls:'rct-dma' };
+}
+
+function statusBadgeHTML(status){
+  const map = {
+    rostered:  { cls:'rsb-rostered',  text:'Rostered' },
+    completed: { cls:'rsb-completed', text:'Completed ✓' },
+    cancelled: { cls:'rsb-cancelled', text:'Cancelled' },
+    diverted:  { cls:'rsb-diverted',  text:'Diverted' },
+    standby:   { cls:'rsb-rostered',  text:'Standby' },
+  };
+  const s = map[status] || map.rostered;
+  return `<span class="roster-status-badge ${s.cls}">${s.text}</span>`;
+}
+
+function minsToHHMM(mins){
+  if(!mins && mins!==0) return '–';
+  const h = Math.floor(mins/60), m = mins%60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function rosterDutyCardHTML(d, today){
+  const isToday  = d.duty_date === today;
+  const isOP     = d.duty_type && d.duty_type.toUpperCase().startsWith('OP');
+  const dtl      = dutyTypeLabel(d.duty_type);
+  const dateDisp = (() => {
+    const p = d.duty_date.split('-');
+    return `${parseInt(p[2])} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[1])-1]}`;
+  })();
+
+  let cardCls = 'roster-card';
+  if(isOP){
+    cardCls += ' rc-op';
+    if(isToday)                        cardCls += ' rc-today';
+    if(d.status === 'completed')       cardCls += ' rc-completed';
+    if(d.status === 'cancelled')       cardCls += ' rc-cancelled';
+    if(d.status === 'diverted')        cardCls += ' rc-diverted';
+  } else {
+    const tl = d.duty_type?.toUpperCase() || '';
+    if(tl === 'DMA')           cardCls += ' rc-dma';
+    else if(tl === 'WOFF')     cardCls += ' rc-woff';
+    else if(tl.includes('LAY')) cardCls += ' rc-layover';
+    else                        cardCls += ' rc-na';
+  }
+
+  if(!isOP){
+    return `<div class="${cardCls}">
+      <div class="roster-card-row">
+        <span class="roster-card-date">${dateDisp}</span>
+        <span class="roster-card-type ${dtl.cls}">${dtl.text}</span>
+        ${isToday ? '<span class="roster-today-pulse" style="margin-left:4px"></span>' : ''}
+      </div>
+    </div>`;
+  }
+
+  // OP card
+  const route    = [d.origin, d.destination].filter(Boolean).join(' → ') || '–';
+  const estBlock = d.block_scheduled_mins ? minsToHHMM(d.block_scheduled_mins) : '–';
+  const actBlock = d.block_actual_mins    ? minsToHHMM(d.block_actual_mins)    : null;
+  const showComplete = d.status === 'rostered' && d.duty_date <= today;
+
+  return `<div class="${cardCls}">
+    <div class="roster-card-row">
+      <span class="roster-card-date">${dateDisp}</span>
+      ${isToday ? '<span class="roster-today-pulse"></span>' : ''}
+      <span class="roster-card-flight">${escHtml(d.flight_number||'–')}</span>
+      <span class="roster-card-route">${escHtml(route)}</span>
+      ${statusBadgeHTML(d.status)}
+    </div>
+    <div class="roster-block-row">
+      <div class="roster-block-item">STD <span>${escHtml(d.std_local||d.std_utc||'–')}</span></div>
+      <div class="roster-block-item">STA <span>${escHtml((d.sta_local||d.sta_utc||'–').replace(/\/\d+$/,''))}</span></div>
+      <div class="roster-block-item">Est. Block <span>${estBlock}</span></div>
+      ${actBlock ? `<div class="roster-block-item">Actual Block <span style="color:#86efac">${actBlock}</span></div>` : ''}
+      ${d.divert_airport ? `<div class="roster-block-item">Diverted → <span style="color:#fde68a">${escHtml(d.divert_airport)}</span></div>` : ''}
+    </div>
+    ${showComplete ? `<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>` : ''}
+  </div>`;
+}
+
+/* ── Upload PDF ─────────────────────────────────────────────── */
+function triggerRosterUpload(){
+  document.getElementById('roster-file-input').value = '';
+  document.getElementById('roster-file-input').click();
+}
+
+async function handleRosterFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  toast('🔍 Parsing roster PDF…');
+  try{
+    const arrayBuffer = await file.arrayBuffer();
+    // Ensure PDF.js worker is configured
+    if(!window.pdfjsLib){
+      await new Promise((res,rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+    // Extract full text from all pages, preserving line breaks.
+    // PDF.js text items carry hasEOL=true when the item ends a visual line.
+    // We group items by their Y-position bucket (rounded to 1 dp) so items
+    // on the same line are joined with a space, and items on a new line get \n.
+    const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for(let p = 1; p <= pdfDoc.numPages; p++){
+      const page = await pdfDoc.getPage(p);
+      const tc   = await page.getTextContent({ normalizeWhitespace: true });
+      // Group by Y (rounded to nearest integer to absorb minor baseline jitter)
+      const rows = new Map();
+      for(const item of tc.items){
+        if(!item.str) continue;
+        const y = Math.round(item.transform[5]);
+        if(!rows.has(y)) rows.set(y, []);
+        rows.get(y).push(item.str);
+      }
+      // Sort Y descending (PDF Y=0 is bottom; higher Y = higher on page)
+      const sorted = [...rows.entries()].sort((a,b) => b[0]-a[0]);
+      fullText += sorted.map(([,words]) => words.join(' ')).join('\n') + '\n';
+    }
+
+    const parsed = parseRosterPDF(fullText);
+    if(!parsed || !parsed.duties.length) throw new Error('No duty rows found. Check the PDF format.');
+    _rosterState.parsed = { ...parsed, sourceFilename: file.name, rawText: fullText };
+    showRosterPreview(parsed, file.name);
+  }catch(e){
+    toast('⚠ ' + e.message);
+  }
+}
+
+/* ── Parser ─────────────────────────────────────────────────── */
+function parseRosterPDF(text){
+  // Normalise whitespace
+  const lines = text.split(/\n/).map(l => l.replace(/\s{2,}/g,' ').trim()).filter(Boolean);
+  const full  = lines.join('\n');
+
+  // ── Header fields ──
+  const crewNameM  = full.match(/Crew Name\s*[:\-]\s*([A-Z][A-Z\s]+)/i);
+  const crewCodeM  = full.match(/Crew Code\s*[:\-]\s*(\S+)/i);
+  const baseM      = full.match(/Base\s*[:\-]\s*(.+?)(?:\n|Crew|Period)/i);
+  const periodM    = full.match(/Period From\s*[:\-]\s*(\d{1,2}[- ]\w+[- ]\d{4})\s+to\s+(\d{1,2}[- ]\w+[- ]\d{4})/i);
+  const totalBlockM= full.match(/Total Block Time\s*[:\-]?\s*(\d{1,3}:\d{2})/i);
+
+  const meta = {
+    crewName:  crewNameM  ? crewNameM[1].trim()  : null,
+    crewCode:  crewCodeM  ? crewCodeM[1].trim()  : null,
+    base:      baseM      ? baseM[1].trim()      : null,
+    periodFrom: periodM   ? parseRosterDate(periodM[1]) : null,
+    periodTo:   periodM   ? parseRosterDate(periodM[2]) : null,
+    totalEstBlockMins: totalBlockM ? hhmmToMins(totalBlockM[1]) : null,
+  };
+
+  // Extract crew rank from first OP duty suffix e.g. "OP - (JCCM)"
+  const rankM = full.match(/OP\s*[-–]\s*\(([A-Z]+)\)/i);
+  meta.crewRank = rankM ? rankM[1].toUpperCase() : null;
+
+  // ── Table rows ──
+  // Pattern: S NO | DATE | TYPE | [FLIGHT] | STD | STD(UTC) | FROM | TO | STA | STA(UTC) | BLOCK | [REMARK]
+  // The extracted text puts each row on one line; we detect rows by leading integer
+  const duties = [];
+  let sNo = 0;
+
+  for(const line of lines){
+    // Matches a row that starts with a number (S NO)
+    const rowM = line.match(/^(\d+)\s+(\d{1,2}-\w{3}-\d{4})\s+(.+)/);
+    if(!rowM) continue;
+    sNo++;
+    const sNoVal  = parseInt(rowM[1]);
+    const dateRaw = rowM[2];   // e.g. "18-Nov-2026"
+    const rest    = rowM[3].trim();
+
+    const dutyDate = parseRosterDate(dateRaw);
+
+    // Normalise duty type
+    let dutyType = 'DMA';
+    let crewRankLocal = null;
+
+    const opM = rest.match(/^(OP)\s*[-–]\s*\(([A-Z]+)\)/i);
+    if(opM){
+      dutyType     = 'OP';
+      crewRankLocal = opM[2].toUpperCase();
+      if(!meta.crewRank) meta.crewRank = crewRankLocal;
+    } else if(/^DMA[-\s]Lay\s*[Oo]ver/i.test(rest)){
+      dutyType = 'DMA-LayOver';
+    } else if(/^DMA/i.test(rest)){
+      dutyType = 'DMA';
+    } else if(/^WOFF/i.test(rest)){
+      dutyType = 'WOFF';
+    } else if(/^(NA|Not\s*Available)/i.test(rest)){
+      dutyType = 'NA';
+    } else if(/^SBY/i.test(rest)){
+      dutyType = 'SBY';
+    } else if(/^TRG/i.test(rest)){
+      dutyType = 'TRG';
+    } else if(/^GRD/i.test(rest)){
+      dutyType = 'GRD';
+    }
+
+    // For OP rows parse the remaining flight data tokens
+    let flightNumber = null, stdLocal = null, stdUtc = null,
+        origin = null, destination = null, staLocal = null, staUtc = null,
+        blockScheduledMins = null, remark = null;
+
+    if(dutyType === 'OP'){
+      // After stripping the OP - (RANK) prefix, tokens are:
+      // FLIGHT  STD  STD(UTC)  FROM  TO  STA  STA(UTC)  BLOCK  [REMARK...]
+      const afterOp = rest.replace(/^OP\s*[-–]\s*\([A-Z]+\)\s*/i, '').trim();
+      const toks = afterOp.split(/\s+/);
+      // Flight number starts with UR/EY/etc followed by digits
+      let ti = 0;
+      if(toks[ti] && /^[A-Z]{1,2}\d{2,4}$/i.test(toks[ti])){
+        flightNumber = toks[ti++].toUpperCase();
+      }
+      // HH:MM local STD
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])) stdLocal = toks[ti++];
+      // HH:MM UTC STD
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])) stdUtc  = toks[ti++];
+      // 3-letter IATA origin
+      if(toks[ti] && /^[A-Z]{3}$/.test(toks[ti])) origin      = toks[ti++];
+      // 3-letter IATA destination
+      if(toks[ti] && /^[A-Z]{3}$/.test(toks[ti])) destination  = toks[ti++];
+      // STA local (may have /DD next-day suffix)
+      if(toks[ti] && /^\d{1,2}:\d{2}(\/\d{1,2})?$/.test(toks[ti])) staLocal = toks[ti++];
+      // STA UTC
+      if(toks[ti] && /^\d{1,2}:\d{2}(\/\d{1,2})?$/.test(toks[ti])) staUtc  = toks[ti++];
+      // Block HH:MM
+      if(toks[ti] && /^\d{1,2}:\d{2}$/.test(toks[ti])){
+        blockScheduledMins = hhmmToMins(toks[ti++]);
+      }
+      // Remaining tokens = remark
+      if(ti < toks.length) remark = toks.slice(ti).join(' ');
+    } else if(dutyType === 'WOFF'){
+      // WOFF rows sometimes have STD / STA for the off-period window
+      const toks = rest.replace(/^WOFF\s*/i,'').trim().split(/\s+/);
+      if(toks[0] && /^\d{1,2}:\d{2}$/.test(toks[0])) stdLocal = toks[0];
+      if(toks[1] && /^\d{1,2}:\d{2}$/.test(toks[1])) stdUtc   = toks[1];
+      if(toks[2] && /^\d{1,2}:\d{2}$/.test(toks[2])) staLocal  = toks[2];
+      if(toks[3] && /^\d{1,2}:\d{2}$/.test(toks[3])) staUtc   = toks[3];
+    }
+
+    duties.push({
+      s_no: sNoVal,
+      duty_date: dutyDate,
+      duty_type: dutyType,
+      flight_number: flightNumber,
+      origin, destination,
+      std_local: stdLocal, std_utc: stdUtc,
+      sta_local: staLocal, sta_utc: staUtc,
+      block_scheduled_mins: blockScheduledMins,
+      remark,
+      status: 'rostered',
+    });
+  }
+
+  return { meta, duties };
+}
+
+function parseRosterDate(str){
+  if(!str) return null;
+  // Formats: "18-Nov-2026", "18 Nov 2026", "18 Nov. 2026"
+  const m = str.trim().match(/(\d{1,2})[-\s]+(\w{3,})[-\s.]+(\d{4})/);
+  if(!m) return null;
+  const months = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const mo = months[(m[2].slice(0,3).toLowerCase())];
+  if(!mo) return null;
+  return `${m[3]}-${String(mo).padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+
+function hhmmToMins(hhmm){
+  if(!hhmm) return null;
+  const p = hhmm.split(':');
+  return parseInt(p[0])*60 + parseInt(p[1]||'0');
+}
+
+/* ── Preview modal ──────────────────────────────────────────── */
+function showRosterPreview(parsed, filename){
+  const { meta, duties } = parsed;
+  const opCount  = duties.filter(d=>d.duty_type==='OP').length;
+  const offCount = duties.filter(d=>d.duty_type!=='OP').length;
+
+  document.getElementById('roster-preview-meta').textContent =
+    `${meta.crewName||''} · ${meta.crewCode||''} · ${fmtRosterPeriod(meta.periodFrom, meta.periodTo)}`;
+
+  const rows = duties.map(d => {
+    const dtl = dutyTypeLabel(d.duty_type);
+    return `<tr style="border-bottom:1px solid var(--color-border)">
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${d.duty_date}</td>
+      <td style="padding:5px 4px"><span class="roster-card-type ${dtl.cls}" style="font-size:.68rem">${dtl.text.replace(' ✈️','').replace(' 🏨','')}</span></td>
+      <td style="padding:5px 4px;font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${d.flight_number||'–'}</td>
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${[d.origin,d.destination].filter(Boolean).join('→')||'–'}</td>
+      <td style="padding:5px 4px;font-size:.72rem;color:var(--color-text-muted)">${d.block_scheduled_mins?minsToHHMM(d.block_scheduled_mins):'–'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('roster-preview-body').innerHTML =
+    `<div style="font-size:.8rem;color:var(--color-text-muted);margin-bottom:12px">
+      Found <strong style="color:var(--color-text-primary)">${opCount} operating flight${opCount!==1?'s':''}</strong>
+      and ${offCount} non-operating day${offCount!==1?'s':''}.
+      ${meta.totalEstBlockMins ? `Est. block time: <strong style="color:var(--color-text-primary)">${minsToHHMM(meta.totalEstBlockMins)}</strong>.` : ''}
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border)">
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Date</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Type</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Flight</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Route</th>
+            <th style="padding:4px;font-size:.65rem;text-align:left;color:var(--color-text-muted)">Est.Block</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  const modal = document.getElementById('roster-preview-modal');
+  modal.style.display = 'flex';
+}
+
+function closeRosterPreview(){
+  document.getElementById('roster-preview-modal').style.display = 'none';
+  _rosterState.parsed = null;
+}
+
+/* ── Confirm import → Supabase ──────────────────────────────── */
+async function confirmRosterImport(){
+  const p = _rosterState.parsed;
+  if(!p){ closeRosterPreview(); return; }
+  document.getElementById('roster-import-btn').textContent = 'Importing…';
+  document.getElementById('roster-import-btn').disabled = true;
+  try{
+    const { meta, duties, sourceFilename, rawText } = p;
+
+    // tenant_id is NOT sent by the client.
+    // Migration 15 BEFORE INSERT triggers on crew_rosters and roster_duties
+    // call guestora_resolve_tenant_id() server-side (SECURITY DEFINER) and
+    // set tenant_id automatically — same pattern as passenger_manifests.
+
+    // 1. Insert crew_roster header (no tenant_id — trigger sets it)
+    const { data: rRow, error: rErr } = await sb.from('crew_rosters').insert({
+      crew_name:            meta.crewName,
+      crew_code:            meta.crewCode,
+      crew_rank:            meta.crewRank,
+      base:                 meta.base,
+      period_from:          meta.periodFrom,
+      period_to:            meta.periodTo,
+      total_est_block_mins: meta.totalEstBlockMins,
+      source_filename:      sourceFilename,
+      raw_text:             rawText,
+      uploaded_by:          currentUser?.id || null,
+    }).select('id').single();
+    if(rErr) throw rErr;
+    const rosterId = rRow.id;
+
+    // 2. Insert duty rows in batches of 50 (no tenant_id — trigger sets it)
+    const dutyRows = duties.map(d => ({
+      roster_id:            rosterId,
+      s_no:                 d.s_no,
+      duty_date:            d.duty_date,
+      duty_type:            d.duty_type,
+      flight_number:        d.flight_number || null,
+      origin:               d.origin        || null,
+      destination:          d.destination   || null,
+      std_local:            d.std_local     || null,
+      std_utc:              d.std_utc       || null,
+      sta_local:            d.sta_local     || null,
+      sta_utc:              d.sta_utc       || null,
+      block_scheduled_mins: d.block_scheduled_mins || null,
+      remark:               d.remark        || null,
+      status:               'rostered',
+    }));
+    for(let i = 0; i < dutyRows.length; i += 50){
+      const { error: dErr } = await sb.from('roster_duties').insert(dutyRows.slice(i, i+50));
+      if(dErr) throw dErr;
+    }
+
+    toast('✅ Roster imported!');
+    closeRosterPreview();
+    await initRosterTab();
+  }catch(e){
+    toast('⚠ Import failed: ' + e.message);
+  }finally{
+    const btn = document.getElementById('roster-import-btn');
+    if(btn){ btn.textContent = 'Import Roster'; btn.disabled = false; }
+  }
+}
+
+/* ── Mark Complete sheet ────────────────────────────────────── */
+function openRosterCompleteSheet(dutyId){
+  const d = _rosterState.duties.find(x => x.id === dutyId);
+  if(!d) return;
+  _rosterState.completeId = dutyId;
+
+  document.getElementById('rcs-title').textContent =
+    `${d.flight_number||'Flight'} · ${d.origin||'–'} → ${d.destination||'–'}`;
+  document.getElementById('rcs-sub').textContent =
+    fmtRosterPeriod(d.duty_date, d.duty_date);
+
+  const preSTD = d.std_local || '';
+  const preSTA = (d.sta_local || '').replace(/\/\d+$/,'');
+  const preBlock = d.block_scheduled_mins
+    ? `${String(Math.floor(d.block_scheduled_mins/60)).padStart(2,'0')}:${String(d.block_scheduled_mins%60).padStart(2,'0')}`
+    : '';
+
+  document.getElementById('rcs-body').innerHTML = `
+    <div style="margin-bottom:14px">
+      <div class="rcs-label">Flight Status</div>
+      <div class="rcs-status-grid">
+        <button class="rcs-status-btn selected" data-status="completed"   onclick="selectRcsStatus(this,'completed')">✅ On Time</button>
+        <button class="rcs-status-btn"           data-status="completed"  onclick="selectRcsStatus(this,'completed')" data-label="Early">⚡ Early</button>
+        <button class="rcs-status-btn"           data-status="diverted"  onclick="selectRcsStatus(this,'diverted')">🔀 Diverted</button>
+        <button class="rcs-status-btn"           data-status="cancelled" onclick="selectRcsStatus(this,'cancelled')">❌ Cancelled</button>
+      </div>
+    </div>
+
+    <div id="rcs-divert-row" style="display:none;margin-bottom:14px">
+      <div class="rcs-label">Divert Airport (IATA)</div>
+      <input id="rcs-divert" class="field" type="text" maxlength="4" placeholder="e.g. NBO"
+             style="text-transform:uppercase;font-size:.9rem" oninput="this.value=this.value.toUpperCase()"/>
+    </div>
+
+    <div id="rcs-flight-details">
+      <div class="rcs-time-row">
+        <div>
+          <div class="rcs-label">Actual Block Time</div>
+          <input id="rcs-block" class="field" type="text" placeholder="HH:MM"
+                 value="${preBlock}" style="font-size:.9rem;text-align:center"/>
+        </div>
+        <div></div>
+      </div>
+      <div class="rcs-time-row">
+        <div>
+          <div class="rcs-label">ATD — Actual Departure</div>
+          <input id="rcs-atd" class="field" type="text" placeholder="HH:MM"
+                 value="${preSTD}" style="font-size:.9rem;text-align:center"/>
+        </div>
+        <div>
+          <div class="rcs-label">ATA — Actual Arrival</div>
+          <input id="rcs-ata" class="field" type="text" placeholder="HH:MM"
+                 value="${preSTA}" style="font-size:.9rem;text-align:center"/>
+        </div>
+      </div>
+      <div>
+        <div class="rcs-label">Note (optional)</div>
+        <input id="rcs-note" class="field" type="text" placeholder="Any remarks…" style="font-size:.85rem"/>
+      </div>
+    </div>
+    <div style="height:16px"></div>`;
+
+  document.getElementById('roster-complete-sheet').style.display = 'flex';
+}
+
+function selectRcsStatus(btn, status){
+  document.querySelectorAll('.rcs-status-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('rcs-divert-row').style.display =
+    status === 'diverted' ? '' : 'none';
+  document.getElementById('rcs-flight-details').style.display =
+    status === 'cancelled' ? 'none' : '';
+}
+
+function closeRosterCompleteSheet(){
+  document.getElementById('roster-complete-sheet').style.display = 'none';
+  _rosterState.completeId = null;
+}
+
+async function saveRosterComplete(){
+  const dutyId = _rosterState.completeId;
+  if(!dutyId) return;
+
+  const selectedBtn = document.querySelector('.rcs-status-btn.selected');
+  const status      = selectedBtn?.dataset.status || 'completed';
+  const divert      = (document.getElementById('rcs-divert')?.value || '').trim().toUpperCase() || null;
+  const blockRaw    = (document.getElementById('rcs-block')?.value || '').trim();
+  const atd         = (document.getElementById('rcs-atd')?.value || '').trim() || null;
+  const ata         = (document.getElementById('rcs-ata')?.value || '').trim() || null;
+  const note        = (document.getElementById('rcs-note')?.value || '').trim() || null;
+  const blockMins   = blockRaw ? hhmmToMins(blockRaw) : null;
+
+  if(status !== 'cancelled' && !blockRaw){
+    toast('⚠ Please enter the actual block time.'); return;
+  }
+
+  try{
+    const update = {
+      status,
+      block_actual_mins: blockMins,
+      atd_local:         atd,
+      ata_local:         ata,
+      divert_airport:    status === 'diverted' ? divert : null,
+      completion_note:   note,
+      completed_at:      new Date().toISOString(),
+    };
+    const { error } = await sb.from('roster_duties').update(update).eq('id', dutyId);
+    if(error) throw error;
+
+    // Update local state
+    const idx = _rosterState.duties.findIndex(x => x.id === dutyId);
+    if(idx !== -1) _rosterState.duties[idx] = { ..._rosterState.duties[idx], ...update };
+
+    toast('✅ Flight marked as ' + status);
+    closeRosterCompleteSheet();
+    renderRosterDuties();
+  }catch(e){
+    toast('⚠ Could not save: ' + e.message);
+  }
+}
+
 // ═══════════════════════════════════════════════
 // DETAIL MODAL
 // ═══════════════════════════════════════════════
@@ -10345,6 +12658,9 @@ function editEntry(id){
       document.getElementById('f-date').value           = e.date||'';
       document.getElementById('f-reg').value            = e.reg||'';
       document.getElementById('f-actype').value         = e.actype||'';
+      // Fix B: prime _lastActype so that a blur on f-actype immediately after
+      // edit-open (e.g. on app-switch) doesn't pass the guard and wipe sectors
+      _lastActype = e.actype||'';
       document.getElementById('f-position').value       = e.position||'';
       document.getElementById('f-captain').value        = e.captain||'';
       document.getElementById('f-fo').value             = e.fo||'';
@@ -10938,6 +13254,10 @@ function updateFlightNumFields(){
   const wrap    = document.getElementById('flight-num-wrap');
   if(!wrap) return;
 
+  // Preserve existing flight number values across the innerHTML rebuild
+  const prevFn1 = document.getElementById('f-flightnum')?.value  || '';
+  const prevFn2 = document.getElementById('f-flightnum2')?.value || '';
+
   if(sectors < 4){
     // 1-3 sectors: single flight number — sits beside Date in the grid
     wrap.className = 'field';
@@ -10980,6 +13300,12 @@ function updateFlightNumFields(){
         </div>
       </div>`;
   }
+
+  // Restore values that were present before the rebuild
+  const fn1 = document.getElementById('f-flightnum');
+  const fn2 = document.getElementById('f-flightnum2');
+  if(fn1 && prevFn1) fn1.value = prevFn1;
+  if(fn2 && prevFn2) fn2.value = prevFn2;
 }
 
 function buildRouteFields(){
@@ -10987,6 +13313,13 @@ function buildRouteFields(){
   const numAirports = sectors + 1;
   const wrap = document.getElementById('route-fields-wrap');
   if(!wrap) return;
+
+  // Preserve existing airport values across the innerHTML rebuild
+  const prevRoutes = [];
+  for(let i = 0; i < 5; i++){
+    const el = document.getElementById(`f-route-${i}`);
+    prevRoutes[i] = el ? el.value : '';
+  }
 
   let html = '<div class="route-fields">';
   for(let i = 0; i < numAirports; i++){
@@ -11010,8 +13343,16 @@ function buildRouteFields(){
   html += '</div>';
   wrap.innerHTML = html;
 
-  // Build sector detail cards to match current sector count
-  buildSectorDetails();
+  // Restore airport values that were present before the rebuild
+  for(let i = 0; i < numAirports; i++){
+    const el = document.getElementById(`f-route-${i}`);
+    if(el && prevRoutes[i]) el.value = prevRoutes[i];
+  }
+
+  // Build sector detail cards — pass current live data so values survive
+  // (Fix C: was passing null, which wiped FL/FT/pax counts on every rebuild)
+  const liveSectors = getSectorsData();
+  buildSectorDetails(liveSectors.length ? liveSectors : null, document.getElementById('f-actype')?.value || '');
 }
 
 function filterRouteApt(idx){
