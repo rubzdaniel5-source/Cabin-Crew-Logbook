@@ -1926,6 +1926,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     </div>
 
     <!-- Duty list -->
+    <div id="roster-code-box"></div>
     <div id="roster-ack-banner"></div>
     <div id="roster-duty-list"></div>
   </div>
@@ -12195,6 +12196,7 @@ function updateRosterDeskTab(){
 
 /* ── Init: populate period selector ────────────────────────── */
 async function initRosterTab(){
+  rosterShowCodeBox();
   if(!isOnline){
     document.getElementById('roster-offline-notice').style.display = '';
     document.getElementById('roster-duty-list').innerHTML = '';
@@ -14017,6 +14019,39 @@ async function activityOpen(userId, rosterId){
   closeActivity();
   setDeskMode('crew');
   await openDeskCrew(userId, rosterId);
+}
+
+// Airline crew without a crew code: let them enter the one printed on their
+// roster PDF (once). Their officer uses it to match uploaded rosters to them.
+async function rosterShowCodeBox(){
+  const el = document.getElementById('roster-code-box');
+  if(!el) return;
+  el.innerHTML = '';
+  if(!isOnline || !currentUser) return;
+  try{
+    const { data, error } = await sb.from('profiles').select('user_class, crew_code').eq('id', currentUser.id).maybeSingle();
+    if(error || !data || data.user_class !== 'airline' || data.crew_code) return;
+    el.innerHTML = `<div class="ack-banner" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div><b>Add your crew code</b><br>It is printed on your roster PDF (e.g. UA669). Your roster officer uses it to match your roster to you. You can set it once — an officer changes it after that.</div>
+      <div style="display:flex;gap:8px">
+        <input id="roster-code-input" class="rch-input" type="text" maxlength="20" placeholder="Crew code" autocapitalize="characters" autocomplete="off"
+               style="flex:1;min-width:0;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+        <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="rosterSaveMyCode()">Save</button>
+      </div></div>`;
+  }catch(_){ /* the box is optional */ }
+}
+async function rosterSaveMyCode(){
+  const inp = document.getElementById('roster-code-input');
+  const code = (inp?.value || '').trim().toUpperCase();
+  if(!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(code)){ toast('⚠ Use letters, numbers, dot, dash or underscore (max 20).'); return; }
+  const { error } = await sb.from('profiles').update({ crew_code: code }).eq('id', currentUser.id);
+  if(error){
+    toast(error.code === '23505' ? '⚠ That code is already linked to another crew member. Ask your roster officer.'
+                                 : '⚠ Could not save: ' + error.message);
+    return;
+  }
+  document.getElementById('roster-code-box').innerHTML = '';
+  toast('✅ Crew code ' + code + ' saved');
 }
 
 // Crew: officer changes the crew member has not yet acknowledged
