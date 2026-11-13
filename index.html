@@ -942,6 +942,17 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .desk-badge-ok{background:rgba(34,197,94,.15);color:#86efac}
 .desk-badge-off{background:rgba(255,255,255,.08);color:var(--color-text-muted)}
 .desk-warn{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fde68a;font-size:.76rem;line-height:1.5}
+.bulk-item{border:1px solid var(--color-border);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--color-surface,rgba(255,255,255,.03))}
+.bulk-item.bulk-skip{opacity:.55}
+.bulk-item.bulk-err{border-color:rgba(239,68,68,.45)}
+.bulk-title{font-size:.84rem;font-weight:800;color:var(--color-text-primary);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bulk-sub{font-size:.72rem;color:var(--color-text-muted);margin-top:2px}
+.bulk-line{font-size:.74rem;margin-top:6px;line-height:1.45}
+.bulk-line.ok{color:#86efac}.bulk-line.warn{color:#fde68a}.bulk-line.bad{color:#fca5a5}
+.bulk-ctl{display:flex;gap:8px;margin-top:8px}
+.bulk-ctl select{flex:1;min-width:0;width:auto;font-size:.76rem;padding:7px 8px}
+.desk-pending{margin:12px 0 4px}
+.desk-pending-h{font-size:.74rem;font-weight:800;color:#fde68a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
 .desk-ok{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;font-size:.76rem;line-height:1.5}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
@@ -1913,6 +1924,10 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
         <span class="search-ico">🔍</span>
         <input class="rch-input" type="text" id="desk-search" placeholder="Search crew name or code…" oninput="renderDeskCrewList()" autocomplete="off" style="padding-left:38px"/>
       </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn btn-primary btn-sm" onclick="openRosterBulk()" style="width:auto;flex:0 0 auto;white-space:nowrap">📚 Bulk upload PDFs</button>
+      </div>
+      <div id="desk-unassigned" class="desk-pending"></div>
       <div id="desk-chips" style="display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap"></div>
       <div id="desk-crew-list"></div>
     </div>
@@ -1952,6 +1967,24 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
       <button onclick="closeRosterPreview()" class="btn" style="flex:1">Cancel</button>
       <button onclick="confirmRosterImport()" class="btn btn-primary" style="flex:1" id="roster-import-btn">Import Roster</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ROSTER BULK UPLOAD (roster officers)
+════════════════════════════════════════════════════════════ -->
+<input type="file" id="roster-bulk-input" accept="application/pdf" multiple style="display:none" onchange="handleRosterBulkFiles(event)"/>
+<div id="roster-bulk-modal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:92vh;display:flex;flex-direction:column">
+    <div style="padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">📚 Bulk roster upload</div>
+      <div id="roster-bulk-sub" style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px"></div>
+    </div>
+    <div id="roster-bulk-body" style="flex:1;overflow-y:auto;padding:12px 16px"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeRosterBulk()" class="btn" style="flex:1" id="roster-bulk-cancel">Cancel</button>
+      <button onclick="runRosterBulk()" class="btn btn-primary" style="flex:1" id="roster-bulk-go">Publish</button>
     </div>
   </div>
 </div>
@@ -12251,10 +12284,12 @@ function rosterDutyCardHTML(d, today, desk){
   }
 
   if(!isOP){
+    if(d.status === 'removed' || d.status === 'cancelled') cardCls += ' rc-cancelled rc-struck';
     return `<div class="${cardCls}">
       <div class="roster-card-row">
         <span class="roster-card-date">${dateDisp}</span>
         <span class="roster-card-type ${dtl.cls}">${dtl.text}</span>
+        ${(d.status === 'removed' || d.status === 'cancelled') ? statusBadgeHTML(d.status) : ''}
         ${isToday ? '<span class="roster-today-pulse" style="margin-left:4px"></span>' : ''}
       </div>
       ${rosterCardFooterHTML(d, false, desk)}
@@ -12390,46 +12425,45 @@ function triggerRosterUpload(forDesk){
   document.getElementById('roster-file-input').click();
 }
 
+// Reads every page of a roster PDF and returns an array of page texts.
+// Items are grouped by their Y position so one visual line = one text line.
+async function rosterPagesText(file){
+  const arrayBuffer = await file.arrayBuffer();
+  if(!window.pdfjsLib){
+    await new Promise((res,rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+      sc.onload = res; sc.onerror = rej;
+      document.head.appendChild(sc);
+    });
+  }
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages = [];
+  for(let p = 1; p <= pdfDoc.numPages; p++){
+    const page = await pdfDoc.getPage(p);
+    const tc   = await page.getTextContent({ normalizeWhitespace: true });
+    const rows = new Map();
+    for(const item of tc.items){
+      if(!item.str) continue;
+      const y = Math.round(item.transform[5]);
+      if(!rows.has(y)) rows.set(y, []);
+      rows.get(y).push(item.str);
+    }
+    // PDF Y=0 is the bottom of the page, so sort descending
+    const sorted = [...rows.entries()].sort((a,b) => b[0]-a[0]);
+    pages.push(sorted.map(([,words]) => words.join(' ')).join('\n'));
+  }
+  return pages;
+}
+
 async function handleRosterFile(evt){
   const file = evt.target.files[0];
   if(!file) return;
   toast('🔍 Parsing roster PDF…');
   try{
-    const arrayBuffer = await file.arrayBuffer();
-    // Ensure PDF.js worker is configured
-    if(!window.pdfjsLib){
-      await new Promise((res,rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-
-    // Extract full text from all pages, preserving line breaks.
-    // PDF.js text items carry hasEOL=true when the item ends a visual line.
-    // We group items by their Y-position bucket (rounded to 1 dp) so items
-    // on the same line are joined with a space, and items on a new line get \n.
-    const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for(let p = 1; p <= pdfDoc.numPages; p++){
-      const page = await pdfDoc.getPage(p);
-      const tc   = await page.getTextContent({ normalizeWhitespace: true });
-      // Group by Y (rounded to nearest integer to absorb minor baseline jitter)
-      const rows = new Map();
-      for(const item of tc.items){
-        if(!item.str) continue;
-        const y = Math.round(item.transform[5]);
-        if(!rows.has(y)) rows.set(y, []);
-        rows.get(y).push(item.str);
-      }
-      // Sort Y descending (PDF Y=0 is bottom; higher Y = higher on page)
-      const sorted = [...rows.entries()].sort((a,b) => b[0]-a[0]);
-      fullText += sorted.map(([,words]) => words.join(' ')).join('\n') + '\n';
-    }
-
+    const fullText = (await rosterPagesText(file)).join('\n') + '\n';
     const parsed = parseRosterPDF(fullText);
     if(!parsed || !parsed.duties.length) throw new Error('No duty rows found. Check the PDF format.');
     _rosterState.parsed = { ...parsed, sourceFilename: file.name, rawText: fullText };
@@ -12446,14 +12480,14 @@ function parseRosterPDF(text){
   const full  = lines.join('\n');
 
   // ── Header fields ──
-  const crewNameM  = full.match(/Crew Name\s*[:\-]\s*([A-Z][A-Z\s]+)/i);
+  const crewNameM  = full.match(/Crew Name\s*[:\-]\s*([A-Z][A-Z \t]*)/i);   // stay on one line
   const crewCodeM  = full.match(/Crew Code\s*[:\-]\s*(\S+)/i);
   const baseM      = full.match(/Base\s*[:\-]\s*(.+?)(?:\n|Crew|Period)/i);
   const periodM    = full.match(/Period From\s*[:\-]\s*(\d{1,2}[- ]\w+[- ]\d{4})\s+to\s+(\d{1,2}[- ]\w+[- ]\d{4})/i);
   const totalBlockM= full.match(/Total Block Time\s*[:\-]?\s*(\d{1,3}:\d{2})/i);
 
   const meta = {
-    crewName:  crewNameM  ? crewNameM[1].trim()  : null,
+    crewName:  crewNameM  ? crewNameM[1].replace(/\s+Crew\s*Code\s*$/i,'').trim() : null,
     crewCode:  crewCodeM  ? crewCodeM[1].trim()  : null,
     base:      baseM      ? baseM[1].trim()      : null,
     periodFrom: periodM   ? parseRosterDate(periodM[1]) : null,
@@ -13311,6 +13345,334 @@ async function saveRosterChange(){
 }
 
 // ═══════════════════════════════════════════════
+// BULK UPLOAD — many roster PDFs at once (roster officers)
+// Each PDF (or each roster inside a combined PDF) is matched to a crew
+// member by crew code, reviewed, then published one roster at a time.
+// A roster for the same crew and period that already exists is REVISED
+// (differences tracked, flown duties untouched) rather than duplicated.
+// ═══════════════════════════════════════════════
+const _norm = v => String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const _rosterDutyPayload = d => ({
+  s_no: d.s_no, duty_date: d.duty_date, duty_type: d.duty_type,
+  flight_number: d.flight_number||null, origin: d.origin||null, destination: d.destination||null,
+  std_local: d.std_local||null, std_utc: d.std_utc||null, sta_local: d.sta_local||null, sta_utc: d.sta_utc||null,
+  block_scheduled_mins: d.block_scheduled_mins||null, remark: d.remark||null,
+});
+
+// Split the pages of one PDF into one text block per crew member.
+// A page that has a "Crew Name" header starts a new roster; header-less pages
+// continue the previous one; consecutive blocks for the same code + period
+// (a header repeated on every page) are merged back together.
+function rosterSplitSegments(pages){
+  const segs = [];
+  for(const pg of pages){
+    const lines = pg.split('\n');
+    let cur = null;
+    for(const ln of lines){
+      if(/Crew\s*Name\s*[:\-]/i.test(ln)){
+        cur = [ln]; segs.push(cur);
+      } else if(cur){ cur.push(ln); }
+      else if(segs.length){ segs[segs.length-1].push(ln); }
+    }
+  }
+  const out = [];
+  for(const seg of segs){
+    const text = seg.join('\n');
+    const parsed = parseRosterPDF(text);
+    const prev = out[out.length-1];
+    if(prev && prev.parsed.meta.crewCode && prev.parsed.meta.crewCode === parsed.meta.crewCode
+       && prev.parsed.meta.periodFrom === parsed.meta.periodFrom && prev.parsed.meta.periodTo === parsed.meta.periodTo){
+      const merged = prev.text + '\n' + text;
+      out[out.length-1] = { text: merged, parsed: parseRosterPDF(merged) };
+    } else out.push({ text, parsed });
+  }
+  return out;
+}
+
+function openRosterBulk(){
+  if(!isRosterOfficer){ toast('⚠ Roster officers only'); return; }
+  document.getElementById('roster-bulk-input').value = '';
+  document.getElementById('roster-bulk-input').click();
+}
+
+function closeRosterBulk(){
+  if(_rosterState.bulk?.busy) return;
+  document.getElementById('roster-bulk-modal').style.display = 'none';
+  const hadRun = _rosterState.bulk?.done;
+  _rosterState.bulk = null;
+  if(hadRun) loadDeskCrewList();
+}
+
+async function handleRosterBulkFiles(evt){
+  const files = [...(evt.target.files || [])];
+  if(!files.length) return;
+  const modal = document.getElementById('roster-bulk-modal');
+  modal.style.display = 'flex';
+  const body = document.getElementById('roster-bulk-body');
+  _rosterState.bulk = { items: [], existing: [], busy: true, done: false };
+  document.getElementById('roster-bulk-go').style.display = 'none';
+  document.getElementById('roster-bulk-cancel').textContent = 'Cancel';
+  document.getElementById('roster-bulk-sub').textContent = `Reading ${files.length} file${files.length>1?'s':''}…`;
+  const bulk = _rosterState.bulk;
+  try{
+    if(!_rosterState.deskCrewList.length) await loadDeskCrewList();
+    const { data: ex } = await sb.from('crew_rosters')
+      .select('id, crew_user_id, crew_code, crew_name, period_from, period_to, revision');
+    bulk.existing = ex || [];
+
+    for(let i = 0; i < files.length; i++){
+      body.innerHTML = `<div style="text-align:center;padding:28px;color:var(--color-text-muted);font-size:.82rem">Reading ${i+1} of ${files.length}: ${escHtml(files[i].name)}…</div>`;
+      try{
+        const pages = await rosterPagesText(files[i]);
+        const segs = rosterSplitSegments(pages);
+        if(!segs.length) throw new Error('No roster header found');
+        for(const sg of segs){
+          const { meta, duties } = sg.parsed;
+          if(!duties.length || !meta.periodFrom || !meta.periodTo){
+            bulk.items.push({ file: files[i].name, error: !duties.length ? 'No duty rows found' : 'Roster period not found', meta });
+            continue;
+          }
+          bulk.items.push({ file: files[i].name, meta, duties, rawText: sg.text, userId: null, how: null, action: 'publish', existingId: null });
+        }
+      }catch(e){
+        bulk.items.push({ file: files[i].name, error: e.message || 'Could not read this PDF', meta: {} });
+      }
+    }
+    bulk.items.forEach(it => bulkMatchItem(it));
+    // Same crew + period twice in one batch: keep the first
+    const seen = new Set();
+    for(const it of bulk.items){
+      if(it.error) continue;
+      const k = (it.userId || ('c:' + _norm(it.meta.crewCode))) + '|' + it.meta.periodFrom + '|' + it.meta.periodTo;
+      if(seen.has(k)){ it.action = 'skip'; it.dup = true; } else seen.add(k);
+    }
+  }catch(e){
+    body.innerHTML = `<div class="desk-warn">⚠ ${escHtml(e.message)}</div>`;
+    bulk.busy = false;
+    document.getElementById('roster-bulk-cancel').textContent = 'Close';
+    return;
+  }
+  bulk.busy = false;
+  renderRosterBulk();
+}
+
+// Work out who a roster belongs to and whether it replaces an existing one.
+function bulkMatchItem(it, keepOwner){
+  if(it.error) return;
+  const crew = _rosterState.deskCrewList;
+  const code = _norm(it.meta.crewCode);
+  if(!keepOwner){
+    it.userId = null; it.how = null; it.needsConfirm = false;
+    const byCode = code && crew.find(c => _norm(c.crew_code) === code);
+    if(byCode){ it.userId = byCode.user_id; it.how = 'code'; }
+    else {
+      const nm = _norm(it.meta.crewName);
+      const hits = nm ? crew.filter(c => _norm(c.display_name) === nm) : [];
+      if(hits.length === 1){ it.userId = hits[0].user_id; it.how = 'name'; it.needsConfirm = true; }
+    }
+  }
+  const ex = _rosterState.bulk.existing.find(r =>
+    r.period_from === it.meta.periodFrom && r.period_to === it.meta.periodTo &&
+    (it.userId ? r.crew_user_id === it.userId
+               : (!r.crew_user_id && code && _norm(r.crew_code) === code)));
+  it.existingId = ex ? ex.id : null;
+  it.existingRev = ex ? ex.revision : 0;
+  it.overlap = (!ex && it.userId) ? _rosterState.bulk.existing.find(r =>
+    r.crew_user_id === it.userId && r.period_from <= it.meta.periodTo && r.period_to >= it.meta.periodFrom) : null;
+  if(!it.dup) it.action = it.needsConfirm ? 'skip' : (ex ? 'revise' : 'publish');
+}
+
+function bulkSetOwner(i, userId){
+  const it = _rosterState.bulk.items[i];
+  it.userId = userId || null;
+  it.how = userId ? 'manual' : null;
+  it.needsConfirm = false; it.dup = false;
+  bulkMatchItem(it, true);
+  renderRosterBulk();
+}
+function bulkSetAction(i, a){ const it = _rosterState.bulk.items[i]; it.action = a; if(a !== 'skip'){ it.needsConfirm = false; it.dup = false; if(it.how==='name') it.how='manual'; } renderRosterBulk(); }
+
+function renderRosterBulk(){
+  const bulk = _rosterState.bulk; if(!bulk) return;
+  const body = document.getElementById('roster-bulk-body');
+  const crew = _rosterState.deskCrewList;
+  const going = bulk.items.filter(x => !x.error && x.action !== 'skip');
+  const pub = going.filter(x => x.action === 'publish').length;
+  const rev = going.filter(x => x.action === 'revise').length;
+  const held = going.filter(x => x.action === 'publish' && !x.userId).length;
+  document.getElementById('roster-bulk-sub').textContent = bulk.done
+    ? 'Finished'
+    : `${bulk.items.length} roster${bulk.items.length!==1?'s':''} found · ${pub} new · ${rev} revision${rev!==1?'s':''}`;
+
+  body.innerHTML = bulk.items.map((it, i) => {
+    if(it.error) return `<div class="bulk-item bulk-err"><div class="bulk-title">⚠ ${escHtml(it.file)}</div><div class="bulk-line bad">${escHtml(it.error)}</div></div>`;
+    const m = it.meta, owner = crew.find(c => c.user_id === it.userId);
+    let line, cls;
+    if(it.res){
+      cls = it.res.ok ? 'ok' : 'bad'; line = (it.res.ok ? '✅ ' : '⚠ ') + escHtml(it.res.text);
+    } else if(it.action === 'skip'){
+      cls = 'warn';
+      line = it.dup ? 'Duplicate of another roster in this batch — skipped.'
+           : it.needsConfirm ? `Name looks like <b>${escHtml(owner?.display_name||'')}</b>, but the code ${escHtml(m.crewCode||'')} is not set for them. Set the action below to include it.`
+           : 'Skipped.';
+    } else if(it.userId){
+      cls = 'ok';
+      line = `→ <b>${escHtml(owner?.display_name||'Crew member')}</b>${it.how==='code'?' · matched by code':it.how==='name'?' · matched by name':' · chosen by you'}`;
+      if(it.action === 'revise') line += `<br>Revises the existing roster for this period (revision ${(it.existingRev||0)+1}). Differences are tracked; flown duties are not touched.`;
+      if(it.overlap) { cls = 'warn'; line += `<br>⚠ Overlaps an existing roster (${escHtml(fmtRosterPeriod(it.overlap.period_from, it.overlap.period_to))}).`; }
+    } else {
+      cls = 'warn';
+      line = `No crew member has code <b>${escHtml(m.crewCode||'—')}</b>. ${it.action==='revise'?'Will revise the waiting roster for this code.':'It will be held as <b>unassigned</b> until you set that code on a crew member (or assign it).'}`;
+    }
+    const disabled = bulk.busy || it.res ? 'disabled' : '';
+    const opts = `<option value="">— Hold unassigned —</option>` + crew.map(c =>
+      `<option value="${escHtml(c.user_id)}" ${c.user_id===it.userId?'selected':''}>${escHtml(c.display_name)}${c.crew_code?' · '+escHtml(c.crew_code):''}</option>`).join('');
+    const actOpts = [
+      ['publish','Publish as new'],
+      ...(it.existingId ? [['revise','Revise existing']] : []),
+      ['skip','Skip'],
+    ].map(([v,l]) => `<option value="${v}" ${it.action===v?'selected':''}>${l}</option>`).join('');
+    return `<div class="bulk-item ${it.action==='skip'&&!it.res?'bulk-skip':''}">
+      <div class="bulk-title">${escHtml(m.crewName||'Unknown')} <span style="font-weight:600;color:var(--color-text-muted)">${escHtml(m.crewCode||'no code')}</span></div>
+      <div class="bulk-sub">${escHtml(fmtRosterPeriod(m.periodFrom, m.periodTo))} · ${it.duties.length} duties · ${escHtml(it.file)}</div>
+      <div class="bulk-line ${cls}">${line}</div>
+      ${it.res ? '' : `<div class="bulk-ctl">
+        <select class="rch-input" ${disabled} onchange="bulkSetOwner(${i}, this.value)">${opts}</select>
+        <select class="rch-input" ${disabled} style="flex:0 0 38%" onchange="bulkSetAction(${i}, this.value)">${actOpts}</select>
+      </div>`}
+    </div>`;
+  }).join('') || `<div class="empty" style="text-align:center;padding:24px">Nothing to import.</div>`;
+
+  const go = document.getElementById('roster-bulk-go');
+  if(bulk.done){
+    go.style.display = 'none';
+    document.getElementById('roster-bulk-cancel').textContent = 'Done';
+  } else {
+    go.style.display = '';
+    go.disabled = bulk.busy || !going.length;
+    go.textContent = going.length ? `Publish ${going.length} roster${going.length>1?'s':''}${held?` (${held} unassigned)`:''}` : 'Nothing selected';
+    document.getElementById('roster-bulk-cancel').textContent = 'Cancel';
+  }
+}
+
+async function runRosterBulk(){
+  const bulk = _rosterState.bulk; if(!bulk || bulk.busy) return;
+  bulk.busy = true; renderRosterBulk();
+  const go = document.getElementById('roster-bulk-go');
+  go.disabled = true;
+  let okN = 0, failN = 0;
+  for(let i = 0; i < bulk.items.length; i++){
+    const it = bulk.items[i];
+    if(it.error || it.action === 'skip') continue;
+    go.textContent = `Publishing ${okN+failN+1}…`;
+    try{
+      const duties = it.duties.map(_rosterDutyPayload);
+      const fileMeta = { source_filename: it.file, raw_text: it.rawText,
+                         total_est_block_mins: it.meta.totalEstBlockMins || null };
+      if(it.action === 'revise'){
+        const { data, error } = await sb.rpc('roster_apply_revision', {
+          p_roster_id: it.existingId, p_duties: duties, p_meta: fileMeta,
+          p_reason: 'Revised roster uploaded' });
+        if(error) throw error;
+        const r = data || {};
+        const parts = [];
+        if(r.changed)   parts.push(`${r.changed} changed`);
+        if(r.added)     parts.push(`${r.added} added`);
+        if(r.removed)   parts.push(`${r.removed} removed`);
+        if(r.kept_flown)parts.push(`${r.kept_flown} already flown (kept)`);
+        it.res = { ok: true, text: (r.changed||r.added||r.removed)
+          ? 'Revised — ' + parts.join(', ') + '.'
+          : 'No changes — this roster matches the one on file.' + (r.kept_flown ? ` (${r.kept_flown} flown duties kept)` : '') };
+      } else {
+        const { error } = await sb.rpc('roster_publish', {
+          p_meta: { crew_name: it.meta.crewName, crew_code: it.meta.crewCode, crew_rank: it.meta.crewRank,
+                    base: it.meta.base, period_from: it.meta.periodFrom, period_to: it.meta.periodTo, ...fileMeta },
+          p_duties: duties, p_crew_user_id: it.userId || null });
+        if(error) throw error;
+        // Remember the PDF's crew code when the crew member has none yet
+        let note = '';
+        const owner = _rosterState.deskCrewList.find(c => c.user_id === it.userId);
+        if(owner && !owner.crew_code && it.meta.crewCode){
+          const { data: saved } = await sb.rpc('roster_set_crew_code', { p_user_id: owner.user_id, p_code: it.meta.crewCode });
+          if(saved){ owner.crew_code = saved; note = ` Code ${saved} saved for them.`; }
+        }
+        it.res = { ok: true, text: it.userId ? `Published for ${owner?.display_name || 'crew member'}.${note}` : 'Saved as unassigned — attach it from the list.' };
+      }
+      okN++;
+    }catch(e){
+      failN++;
+      const missing = e.code === 'PGRST202' || /could not find the function/i.test(e.message||'');
+      it.res = { ok: false, text: missing ? 'Needs the database update (migration 20) first.' : (e.message || 'Failed') };
+    }
+    renderRosterBulk();
+  }
+  bulk.busy = false; bulk.done = true;
+  document.getElementById('roster-bulk-sub').textContent = `${okN} done${failN ? ' · ' + failN + ' failed' : ''}`;
+  renderRosterBulk();
+  document.getElementById('roster-bulk-sub').textContent = `${okN} done${failN ? ' · ' + failN + ' failed' : ''}`;
+  toast(failN ? `⚠ ${okN} published, ${failN} failed` : `✅ ${okN} roster${okN!==1?'s':''} published`);
+}
+
+// ── Unassigned rosters (uploaded for a code nobody has yet) ──
+async function loadDeskUnassigned(){
+  const el = document.getElementById('desk-unassigned');
+  if(!el) return;
+  const { data, error } = await sb.from('crew_rosters')
+    .select('id, crew_name, crew_code, period_from, period_to')
+    .is('crew_user_id', null).order('period_from', { ascending: false });
+  if(error || !data?.length){ _rosterState.deskUnassigned = []; el.innerHTML = ''; return; }
+  _rosterState.deskUnassigned = data;
+  renderDeskUnassigned();
+}
+
+function renderDeskUnassigned(){
+  const el = document.getElementById('desk-unassigned');
+  const list = _rosterState.deskUnassigned || [];
+  if(!list.length){ el.innerHTML = ''; return; }
+  const crew = _rosterState.deskCrewList;
+  el.innerHTML = `<div class="desk-pending-h">Unassigned rosters · ${list.length}</div>` + list.map(r => {
+    const match = r.crew_code && crew.find(c => _norm(c.crew_code) === _norm(r.crew_code));
+    const armed = _rosterState.unDelArm === r.id;
+    return `<div class="bulk-item">
+      <div class="bulk-title">${escHtml(r.crew_name||'Unknown')} <span style="font-weight:600;color:var(--color-text-muted)">${escHtml(r.crew_code||'no code')}</span></div>
+      <div class="bulk-sub">${escHtml(fmtRosterPeriod(r.period_from, r.period_to))}</div>
+      ${match ? `<div class="bulk-line ok">Code matches <b>${escHtml(match.display_name)}</b>.</div>` : ''}
+      <div class="bulk-ctl">
+        <select class="rch-input" id="un-sel-${escHtml(r.id)}">
+          <option value="">Assign to…</option>
+          ${crew.map(c => `<option value="${escHtml(c.user_id)}" ${match&&c.user_id===match.user_id?'selected':''}>${escHtml(c.display_name)}${c.crew_code?' · '+escHtml(c.crew_code):''}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="deskAssignRoster('${escHtml(r.id)}')">Assign</button>
+        <button class="roster-change-btn" style="flex:none;padding:4px 10px" onclick="deskDeleteUnassigned('${escHtml(r.id)}')">${armed ? 'Tap to confirm' : '🗑'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deskAssignRoster(id){
+  const uid = document.getElementById('un-sel-' + id)?.value;
+  if(!uid){ toast('⚠ Choose a crew member first'); return; }
+  const { data, error } = await sb.rpc('roster_assign_owner', { p_roster_id: id, p_user_id: uid });
+  if(error){ toast('⚠ ' + error.message); return; }
+  const who = _rosterState.deskCrewList.find(c => c.user_id === uid);
+  toast('✅ Assigned to ' + (who?.display_name || 'crew member') + (data ? ' · code ' + data + ' saved' : ''));
+  await loadDeskCrewList();
+}
+
+async function deskDeleteUnassigned(id){
+  if(_rosterState.unDelArm !== id){
+    _rosterState.unDelArm = id; renderDeskUnassigned();
+    setTimeout(() => { if(_rosterState.unDelArm === id){ _rosterState.unDelArm = null; renderDeskUnassigned(); } }, 4000);
+    return;
+  }
+  _rosterState.unDelArm = null;
+  const { error } = await sb.from('crew_rosters').delete().eq('id', id);
+  if(error){ toast('⚠ ' + error.message); return; }
+  toast('Roster deleted');
+  loadDeskUnassigned();
+}
+
+// ═══════════════════════════════════════════════
 // ROSTER DESK — for roster officers
 // Pick a crew member, then view and change their roster, upload their PDF,
 // fix their crew code, or delete a wrong upload. Access is enforced by the
@@ -13339,6 +13701,7 @@ async function loadDeskCrewList(){
   _rosterState.deskCrewList = data || [];
   renderDeskChips();
   renderDeskCrewList();
+  loadDeskUnassigned();
 }
 
 function deskIsToday(){ return new Date().toISOString().slice(0,10); }
