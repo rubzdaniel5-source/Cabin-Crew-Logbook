@@ -931,6 +931,18 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .rch-hist-item{padding:9px 0;border-top:1px solid var(--color-border);font-size:.72rem;color:var(--color-text-muted);line-height:1.5}
 .rch-hist-item strong{color:var(--color-text-primary);font-size:.78rem}
 .rch-hist-diff span{color:var(--color-text-primary);font-weight:700}
+.desk-chip{font-size:.72rem;font-weight:700;padding:5px 12px;min-height:30px;border-radius:16px;border:1px solid var(--color-border);background:transparent;color:var(--color-text-muted);cursor:pointer;font-family:inherit}
+.desk-chip.active{background:rgba(79,142,247,.18);border-color:var(--color-accent,#4f8ef7);color:var(--color-text-primary)}
+.desk-crew-card{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 13px;margin-bottom:8px;border-radius:12px;border:1px solid transparent;background:var(--color-card,#16213e);cursor:pointer;font-family:inherit;color:var(--color-text-primary)}
+.desk-crew-name{font-size:.86rem;font-weight:800}
+.desk-crew-sub{font-size:.7rem;color:var(--color-text-muted);margin-top:2px}
+.desk-crew-meta{margin-left:auto;text-align:right;font-size:.66rem;color:var(--color-text-muted);white-space:nowrap}
+.desk-badge{display:inline-block;font-size:.6rem;font-weight:700;padding:1px 7px;border-radius:9px;margin-left:5px}
+.desk-badge-warn{background:rgba(245,158,11,.15);color:#fde68a}
+.desk-badge-ok{background:rgba(34,197,94,.15);color:#86efac}
+.desk-badge-off{background:rgba(255,255,255,.08);color:var(--color-text-muted)}
+.desk-warn{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fde68a;font-size:.76rem;line-height:1.5}
+.desk-ok{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;font-size:.76rem;line-height:1.5}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
 
 /* ── PASSENGER FEEDBACK ──────────────────────────────────── */
@@ -1848,6 +1860,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   <div class="pd-view-tabs" id="log-sub-tabs" style="margin-bottom:0">
     <button class="pd-view-tab active" id="log-subtab-flights" onclick="switchLogView('flights')">✈️ Flight Logs</button>
     <button class="pd-view-tab" id="log-subtab-roster" onclick="switchLogView('roster')">📋 My Roster</button>
+    <button class="pd-view-tab" id="log-subtab-desk" onclick="switchLogView('desk')" style="display:none">🗂 Roster Desk</button>
   </div>
 
   <!-- ── FLIGHT LOGS VIEW ───────────────────────────── -->
@@ -1886,6 +1899,40 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 
     <!-- Duty list -->
     <div id="roster-duty-list"></div>
+  </div>
+
+  <!-- ── ROSTER DESK VIEW (roster officers) ────────── -->
+  <div id="log-view-desk" style="display:none">
+    <div id="desk-offline-notice" style="display:none;text-align:center;padding:24px 16px;color:var(--color-text-muted);font-size:.82rem">
+      📡 The Roster Desk requires a connection.
+    </div>
+
+    <!-- Crew list -->
+    <div id="desk-crew-view">
+      <div class="search-wrap" style="margin-top:12px">
+        <span class="search-ico">🔍</span>
+        <input class="rch-input" type="text" id="desk-search" placeholder="Search crew name or code…" oninput="renderDeskCrewList()" autocomplete="off" style="padding-left:38px"/>
+      </div>
+      <div id="desk-chips" style="display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap"></div>
+      <div id="desk-crew-list"></div>
+    </div>
+
+    <!-- One crew member's roster -->
+    <div id="desk-roster-view" style="display:none">
+      <button class="roster-change-btn" onclick="closeDeskCrew()" style="flex:none;margin:12px 0 10px;padding:6px 12px">‹ All crew</button>
+      <div id="desk-crew-head" style="margin-bottom:10px"></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:0 0 8px">
+        <select id="desk-period-select" class="rch-input" style="flex:1;width:auto;min-width:0;font-size:.8rem;padding:8px 10px"
+                onchange="loadRosterDuties(this.value, true)">
+          <option value="">— No roster —</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="triggerRosterUpload(true)" style="white-space:nowrap;flex:0 0 auto;width:auto">⬆ Upload PDF</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:2px">
+        <button id="desk-delete-btn" class="roster-change-btn" onclick="deskDeleteRoster()" style="flex:none;padding:4px 10px;min-height:28px;display:none">🗑 Delete this roster</button>
+      </div>
+      <div id="desk-duty-list"></div>
+    </div>
   </div>
 </div>
 
@@ -6401,6 +6448,7 @@ let dashMonth      = new Date(); dashMonth.setDate(1);
 let selectedCrew   = [];
 let currentUser    = null;
 let isAdmin        = false;
+let isRosterOfficer = false;   // set after login from roster_is_officer() (server-side check)
 let sectorFieldCount = 2;
 
 // ── Tenant config — resolved after login from guestora_tenants ──────────────
@@ -6538,6 +6586,8 @@ async function initAuth(){
     if(event === 'SIGNED_OUT'){
       currentUser = null;
       isAdmin     = false;
+      isRosterOfficer = false;
+      try{ updateRosterDeskTab(); }catch{}
       unsubscribeChat();
 
       // ── Clear ALL in-memory and local caches ──────────────
@@ -11506,6 +11556,15 @@ async function onLoggedIn(){
   const adminMenuBtn = document.getElementById('menu-admin-btn');
   if(adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
 
+  // Roster officers get the Roster Desk. Asked of the server (not read from
+  // the browser) so it cannot be faked; fails closed if the database update
+  // is not applied yet.
+  isRosterOfficer = false; updateRosterDeskTab();
+  sb.rpc('roster_is_officer').then(({ data, error }) => {
+    isRosterOfficer = !error && data === true;
+    updateRosterDeskTab();
+  }).catch(()=>{});
+
   if(isAdmin){
     const pill = document.getElementById('user-pill');
     if(pill) pill.title = 'Admin · My Profile';
@@ -11981,15 +12040,34 @@ let _rosterState = {
   completeId: null,  // roster_duties.id being completed
   changeId:   null,  // roster_duties.id whose change sheet is open
   changeAction: null,// action key selected in the change sheet
+  changeDesk: false, // the change sheet is open on a Roster Desk duty
+  // Roster Desk (officers) — kept apart from "My Roster" so the two never mix
+  deskCrew:     null,  // { user_id, display_name, position, crew_code, … } being viewed
+  deskRosterId: null,
+  deskDuties:   [],
+  deskRosters:  [],    // crew_rosters rows for deskCrew
+  deskCrewList: [],    // roster_desk_crew() rows
+  deskFilter:   'all',
+  uploadFor:    null,  // set while an officer is uploading a PDF for deskCrew
 };
 
 /* ── Sub-tab switcher ───────────────────────────────────────── */
 function switchLogView(tab){
+  if(tab==='desk' && !isRosterOfficer) tab = 'flights';
   document.getElementById('log-view-flights').style.display = tab==='flights' ? '' : 'none';
   document.getElementById('log-view-roster').style.display  = tab==='roster'  ? '' : 'none';
+  document.getElementById('log-view-desk').style.display    = tab==='desk'    ? '' : 'none';
   document.getElementById('log-subtab-flights').classList.toggle('active', tab==='flights');
   document.getElementById('log-subtab-roster').classList.toggle('active',  tab==='roster');
+  document.getElementById('log-subtab-desk').classList.toggle('active',    tab==='desk');
   if(tab==='roster') initRosterTab();
+  if(tab==='desk')   initDeskTab();
+}
+function updateRosterDeskTab(){
+  const btn = document.getElementById('log-subtab-desk');
+  if(btn) btn.style.display = isRosterOfficer ? '' : 'none';
+  // Lost officer rights (or signed out) while on the desk: leave it
+  if(!isRosterOfficer && document.getElementById('log-view-desk')?.style.display !== 'none') switchLogView('flights');
 }
 
 /* ── Init: populate period selector ────────────────────────── */
@@ -12043,10 +12121,11 @@ function fmtRosterPeriod(from, to){
 }
 
 /* ── Load duties for a roster ───────────────────────────────── */
-async function loadRosterDuties(rosterId){
-  if(!rosterId) return;
-  _rosterState.rosterId = rosterId;
-  document.getElementById('roster-duty-list').innerHTML =
+async function loadRosterDuties(rosterId, desk){
+  const listEl = document.getElementById(desk ? 'desk-duty-list' : 'roster-duty-list');
+  if(!rosterId){ if(desk){ _rosterState.deskRosterId = null; _rosterState.deskDuties = []; listEl.innerHTML = ''; } return; }
+  if(desk) _rosterState.deskRosterId = rosterId; else _rosterState.rosterId = rosterId;
+  listEl.innerHTML =
     `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
   try{
     const { data, error } = await sb.from('roster_duties')
@@ -12054,18 +12133,23 @@ async function loadRosterDuties(rosterId){
       .eq('roster_id', rosterId)
       .order('duty_date', { ascending: true });
     if(error) throw error;
-    _rosterState.duties = data || [];
-    renderRosterDuties();
+    // Ignore a slow response if the officer has moved on to another roster
+    if(desk && _rosterState.deskRosterId !== rosterId) return;
+    if(!desk && _rosterState.rosterId !== rosterId) return;
+    if(desk) _rosterState.deskDuties = data || []; else _rosterState.duties = data || [];
+    renderRosterDuties(desk);
+    if(desk) deskUpdateDeleteBtn();
   }catch(e){
-    document.getElementById('roster-duty-list').innerHTML =
-      `<div style="text-align:center;padding:24px;color:var(--color-warning);font-size:.82rem">⚠ Could not load duties: ${e.message}</div>`;
+    listEl.innerHTML =
+      `<div style="text-align:center;padding:24px;color:var(--color-warning);font-size:.82rem">⚠ Could not load duties: ${escHtml(e.message)}</div>`;
   }
 }
 
 /* ── Render duty list ───────────────────────────────────────── */
-function renderRosterDuties(){
-  const duties = _rosterState.duties;
-  const el = document.getElementById('roster-duty-list');
+function renderRosterDuties(desk){
+  desk = !!desk;
+  const duties = desk ? _rosterState.deskDuties : _rosterState.duties;
+  const el = document.getElementById(desk ? 'desk-duty-list' : 'roster-duty-list');
   if(!duties.length){ el.innerHTML = '<div class="empty" style="padding:24px 0;text-align:center">No duties found.</div>'; return; }
 
   const today = new Date().toISOString().slice(0,10);
@@ -12079,10 +12163,10 @@ function renderRosterDuties(){
       parts.push(`<div class="roster-week-heading">${weekHeadingLabel(d.duty_date)}</div>`);
       lastWeek = weekKey;
     }
-    parts.push(rosterDutyCardHTML(d, today));
+    parts.push(rosterDutyCardHTML(d, today, desk));
   }
-  if(rosterChangesEnabled())
-    parts.push(`<button class="roster-add-btn" onclick="openRosterAddDuty()">＋ Add a duty that is not on this roster</button>`);
+  if(rosterChangesEnabled(duties))
+    parts.push(`<button class="roster-add-btn" onclick="openRosterAddDuty(${desk})">＋ Add a duty that is not on this roster</button>`);
   el.innerHTML = parts.join('');
 }
 
@@ -12140,7 +12224,7 @@ function minsToHHMM(mins){
   return `${h}:${String(m).padStart(2,'0')}`;
 }
 
-function rosterDutyCardHTML(d, today){
+function rosterDutyCardHTML(d, today, desk){
   const isToday  = d.duty_date === today;
   const isOP     = d.duty_type && d.duty_type.toUpperCase().startsWith('OP');
   const dtl      = dutyTypeLabel(d.duty_type);
@@ -12173,7 +12257,7 @@ function rosterDutyCardHTML(d, today){
         <span class="roster-card-type ${dtl.cls}">${dtl.text}</span>
         ${isToday ? '<span class="roster-today-pulse" style="margin-left:4px"></span>' : ''}
       </div>
-      ${rosterCardFooterHTML(d, false)}
+      ${rosterCardFooterHTML(d, false, desk)}
     </div>`;
   }
 
@@ -12198,7 +12282,7 @@ function rosterDutyCardHTML(d, today){
       ${actBlock ? `<div class="roster-block-item">Actual Block <span style="color:#86efac">${actBlock}</span></div>` : ''}
       ${d.divert_airport ? `<div class="roster-block-item">Diverted → <span style="color:#fde68a">${escHtml(d.divert_airport)}</span></div>` : ''}
     </div>
-    ${rosterCardFooterHTML(d, showComplete)}
+    ${rosterCardFooterHTML(d, showComplete, desk)}
   </div>`;
 }
 
@@ -12224,12 +12308,19 @@ const ROSTER_GROUND_TYPES = [
 
 function isRosterFlight(d){ return !!(d && d.duty_type && d.duty_type.toUpperCase().startsWith('OP')); }
 // Change tracking arrives with the roster database update (migration 17/18).
-function rosterChangesEnabled(){
-  const d = _rosterState.duties[0];
+function rosterChangesEnabled(list){
+  const d = (list || _rosterState.duties)[0];
   return !!d && d.revision !== undefined && d.officer_locked !== undefined;
 }
-function rosterCanChange(d){
-  return rosterChangesEnabled() && !d.officer_locked && d.status !== 'completed' && d.status !== 'diverted';
+// True while a roster officer is working on someone else's roster. Their
+// changes are recorded as officer changes and lock the duty for the crew.
+function rosterOfficerMode(desk){
+  return !!desk && isRosterOfficer && !!_rosterState.deskCrew && _rosterState.deskCrew.user_id !== currentUser?.id;
+}
+function rosterCanChange(d, desk){
+  if(!rosterChangesEnabled(desk ? _rosterState.deskDuties : _rosterState.duties)) return false;
+  if(d.status === 'completed' || d.status === 'diverted') return false;   // flown: the crew member's record
+  return rosterOfficerMode(desk) || !d.officer_locked;
 }
 function rosterSourceTagHTML(source){
   if(source === 'officer') return '<span class="roster-src-tag roster-src-officer">Roster officer</span>';
@@ -12259,7 +12350,9 @@ function rosterDiffersFromPublished(d){
 }
 
 // Change note + action buttons shown at the bottom of every duty card.
-function rosterCardFooterHTML(d, showComplete){
+function rosterCardFooterHTML(d, showComplete, desk){
+  const officer = rosterOfficerMode(desk);
+  if(officer) showComplete = false;   // completing a flight is the crew member's own record
   if(d.revision === undefined){   // database update not applied yet: old behaviour
     return showComplete ? `<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>` : '';
   }
@@ -12277,18 +12370,22 @@ function rosterCardFooterHTML(d, showComplete){
     if(rosterDiffersFromPublished(d)) bits.push(`Published as: ${rosterPublishedSummaryHTML(d.published)}`);
     if(bits.length) note = `<div class="roster-change-note">${bits.join('<br>')}</div>`;
   }
-  if(d.officer_locked && !flown)
+  if(d.officer_locked && !flown && !officer)
     note += `<div class="roster-change-note">🔒 Set by your roster officer — contact them to change it.</div>`;
 
   const btns = [];
   if(showComplete) btns.push(`<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>`);
-  if(rosterCanChange(d)) btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}')">✎ Report a change</button>`);
-  if(changed)            btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', true)">🕘 History</button>`);
+  if(rosterCanChange(d, desk)) btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', false, ${!!desk})">${officer ? '✎ Change duty' : '✎ Report a change'}</button>`);
+  if(changed)            btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', true, ${!!desk})">🕘 History</button>`);
   return note + (btns.length ? `<div class="roster-card-actions">${btns.join('')}</div>` : '');
 }
 
 /* ── Upload PDF ─────────────────────────────────────────────── */
-function triggerRosterUpload(){
+function triggerRosterUpload(forDesk){
+  // From the Roster Desk the PDF is published for the selected crew member;
+  // from My Roster it is always the signed-in user's own roster.
+  _rosterState.uploadFromDesk = !!forDesk;
+  _rosterState.uploadFor = (forDesk && rosterOfficerMode(true)) ? _rosterState.deskCrew : null;
   document.getElementById('roster-file-input').value = '';
   document.getElementById('roster-file-input').click();
 }
@@ -12506,7 +12603,7 @@ function showRosterPreview(parsed, filename){
     </tr>`;
   }).join('');
 
-  document.getElementById('roster-preview-body').innerHTML =
+  document.getElementById('roster-preview-body').innerHTML = rosterPreviewBannerHTML(meta) +
     `<div style="font-size:.8rem;color:var(--color-text-muted);margin-bottom:12px">
       Found <strong style="color:var(--color-text-primary)">${opCount} operating flight${opCount!==1?'s':''}</strong>
       and ${offCount} non-operating day${offCount!==1?'s':''}.
@@ -12529,19 +12626,61 @@ function showRosterPreview(parsed, filename){
 
   const modal = document.getElementById('roster-preview-modal');
   modal.style.display = 'flex';
+  rosterPreviewApplyAck();
+}
+
+// Banner shown when an officer publishes a roster for a crew member:
+// who it is for, and anything worth double-checking before it goes out.
+function rosterPreviewBannerHTML(meta){
+  _rosterState.previewNeedsAck = false;
+  _rosterState.previewSetCode  = null;
+  const t = _rosterState.uploadFor;
+  if(!t) return '';
+  const name = escHtml(t.display_name);
+  const pdfCode = (meta.crewCode || '').trim().toUpperCase();
+  const have    = (t.crew_code || '').trim().toUpperCase();
+  const warns = [];
+  if(pdfCode && have && pdfCode !== have)
+    warns.push(`This PDF is for crew code <b>${escHtml(pdfCode)}</b>, but ${name} is <b>${escHtml(have)}</b>. Check you picked the right crew member.`);
+  if(_rosterState.deskRosters.some(r => r.period_from === meta.periodFrom && r.period_to === meta.periodTo))
+    warns.push(`${name} already has a roster for this period. Importing adds a second copy — delete the old one afterwards if this replaces it.`);
+  let info = '';
+  if(!have && pdfCode){
+    _rosterState.previewSetCode = pdfCode;
+    info = ` ${escHtml(pdfCode)} will also be saved as their crew code.`;
+  }
+  _rosterState.previewNeedsAck = warns.length > 0;
+  return `<div class="desk-ok">Publishing for <b>${name}</b>${have ? ' (' + escHtml(have) + ')' : ''}.${info}</div>`
+    + (warns.length ? `<div class="desk-warn">${warns.map(w => '⚠ ' + w).join('<br>')}
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:700">
+          <input type="checkbox" id="roster-warn-ack" onchange="rosterPreviewApplyAck()"/> I have checked — import anyway</label></div>` : '');
+}
+function rosterPreviewApplyAck(){
+  const btn = document.getElementById('roster-import-btn');
+  if(!btn) return;
+  btn.disabled = !!_rosterState.previewNeedsAck && !document.getElementById('roster-warn-ack')?.checked;
 }
 
 function closeRosterPreview(){
   document.getElementById('roster-preview-modal').style.display = 'none';
   _rosterState.parsed = null;
+  _rosterState.uploadFor = null;
+  _rosterState.previewNeedsAck = false;
 }
 
 /* ── Confirm import → Supabase ──────────────────────────────── */
 async function confirmRosterImport(){
   const p = _rosterState.parsed;
   if(!p){ closeRosterPreview(); return; }
+  if(_rosterState.previewNeedsAck && !document.getElementById('roster-warn-ack')?.checked){
+    toast('⚠ Tick the box to confirm you have checked the warning.'); return;
+  }
   document.getElementById('roster-import-btn').textContent = 'Importing…';
   document.getElementById('roster-import-btn').disabled = true;
+  const target    = _rosterState.uploadFor;          // crew member an officer is publishing for (or null)
+  const fromDesk  = !!_rosterState.uploadFromDesk;
+  const setCode   = _rosterState.previewSetCode;
+  let createdRosterId = null;
   try{
     const { meta, duties, sourceFilename, rawText } = p;
 
@@ -12562,9 +12701,11 @@ async function confirmRosterImport(){
       source_filename:      sourceFilename,
       raw_text:             rawText,
       uploaded_by:          currentUser?.id || null,
+      ...(target ? { source: 'officer', crew_user_id: target.user_id } : {}),
     }).select('id').single();
     if(rErr) throw rErr;
     const rosterId = rRow.id;
+    createdRosterId = rosterId;
 
     // 2. Insert duty rows in batches of 50 (no tenant_id — trigger sets it)
     const dutyRows = duties.map(d => ({
@@ -12588,14 +12729,34 @@ async function confirmRosterImport(){
       if(dErr) throw dErr;
     }
 
-    toast('✅ Roster imported!');
+    if(target && setCode){
+      // Remember the crew code from the PDF (the officer saw this in the preview)
+      const { data: saved } = await sb.rpc('roster_set_crew_code', { p_user_id: target.user_id, p_code: setCode });
+      if(saved){
+        target.crew_code = saved;
+        const inList = _rosterState.deskCrewList.find(x => x.user_id === target.user_id);
+        if(inList) inList.crew_code = saved;
+      }
+    }
+    toast(target ? '✅ Roster published for ' + target.display_name : '✅ Roster imported!');
     closeRosterPreview();
-    await initRosterTab();
+    if(fromDesk && _rosterState.deskCrew){
+      const c = _rosterState.deskCrew;
+      const inList = _rosterState.deskCrewList.find(x => x.user_id === c.user_id);
+      if(inList){ inList.roster_count = (inList.roster_count||0) + 1; inList.latest_to = inList.latest_to && inList.latest_to > meta.periodTo ? inList.latest_to : meta.periodTo; }
+      await openDeskCrew(c.user_id, rosterId);
+    } else {
+      await initRosterTab();
+    }
   }catch(e){
+    // Do not leave a half-imported roster behind (header saved, duties failed)
+    if(createdRosterId){
+      try{ await sb.from('crew_rosters').delete().eq('id', createdRosterId); }catch{}
+    }
     toast('⚠ Import failed: ' + e.message);
   }finally{
     const btn = document.getElementById('roster-import-btn');
-    if(btn){ btn.textContent = 'Import Roster'; btn.disabled = false; }
+    if(btn){ btn.textContent = 'Import Roster'; rosterPreviewApplyAck(); }
   }
 }
 
@@ -12785,18 +12946,20 @@ async function saveRosterComplete(){
 // Every change goes through the roster_apply_change / roster_add_duty
 // database functions, which record it in the change history.
 // ═══════════════════════════════════════════════
-function rosterChangeActions(d){
+function rosterChangeActions(d, officer){
   const st = d.status;
   if(isRosterFlight(d)){
     if(st === 'cancelled' || st === 'removed' || st === 'no_show')
-      return [{ key:'reinstate', icon:'↩', title:'Flight is back on', sub:'Put this flight back on my roster' }];
+      return [{ key:'reinstate', icon:'↩', title:'Flight is back on', sub: officer ? 'Put this flight back on the roster' : 'Put this flight back on my roster' }];
     return [
       { key:'delay',     icon:'⏱', title:'Delayed',                   sub:'Later departure, same day' },
       { key:'retime',    icon:'🕐', title:'Re-timed',                  sub:'Times changed, including an earlier departure' },
       { key:'postpone',  icon:'📅', title:'Moved to another date',     sub:'Flight postponed or brought forward' },
       { key:'flightchg', icon:'✈',  title:'Flight number or route changed', sub:'Different flight number, origin or destination' },
       { key:'cancel',    icon:'❌', title:'Flight cancelled',          sub:'The flight will not operate' },
-      { key:'stooddown', icon:'⤵',  title:'Taken off this flight',     sub:'The flight operates, but I am no longer on it' },
+      { key:'stooddown', icon:'⤵',  title: officer ? 'Taken off this flight' : 'Taken off this flight',
+        sub: officer ? 'The flight operates, but this crew member is no longer on it' : 'The flight operates, but I am no longer on it' },
+      ...(officer ? [{ key:'noshow', icon:'🚫', title:'No-show', sub:'Crew member did not report for this flight' }] : []),
     ];
   }
   const isSby = (d.duty_type||'').toUpperCase() === 'SBY';
@@ -12815,8 +12978,11 @@ function rosterChangeSheetMode(mode, saveLabel){
   save.textContent = saveLabel || 'Save change';
 }
 
-function openRosterChangeSheet(dutyId, historyOnly){
-  const d = _rosterState.duties.find(x => x.id === dutyId);
+function rosterChangeList(){ return _rosterState.changeDesk ? _rosterState.deskDuties : _rosterState.duties; }
+
+function openRosterChangeSheet(dutyId, historyOnly, desk){
+  _rosterState.changeDesk = !!desk;
+  const d = rosterChangeList().find(x => x.id === dutyId);
   if(!d) return;
   _rosterState.changeId = dutyId;
   _rosterState.changeAction = null;
@@ -12847,23 +13013,26 @@ function rosterDutyTitle(d){
 }
 
 function renderRosterChangeMenu(historyOnly){
-  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  const d = rosterChangeList().find(x => x.id === _rosterState.changeId);
   if(!d) return;
+  const desk = _rosterState.changeDesk, officer = rosterOfficerMode(desk);
   document.getElementById('rch-title').textContent = rosterDutyTitle(d);
   document.getElementById('rch-sub').textContent   = fmtRosterPeriod(d.duty_date, d.duty_date);
   rosterChangeSheetMode('menu');
 
   let html = '';
   if(!historyOnly){
-    if(rosterCanChange(d)){
+    if(rosterCanChange(d, desk)){
       html += `<div class="rcs-label" style="margin-bottom:8px">What changed?</div>`;
-      html += rosterChangeActions(d).map(a => `
+      html += rosterChangeActions(d, officer).map(a => `
         <button class="rch-action" onclick="selectRosterChangeAction('${a.key}')">
           <span class="rch-action-icon">${a.icon}</span>
           <span><div class="rch-action-title">${escHtml(a.title)}</div><div class="rch-action-sub">${escHtml(a.sub)}</div></span>
         </button>`).join('');
-      html += `<div class="roster-change-note" style="margin:4px 0 14px">Your change is saved as crew-reported. Your roster officer's version takes priority if they update this duty.</div>`;
-    } else if(d.officer_locked){
+      html += officer
+        ? `<div class="roster-change-note" style="margin:4px 0 14px">Saved as a roster officer change. ${escHtml(_rosterState.deskCrew.display_name)} will see it on their roster and cannot override it.</div>`
+        : `<div class="roster-change-note" style="margin:4px 0 14px">Your change is saved as crew-reported. Your roster officer's version takes priority if they update this duty.</div>`;
+    } else if(d.officer_locked && !officer){
       html += `<div class="roster-change-note" style="margin-bottom:14px">🔒 This duty was set by your roster officer. Contact them to change it.</div>`;
     }
   }
@@ -12951,10 +13120,10 @@ function rchFlightFieldsHTML(d){
 }
 
 function selectRosterChangeAction(key){
-  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  const d = rosterChangeList().find(x => x.id === _rosterState.changeId);
   if(!d) return;
   _rosterState.changeAction = key;
-  const action = rosterChangeActions(d).find(a => a.key === key);
+  const action = rosterChangeActions(d, rosterOfficerMode(_rosterState.changeDesk)).find(a => a.key === key);
   const std = rchCleanTime(d.std_local), sta = rchCleanTime(d.sta_local);
   let html = `<div class="rcs-label" style="margin-bottom:10px;color:var(--color-text-primary)">${escHtml(action ? action.title : '')}</div>`;
 
@@ -12997,12 +13166,15 @@ function selectRosterChangeAction(key){
   rosterChangeSheetMode('form');
 }
 
-function openRosterAddDuty(){
-  if(!_rosterState.rosterId) return;
+function openRosterAddDuty(desk){
+  _rosterState.changeDesk = !!desk;
+  if(!(desk ? _rosterState.deskRosterId : _rosterState.rosterId)) return;
   _rosterState.changeId = null;
   _rosterState.changeAction = 'add';
   document.getElementById('rch-title').textContent = 'Add a duty';
-  document.getElementById('rch-sub').textContent   = 'For a duty that is not on the published roster';
+  document.getElementById('rch-sub').textContent   = desk && rosterOfficerMode(true)
+    ? `For ${_rosterState.deskCrew.display_name} — a duty that is not on the published roster`
+    : 'For a duty that is not on the published roster';
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('rch-body').innerHTML =
     rchField('Date', `<input id="rch-date" class="rch-input" type="date" value="${today}"/>`)
@@ -13046,7 +13218,9 @@ async function saveRosterChange(){
     inp.value = clean;
   }
   const reason = rchVal('rch-reason') || null;
-  const d = _rosterState.duties.find(x => x.id === _rosterState.changeId);
+  const desk = _rosterState.changeDesk;
+  const list = rosterChangeList();
+  const d = list.find(x => x.id === _rosterState.changeId);
   let type = null, changes = null, addDuty = null;
 
   if(key === 'add'){
@@ -13087,6 +13261,8 @@ async function saveRosterChange(){
       type = 'flight_changed';
     } else if(key === 'cancel'){
       type = 'cancelled'; changes = { status: 'cancelled' };
+    } else if(key === 'noshow'){
+      type = 'no_show'; changes = { status: 'no_show' };
     } else if(key === 'reinstate'){
       type = 'reinstated'; changes = { status: 'rostered' };
     } else if(key === 'stooddown'){
@@ -13112,23 +13288,234 @@ async function saveRosterChange(){
   btn.disabled = true;
   try{
     const { data, error } = addDuty
-      ? await sb.rpc('roster_add_duty',     { p_roster_id: _rosterState.rosterId, p_duty: addDuty, p_reason: reason })
+      ? await sb.rpc('roster_add_duty',     { p_roster_id: desk ? _rosterState.deskRosterId : _rosterState.rosterId, p_duty: addDuty, p_reason: reason })
       : await sb.rpc('roster_apply_change', { p_duty_id: d.id, p_change_type: type, p_changes: changes, p_reason: reason });
     if(error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     if(row && row.id){
-      const idx = _rosterState.duties.findIndex(x => x.id === row.id);
-      if(idx !== -1) _rosterState.duties[idx] = row; else _rosterState.duties.push(row);
-      _rosterState.duties.sort((a,b) => a.duty_date.localeCompare(b.duty_date) || ((a.s_no ?? 9999) - (b.s_no ?? 9999)));
+      const idx = list.findIndex(x => x.id === row.id);
+      if(idx !== -1) list[idx] = row; else list.push(row);
+      list.sort((a,b) => a.duty_date.localeCompare(b.duty_date) || ((a.s_no ?? 9999) - (b.s_no ?? 9999)));
     }
-    toast(addDuty ? '✅ Duty added to your roster' : '✅ Change saved · ' + (ROSTER_CHANGE_LABELS[type] || type));
+    const forOther = rosterOfficerMode(desk);
+    toast(addDuty ? (forOther ? '✅ Duty added to ' + _rosterState.deskCrew.display_name + "'s roster" : '✅ Duty added to your roster')
+                  : '✅ Change saved · ' + (ROSTER_CHANGE_LABELS[type] || type));
     closeRosterChangeSheet();
-    renderRosterDuties();
+    renderRosterDuties(desk);
   }catch(e){
     btn.disabled = false;
     const missing = e.code === 'PGRST202' || /could not find the function/i.test(e.message||'');
     toast(missing ? '⚠ Roster changes need a database update before they can be saved.'
                   : '⚠ Could not save: ' + (e.message || 'unknown error'));
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ROSTER DESK — for roster officers
+// Pick a crew member, then view and change their roster, upload their PDF,
+// fix their crew code, or delete a wrong upload. Access is enforced by the
+// database; this screen is only shown when roster_is_officer() says yes.
+// ═══════════════════════════════════════════════
+async function initDeskTab(){
+  const off = document.getElementById('desk-offline-notice');
+  if(!isOnline){ off.style.display = ''; return; }
+  off.style.display = 'none';
+  if(_rosterState.deskCrew) return;          // a crew member's roster is open — keep it
+  await loadDeskCrewList();
+}
+
+async function loadDeskCrewList(){
+  const el = document.getElementById('desk-crew-list');
+  if(!_rosterState.deskCrewList.length)
+    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading crew…</div>`;
+  const { data, error } = await sb.rpc('roster_desk_crew');
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    el.innerHTML = `<div class="desk-warn">${missing
+      ? 'The Roster Desk needs a database update (migration 19) before it can load.'
+      : '⚠ Could not load crew: ' + escHtml(error.message)}</div>`;
+    return;
+  }
+  _rosterState.deskCrewList = data || [];
+  renderDeskChips();
+  renderDeskCrewList();
+}
+
+function deskIsToday(){ return new Date().toISOString().slice(0,10); }
+
+function setDeskFilter(f){ _rosterState.deskFilter = f; renderDeskChips(); renderDeskCrewList(); }
+
+function renderDeskChips(){
+  const list = _rosterState.deskCrewList;
+  const today = deskIsToday();
+  const counts = {
+    all:      list.length,
+    none:     list.filter(c => !c.roster_count).length,
+    nocode:   list.filter(c => !c.crew_code).length,
+    ended:    list.filter(c => c.roster_count && c.latest_to < today).length,
+  };
+  const chip = (k, label) => `<button class="desk-chip ${_rosterState.deskFilter===k?'active':''}" onclick="setDeskFilter('${k}')">${label} · ${counts[k]}</button>`;
+  document.getElementById('desk-chips').innerHTML =
+    chip('all','All') + chip('none','No roster') + chip('ended','Roster ended') + chip('nocode','No code');
+}
+
+function renderDeskCrewList(){
+  const el = document.getElementById('desk-crew-list');
+  const q = (document.getElementById('desk-search').value || '').trim().toLowerCase();
+  const today = deskIsToday();
+  const f = _rosterState.deskFilter;
+  const rows = _rosterState.deskCrewList.filter(c => {
+    if(q && !((c.display_name||'').toLowerCase().includes(q) || (c.crew_code||'').toLowerCase().includes(q))) return false;
+    if(f === 'none')   return !c.roster_count;
+    if(f === 'ended')  return c.roster_count && c.latest_to < today;
+    if(f === 'nocode') return !c.crew_code;
+    return true;
+  });
+  if(!rows.length){
+    el.innerHTML = `<div class="empty" style="padding:24px 0;text-align:center">${q ? 'No crew match your search.' : 'No crew to show.'}</div>`;
+    return;
+  }
+  el.innerHTML = rows.map(c => {
+    let badge;
+    if(!c.roster_count)              badge = '<span class="desk-badge desk-badge-off">No roster</span>';
+    else if(c.latest_to >= today)    badge = `<span class="desk-badge desk-badge-ok">Current</span>`;
+    else                             badge = '<span class="desk-badge desk-badge-warn">Ended</span>';
+    const meta = c.roster_count
+      ? `${c.roster_count} roster${c.roster_count>1?'s':''}<br>to ${escHtml(rosterShortDate(c.latest_to))}`
+      : '';
+    return `<button class="desk-crew-card" onclick="openDeskCrew('${escHtml(c.user_id)}')">
+      <div style="min-width:0">
+        <div class="desk-crew-name">${escHtml(c.display_name)}${badge}</div>
+        <div class="desk-crew-sub">${[c.crew_position, c.crew_code ? escHtml(c.crew_code) : '<span style="color:#fde68a">No crew code</span>'].filter(Boolean).map(x => x).join(' · ')}</div>
+      </div>
+      <div class="desk-crew-meta">${meta}</div>
+    </button>`;
+  }).join('');
+}
+
+function deskCrewHeadHTML(){
+  const c = _rosterState.deskCrew;
+  const self = c.user_id === currentUser?.id;
+  return `<div style="font-size:1rem;font-weight:800;color:var(--color-text-primary)">${escHtml(c.display_name)}${self ? ' <span class="desk-badge desk-badge-off">you</span>' : ''}</div>
+    <div class="desk-crew-sub" id="desk-code-slot">${escHtml(c.crew_position || 'Crew')} · Code:
+      <b style="color:var(--color-text-primary)">${c.crew_code ? escHtml(c.crew_code) : '—'}</b>
+      <button class="roster-change-btn" onclick="deskEditCode()" style="flex:none;padding:2px 10px;min-height:26px;margin-left:6px">✎ ${c.crew_code ? 'Edit' : 'Set code'}</button>
+    </div>`;
+}
+
+function deskEditCode(){
+  const c = _rosterState.deskCrew;
+  document.getElementById('desk-code-slot').innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+      <input id="desk-code-input" class="rch-input" type="text" maxlength="20" placeholder="Crew code" autocapitalize="characters" autocomplete="off"
+             value="${escHtml(c.crew_code||'')}" style="text-transform:uppercase;flex:1" oninput="this.value=this.value.toUpperCase()"/>
+      <button class="btn btn-primary btn-sm" onclick="deskSaveCode()">Save</button>
+      <button class="btn btn-sm" onclick="document.getElementById('desk-crew-head').innerHTML = deskCrewHeadHTML()">Cancel</button>
+    </div>`;
+  document.getElementById('desk-code-input').focus();
+}
+
+async function deskSaveCode(){
+  const c = _rosterState.deskCrew;
+  const code = (document.getElementById('desk-code-input').value || '').trim();
+  const { data, error } = await sb.rpc('roster_set_crew_code', { p_user_id: c.user_id, p_code: code });
+  if(error){ toast('⚠ ' + error.message); return; }
+  c.crew_code = data || null;
+  const inList = _rosterState.deskCrewList.find(x => x.user_id === c.user_id);
+  if(inList) inList.crew_code = c.crew_code;
+  document.getElementById('desk-crew-head').innerHTML = deskCrewHeadHTML();
+  toast(c.crew_code ? '✅ Crew code saved' : '✅ Crew code cleared');
+}
+
+async function openDeskCrew(userId, preferRosterId){
+  const c = _rosterState.deskCrewList.find(x => x.user_id === userId);
+  if(!c) return;
+  _rosterState.deskCrew = c;
+  _rosterState.deskDuties = [];
+  _rosterState.deskRosterId = null;
+  _rosterState.deskRosters = [];
+  document.getElementById('desk-crew-view').style.display = 'none';
+  document.getElementById('desk-roster-view').style.display = '';
+  document.getElementById('desk-crew-head').innerHTML = deskCrewHeadHTML();
+  document.getElementById('desk-duty-list').innerHTML =
+    `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
+  deskUpdateDeleteBtn();
+  const sel = document.getElementById('desk-period-select');
+  try{
+    const { data, error } = await sb.from('crew_rosters')
+      .select('id, crew_name, crew_code, period_from, period_to, source, source_filename')
+      .eq('crew_user_id', userId)
+      .order('period_from', { ascending: false });
+    if(error) throw error;
+    if(_rosterState.deskCrew !== c) return;          // officer went back / picked someone else
+    _rosterState.deskRosters = data || [];
+    if(!data || !data.length){
+      sel.innerHTML = '<option value="">— No roster yet —</option>';
+      document.getElementById('desk-duty-list').innerHTML =
+        `<div class="empty" style="padding:32px 0;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">📋</div>
+          <div style="font-size:.9rem;font-weight:700;color:var(--color-text-primary);margin-bottom:4px">No roster for ${escHtml(c.display_name)}</div>
+          <div style="font-size:.78rem;color:var(--color-text-muted)">Upload their ARMS® Crew Daily Roster PDF to publish it.</div>
+        </div>`;
+      return;
+    }
+    sel.innerHTML = data.map(r =>
+      `<option value="${escHtml(r.id)}">${escHtml(fmtRosterPeriod(r.period_from, r.period_to))}${r.source === 'officer' ? ' — officer' : ''}</option>`).join('');
+    const today = deskIsToday();
+    const covering = data.find(r => r.period_from <= today && r.period_to >= today);
+    const pick = (preferRosterId && data.find(r => r.id === preferRosterId)) || covering || data[0];
+    sel.value = pick.id;
+    await loadRosterDuties(pick.id, true);
+  }catch(e){
+    document.getElementById('desk-duty-list').innerHTML =
+      `<div class="desk-warn">⚠ Could not load this roster: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function closeDeskCrew(){
+  _rosterState.deskCrew = null;
+  _rosterState.deskDuties = [];
+  _rosterState.deskRosterId = null;
+  _rosterState.deskRosters = [];
+  document.getElementById('desk-roster-view').style.display = 'none';
+  document.getElementById('desk-crew-view').style.display = '';
+  loadDeskCrewList();          // refresh roster counts
+}
+
+/* Delete a wrong upload — two taps, no browser dialog */
+let _deskDeleteTimer = null;
+function deskUpdateDeleteBtn(){
+  const b = document.getElementById('desk-delete-btn');
+  if(!b) return;
+  clearTimeout(_deskDeleteTimer);
+  b.textContent = '🗑 Delete this roster';
+  b.dataset.armed = '';
+  b.style.display = _rosterState.deskRosterId ? '' : 'none';
+}
+async function deskDeleteRoster(){
+  const b = document.getElementById('desk-delete-btn');
+  const rosterId = _rosterState.deskRosterId, c = _rosterState.deskCrew;
+  if(!rosterId || !c) return;
+  if(b.dataset.armed !== '1'){
+    b.dataset.armed = '1';
+    b.textContent = 'Tap again to delete for good';
+    _deskDeleteTimer = setTimeout(deskUpdateDeleteBtn, 4000);
+    return;
+  }
+  clearTimeout(_deskDeleteTimer);
+  b.disabled = true;
+  try{
+    const { data, error } = await sb.from('crew_rosters').delete().eq('id', rosterId).select('id');
+    if(error) throw error;
+    if(!data || !data.length) throw new Error('Nothing was deleted — you may not have permission.');
+    toast('🗑 Roster deleted');
+    const keep = _rosterState.deskCrewList.find(x => x.user_id === c.user_id);
+    if(keep) keep.roster_count = Math.max(0, (keep.roster_count||1) - 1);
+    await openDeskCrew(c.user_id);
+  }catch(e){
+    toast('⚠ Could not delete: ' + e.message);
+  }finally{
+    b.disabled = false; deskUpdateDeleteBtn();
   }
 }
 
