@@ -2034,6 +2034,24 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
   </div>
 </div>
 
+<!-- SWAP TWO CREW (roster officers) -->
+<div id="swap-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="min-width:0">
+        <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">⇄ Swap crew</div>
+        <div id="swap-sub" style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeSwap()" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div id="swap-body" style="flex:1;overflow-y:auto;padding:14px 16px 0"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeSwap()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="saveSwap()" class="btn btn-primary" style="flex:1" id="swap-save">Swap</button>
+    </div>
+  </div>
+</div>
+
 <!-- FLIGHT-WIDE CHANGE (roster officers) -->
 <div id="flight-change-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
   <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
@@ -13735,7 +13753,8 @@ function renderDeskDay(){
         ${delayed ? '<span class="desk-badge desk-badge-warn">Delayed</span>' : ''}</div>
       <div class="bulk-sub">STD ${escHtml(f.std_local||'–')} · ${rs.length} crew</div>
       <div>${rs.map(chip).join('')}</div>
-      ${live.length ? `<div class="bulk-ctl"><button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="openFlightChange('${escHtml(fl)}')">Change whole flight…</button></div>` : ''}
+      ${live.length ? `<div class="bulk-ctl"><button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="openFlightChange('${escHtml(fl)}')">Change whole flight…</button>
+        <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="openSwap('${escHtml(fl)}')">⇄ Swap crew…</button></div>` : ''}
     </div>`;
   }
   for(const [t, rs] of others){
@@ -13795,6 +13814,62 @@ async function saveFlightChange(){
   }
   toast(`✅ ${data?.changed || 0} crew updated`);
   closeFlightChange();
+  loadDeskDay();
+}
+
+// ── Swap two crew's duties (same day) ──
+const SWAP_OFF = ['removed','cancelled','no_show','completed','diverted'];
+function swapDutyText(r){
+  const what = r.flight_number
+    ? `${r.flight_number} ${[r.origin,r.destination].filter(Boolean).join('→')}${r.std_local?' · '+r.std_local:''}`
+    : dutyTypeLabel(r.duty_type).text.replace(' ✈️','').replace(' 🏨','');
+  return what;
+}
+function openSwap(flight){
+  const rows = (_rosterState.deskDayRows || []);
+  const mine = rows.filter(r => (r.flight_number||'').toUpperCase() === flight && !SWAP_OFF.includes(r.status));
+  if(!mine.length) return;
+  _rosterState.swap = { flight, a: mine[0].duty_id, b: null };
+  document.getElementById('swap-sub').textContent = `${flight} · ${new Date(_rosterState.deskDay+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'})}`;
+  renderSwap();
+  document.getElementById('swap-sheet').style.display = 'flex';
+}
+function closeSwap(){ document.getElementById('swap-sheet').style.display = 'none'; _rosterState.swap = null; }
+function swapPickA(id){ _rosterState.swap.a = id; _rosterState.swap.b = null; renderSwap(); }
+function swapPickB(id){ _rosterState.swap.b = id; renderSwap(); }
+function renderSwap(){
+  const sw = _rosterState.swap; if(!sw) return;
+  const rows = _rosterState.deskDayRows || [];
+  const A = rows.find(r => r.duty_id === sw.a);
+  const mine = rows.filter(r => (r.flight_number||'').toUpperCase() === sw.flight && !SWAP_OFF.includes(r.status));
+  const others = rows.filter(r => r.duty_id !== sw.a && r.crew_user_id !== A.crew_user_id && r.roster_id !== A.roster_id && !SWAP_OFF.includes(r.status)
+                                   && (r.flight_number||'').toUpperCase() !== sw.flight);
+  const B = rows.find(r => r.duty_id === sw.b);
+  const save = document.getElementById('swap-save'); save.disabled = !B;
+  document.getElementById('swap-body').innerHTML =
+    rchField('Crew member on ' + escHtml(sw.flight),
+      `<select class="rch-input" onchange="swapPickA(this.value)">${mine.map(r => `<option value="${escHtml(r.duty_id)}" ${r.duty_id===sw.a?'selected':''}>${escHtml(r.crew_name)}</option>`).join('')}</select>`)
+    + `<div class="rcs-label" style="margin-top:6px">Swap with (same day)</div>`
+    + (others.length ? others.map(r => `<button class="rch-action" style="${r.duty_id===sw.b?'border-color:var(--color-primary,#2563eb)':''}" onclick="swapPickB('${escHtml(r.duty_id)}')">
+        <span class="rch-action-icon">${r.flight_number?'✈':'🕒'}</span>
+        <span><div class="rch-action-title">${escHtml(r.crew_name)}</div><div class="rch-action-sub">${escHtml(swapDutyText(r))}</div></span></button>`).join('')
+      : `<div class="desk-warn">No other crew with a swappable duty on this day.</div>`)
+    + (B ? `<div class="desk-ok" style="margin-top:6px"><b>${escHtml(A.crew_name)}</b> → ${escHtml(swapDutyText(B))}<br><b>${escHtml(B.crew_name)}</b> → ${escHtml(swapDutyText(A))}</div>` : '')
+    + rchField('Reason / note (optional)', `<input id="swap-reason" class="rch-input" type="text" maxlength="200" placeholder="e.g. Crew request, rest requirement" autocomplete="off"/>`);
+}
+async function saveSwap(){
+  const sw = _rosterState.swap; if(!sw || !sw.b) return;
+  const btn = document.getElementById('swap-save'); btn.disabled = true;
+  const { error } = await sb.rpc('roster_swap_duties', { p_duty_a: sw.a, p_duty_b: sw.b,
+    p_reason: (document.getElementById('swap-reason').value || '').trim() || null });
+  if(error){
+    btn.disabled = false;
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    toast(missing ? '⚠ Swapping needs a database update (migration 22).' : '⚠ ' + error.message);
+    return;
+  }
+  toast('✅ Crew swapped');
+  closeSwap();
   loadDeskDay();
 }
 
