@@ -12916,6 +12916,19 @@ function closeRosterCompleteSheet(){
   _rosterState.completeId = null;
 }
 
+// Minutes a flight left late, from the roster's change history.
+// Scheduled = the departure time as first published; actual = the crew's ATD
+// if entered, otherwise the re-timed departure when the roster marks it delayed.
+// A flight that left on or before schedule has no delay.
+function rosterDelayMins(duty, atd){
+  const sched = rchCleanTime(duty?.published?.std_local) || '';
+  const actual = rchCleanTime(atd) || (duty?.status === 'delayed' ? rchCleanTime(duty.std_local) : '');
+  if(!sched || !actual) return 0;
+  let diff = hhmmToMins(actual) - hhmmToMins(sched);
+  if(diff < -720) diff += 1440;            // crossed midnight
+  return diff > 0 ? diff : 0;
+}
+
 async function saveRosterComplete(){
   const dutyId = _rosterState.completeId;
   if(!dutyId) return;
@@ -12964,6 +12977,16 @@ async function saveRosterComplete(){
 
         if(!existing){
           const blockTimeStr = blockMins ? minsToHHMM(blockMins) : null;
+          const delayMins = rosterDelayMins(duty, atd);
+          let delayReason = null;
+          if(delayMins > 0){
+            try{
+              const { data: ch } = await sb.from('roster_duty_changes').select('reason')
+                .eq('duty_id', dutyId).eq('change_type', 'delayed')
+                .order('changed_at', { ascending: false }).limit(1);
+              delayReason = (ch && ch[0] && ch[0].reason) || null;
+            }catch(_){ /* the delay is still logged without a reason */ }
+          }
           const flightRow = {
             user_id:         currentUser.id,
             date:            duty.duty_date,
@@ -12978,6 +13001,7 @@ async function saveRosterComplete(){
             block_time:      blockTimeStr,
             status:          status === 'diverted' ? 'diverted' : 'completed',
             roster_duty_id:  dutyId,
+            ...(delayMins > 0 ? { delay: delayMins, delay_reason: delayReason } : {}),
             remarks:         [
               note,
               status === 'diverted' && divert ? `Diverted to ${divert}` : null,
