@@ -6298,11 +6298,12 @@ function flightToRow(f, forInsert = true){
   };
   // Only include nullable new columns if they have a value
   // This prevents errors if the Supabase SQL migration hasn't been run yet
-  if(f.flightNum2)  row.flight_num_2  = f.flightNum2;
-  if(f.remarks)     row.remarks       = f.remarks;
-  if(f.flightTime)  row.flight_time   = f.flightTime;
-  if(f.flightLevel) row.flight_level  = f.flightLevel;
-  if(f.sectorsData) row.sectors_data  = JSON.stringify(f.sectorsData);
+  if(f.flightNum2)     row.flight_num_2    = f.flightNum2;
+  if(f.remarks)        row.remarks         = f.remarks;
+  if(f.flightTime)     row.flight_time     = f.flightTime;
+  if(f.flightLevel)    row.flight_level    = f.flightLevel;
+  if(f.sectorsData)    row.sectors_data    = JSON.stringify(f.sectorsData);
+  if(f.rosterDutyId)  row.roster_duty_id  = f.rosterDutyId;
   // user_id only on INSERT
   if(forInsert) row.user_id = currentUser.id;
   return row;
@@ -11636,7 +11637,9 @@ function rowToFlight(r){
     sectorsData,
     flightTime:r.flight_time||'', flightLevel:r.flight_level||'',
     position:r.position, captain:r.captain, fo:r.fo, crew:r.crew, pax:r.pax, std:r.std, sta:r.sta,
-    safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason, remarks:r.remarks||'', status:r.status
+    safety:r.safety, firstAid:r.first_aid, blockTime:r.block_time, delay:r.delay, delayReason:r.delay_reason,
+    remarks:r.remarks||'', status:r.status,
+    rosterDutyId: r.roster_duty_id || null,
   };
 }
 
@@ -12561,12 +12564,72 @@ async function saveRosterComplete(){
     if(error) throw error;
 
     // Update local state
-    const idx = _rosterState.duties.findIndex(x => x.id === dutyId);
-    if(idx !== -1) _rosterState.duties[idx] = { ..._rosterState.duties[idx], ...update };
+    const duty = _rosterState.duties.find(x => x.id === dutyId);
+    const idx  = _rosterState.duties.findIndex(x => x.id === dutyId);
+    if(idx !== -1) _rosterState.duties[idx] = { ...duty, ...update };
 
-    toast('✅ Flight marked as ' + status);
+    // ── Auto-create a Flight Log entry for completed / diverted OP flights ──
+    // Cancelled flights are not logged (no actual block time).
+    // We check for an existing flight log entry linked to this duty to avoid duplicates.
+    if(status !== 'cancelled' && duty && currentUser){
+      try{
+        // De-duplicate: skip if a flights row already links to this roster_duty_id
+        const { data: existing } = await sb.from('flights')
+          .select('id')
+          .eq('roster_duty_id', dutyId)
+          .maybeSingle();
+
+        if(!existing){
+          const blockTimeStr = blockMins ? minsToHHMM(blockMins) : null;
+          const flightRow = {
+            user_id:         currentUser.id,
+            date:            duty.duty_date,
+            flight_num:      duty.flight_number || null,
+            dep:             duty.origin        || null,
+            arr:             status === 'diverted' && divert ? divert : (duty.destination || null),
+            full_route:      duty.origin && duty.destination
+                               ? `${duty.origin} → ${duty.destination}`
+                               : null,
+            std:             atd || duty.std_local || duty.std_utc || null,
+            sta:             ata || duty.sta_local || duty.sta_utc || null,
+            block_time:      blockTimeStr,
+            status:          status === 'diverted' ? 'diverted' : 'completed',
+            roster_duty_id:  dutyId,
+            remarks:         [
+              note,
+              status === 'diverted' && divert ? `Diverted to ${divert}` : null,
+              'Auto-logged from roster',
+            ].filter(Boolean).join(' · ') || 'Auto-logged from roster',
+          };
+          const { data: newFlight, error: fErr } = await sb.from('flights')
+            .insert(flightRow).select().single();
+          if(fErr){
+            // Non-fatal: roster is saved; just warn the user
+            console.warn('Could not auto-create flight log entry:', fErr.message);
+            toast('✅ Marked as ' + status + ' (flight log entry failed — add manually)');
+          } else {
+            // Push into local cache so Flight Logs tab updates immediately
+            if(newFlight) await idbPut('flights', {...rowToFlight(newFlight), synced:true});
+            cache.flights = (await idbAll('flights')).filter(f=>!f._deleted)
+                              .sort((a,b)=>b.date.localeCompare(a.date));
+            toast('✅ Marked as ' + status + ' · Flight log updated');
+          }
+        } else {
+          toast('✅ Flight marked as ' + status);
+        }
+      } catch(fEx){
+        console.warn('Flight log auto-create error:', fEx.message);
+        toast('✅ Marked as ' + status);
+      }
+    } else {
+      toast('✅ Flight marked as ' + status);
+    }
+
     closeRosterCompleteSheet();
     renderRosterDuties();
+    // Refresh Flight Logs tab if it's the active sub-tab
+    if(document.getElementById('log-view-flights')?.style.display !== 'none') renderLog();
+    renderDash();
   }catch(e){
     toast('⚠ Could not save: ' + e.message);
   }
