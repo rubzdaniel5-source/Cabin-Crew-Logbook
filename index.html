@@ -952,6 +952,16 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .bulk-ctl{display:flex;gap:8px;margin-top:8px}
 .bulk-ctl select{flex:1;min-width:0;width:auto;font-size:.76rem;padding:7px 8px}
 .desk-pending{margin:12px 0 4px}
+.desk-seg{display:flex;gap:0;margin-top:12px;border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
+.desk-seg button{flex:1;padding:8px 6px;font-size:.78rem;font-weight:700;background:transparent;border:none;color:var(--color-text-muted);cursor:pointer;font-family:inherit}
+.desk-seg button.active{background:var(--color-primary,#2563eb);color:#fff}
+.day-nav{display:flex;align-items:center;gap:8px;margin:12px 0 8px}
+.day-nav .day-lbl{flex:1;text-align:center;font-size:.86rem;font-weight:800;color:var(--color-text-primary)}
+.day-crew{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;padding:4px 9px;border-radius:14px;border:1px solid var(--color-border);background:transparent;color:var(--color-text-primary);cursor:pointer;font-family:inherit;margin:3px 4px 0 0}
+.day-crew.off{opacity:.5;text-decoration:line-through}
+.day-crew .st{font-size:.62rem;color:#fde68a}
+.ack-banner{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);color:#bfdbfe;font-size:.78rem;display:flex;gap:10px;align-items:center}
+
 .desk-pending-h{font-size:.74rem;font-weight:800;color:#fde68a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
 .desk-ok{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;font-size:.76rem;line-height:1.5}
 .hub-overlay-hdr h2{flex:1;font-size:.95rem;font-weight:800;color:var(--color-text-primary)}
@@ -1909,6 +1919,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     </div>
 
     <!-- Duty list -->
+    <div id="roster-ack-banner"></div>
     <div id="roster-duty-list"></div>
   </div>
 
@@ -1920,6 +1931,19 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 
     <!-- Crew list -->
     <div id="desk-crew-view">
+      <div class="desk-seg">
+        <button id="desk-mode-crew" class="active" onclick="setDeskMode('crew')">By crew</button>
+        <button id="desk-mode-day" onclick="setDeskMode('day')">By day &amp; flight</button>
+      </div>
+      <div id="desk-byday" style="display:none">
+        <div class="day-nav">
+          <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="deskDayShift(-1)">‹</button>
+          <div class="day-lbl" id="desk-day-lbl"></div>
+          <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="deskDayShift(1)">›</button>
+        </div>
+        <div id="desk-day-list"></div>
+      </div>
+      <div id="desk-bycrew">
       <div class="search-wrap" style="margin-top:12px">
         <span class="search-ico">🔍</span>
         <input class="rch-input" type="text" id="desk-search" placeholder="Search crew name or code…" oninput="renderDeskCrewList()" autocomplete="off" style="padding-left:38px"/>
@@ -1930,6 +1954,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
       <div id="desk-unassigned" class="desk-pending"></div>
       <div id="desk-chips" style="display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap"></div>
       <div id="desk-crew-list"></div>
+      </div>
     </div>
 
     <!-- One crew member's roster -->
@@ -2005,6 +2030,24 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
     <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
       <button onclick="closeRosterCompleteSheet()" class="btn" style="flex:1">Cancel</button>
       <button onclick="saveRosterComplete()" class="btn btn-primary" style="flex:1">Save & Complete</button>
+    </div>
+  </div>
+</div>
+
+<!-- FLIGHT-WIDE CHANGE (roster officers) -->
+<div id="flight-change-sheet" style="display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);align-items:flex-end;justify-content:center">
+  <div style="background:var(--color-modal-bg,#1a1a2e);border-radius:20px 20px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
+      <div style="min-width:0">
+        <div id="fcs-title" style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)"></div>
+        <div id="fcs-sub" style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px"></div>
+      </div>
+      <button onclick="closeFlightChange()" style="font-size:1.3rem;background:none;border:none;cursor:pointer;color:var(--color-text-muted)">✕</button>
+    </div>
+    <div id="fcs-body" style="flex:1;overflow-y:auto;padding:14px 16px 0"></div>
+    <div style="padding:12px 16px 24px;border-top:1px solid var(--color-border);flex-shrink:0;display:flex;gap:10px">
+      <button onclick="closeFlightChange()" class="btn" style="flex:1">Cancel</button>
+      <button onclick="saveFlightChange()" class="btn btn-primary" style="flex:1" id="fcs-save">Apply to all</button>
     </div>
   </div>
 </div>
@@ -12171,7 +12214,7 @@ async function loadRosterDuties(rosterId, desk){
     if(!desk && _rosterState.rosterId !== rosterId) return;
     if(desk) _rosterState.deskDuties = data || []; else _rosterState.duties = data || [];
     renderRosterDuties(desk);
-    if(desk) deskUpdateDeleteBtn();
+    if(desk) deskUpdateDeleteBtn(); else rosterShowAck(rosterId);
   }catch(e){
     listEl.innerHTML =
       `<div style="text-align:center;padding:24px;color:var(--color-warning);font-size:.82rem">⚠ Could not load duties: ${escHtml(e.message)}</div>`;
@@ -13611,6 +13654,142 @@ async function runRosterBulk(){
   renderRosterBulk();
   document.getElementById('roster-bulk-sub').textContent = `${okN} done${failN ? ' · ' + failN + ' failed' : ''}`;
   toast(failN ? `⚠ ${okN} published, ${failN} failed` : `✅ ${okN} roster${okN!==1?'s':''} published`);
+}
+
+// ═══════════════════════════════════════════════
+// DESK — by day & flight, flight-wide changes, acknowledgements
+// ═══════════════════════════════════════════════
+function setDeskMode(m){
+  _rosterState.deskMode = m;
+  document.getElementById('desk-mode-crew').classList.toggle('active', m === 'crew');
+  document.getElementById('desk-mode-day').classList.toggle('active', m === 'day');
+  document.getElementById('desk-bycrew').style.display = m === 'crew' ? '' : 'none';
+  document.getElementById('desk-byday').style.display  = m === 'day'  ? '' : 'none';
+  if(m === 'day'){
+    if(!_rosterState.deskDay) _rosterState.deskDay = new Date().toISOString().slice(0,10);
+    loadDeskDay();
+  }
+}
+function deskDayShift(n){
+  const d = new Date(_rosterState.deskDay + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+  _rosterState.deskDay = d.toISOString().slice(0,10); loadDeskDay();
+}
+async function loadDeskDay(){
+  const day = _rosterState.deskDay;
+  const el = document.getElementById('desk-day-list');
+  document.getElementById('desk-day-lbl').textContent = new Date(day + 'T00:00:00Z')
+    .toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric', timeZone:'UTC' });
+  el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading…</div>`;
+  const { data, error } = await sb.rpc('roster_desk_duties', { p_from: day, p_to: day });
+  if(day !== _rosterState.deskDay) return;           // user moved on
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    el.innerHTML = `<div class="desk-warn">${missing ? 'This view needs a database update (migration 21).' : '⚠ ' + escHtml(error.message)}</div>`;
+    return;
+  }
+  _rosterState.deskDayRows = data || [];
+  renderDeskDay();
+}
+function renderDeskDay(){
+  const el = document.getElementById('desk-day-list');
+  const rows = _rosterState.deskDayRows || [];
+  if(!rows.length){ el.innerHTML = '<div class="empty" style="padding:24px 0;text-align:center">No duties rostered this day.</div>'; return; }
+  const off = r => ['removed','cancelled','no_show'].includes(r.status);
+  const chip = r => `<button class="day-crew ${off(r)?'off':''}" onclick="deskOpenFromDay('${escHtml(r.crew_user_id||'')}','${escHtml(r.roster_id)}')">
+      ${escHtml(r.crew_name)}${r.status==='delayed'?' <span class="st">⏱</span>':''}${r.unacked?' <span class="st" title="Not yet acknowledged">👁?</span>':''}</button>`;
+  const flights = new Map(), others = new Map();
+  for(const r of rows){
+    if(r.flight_number){ const k = r.flight_number.toUpperCase(); if(!flights.has(k)) flights.set(k, []); flights.get(k).push(r); }
+    else { const k = (r.duty_type||'Other').toUpperCase(); if(!others.has(k)) others.set(k, []); others.get(k).push(r); }
+  }
+  let html = '';
+  for(const [fl, rs] of flights){
+    const f = rs[0], live = rs.filter(r => !off(r) && !['completed','diverted'].includes(r.status));
+    const delayed = rs.some(r => r.status === 'delayed');
+    html += `<div class="bulk-item">
+      <div class="bulk-title">✈ ${escHtml(fl)} <span style="font-weight:600;color:var(--color-text-muted)">${escHtml([f.origin,f.destination].filter(Boolean).join(' → '))}</span>
+        ${delayed ? '<span class="desk-badge desk-badge-warn">Delayed</span>' : ''}</div>
+      <div class="bulk-sub">STD ${escHtml(f.std_local||'–')} · ${rs.length} crew</div>
+      <div>${rs.map(chip).join('')}</div>
+      ${live.length ? `<div class="bulk-ctl"><button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="openFlightChange('${escHtml(fl)}')">Change whole flight…</button></div>` : ''}
+    </div>`;
+  }
+  for(const [t, rs] of others){
+    const lbl = dutyTypeLabel(t).text.replace(' ✈️','').replace(' 🏨','');
+    html += `<div class="bulk-item"><div class="bulk-title">${escHtml(lbl)} <span style="font-weight:600;color:var(--color-text-muted)">${rs.length}</span></div><div>${rs.map(chip).join('')}</div></div>`;
+  }
+  el.innerHTML = html;
+}
+async function deskOpenFromDay(userId, rosterId){
+  if(!userId){ toast('This roster has no crew member assigned yet.'); return; }
+  await openDeskCrew(userId, rosterId);
+}
+
+function openFlightChange(flight){
+  const rows = (_rosterState.deskDayRows || []).filter(r => (r.flight_number||'').toUpperCase() === flight);
+  const live = rows.filter(r => !['removed','cancelled','no_show','completed','diverted'].includes(r.status));
+  _rosterState.flightSheet = { flight, date: _rosterState.deskDay, action: 'delay', n: live.length, std: rchCleanTime(rows[0]?.std_local) };
+  document.getElementById('fcs-title').textContent = `${flight} · ${live.length} crew`;
+  document.getElementById('fcs-sub').textContent = 'One change applies to everyone on this flight. Already-flown duties are left alone.';
+  renderFlightChange();
+  document.getElementById('flight-change-sheet').style.display = 'flex';
+}
+function closeFlightChange(){ document.getElementById('flight-change-sheet').style.display = 'none'; _rosterState.flightSheet = null; }
+function fcsPick(a){ _rosterState.flightSheet.action = a; renderFlightChange(); }
+function renderFlightChange(){
+  const fs = _rosterState.flightSheet;
+  const opt = (k, icon, t, sub) => `<button class="rch-action" style="${fs.action===k?'border-color:var(--color-primary,#2563eb)':''}" onclick="fcsPick('${k}')">
+      <span class="rch-action-icon">${icon}</span><span><div class="rch-action-title">${t}</div><div class="rch-action-sub">${sub}</div></span></button>`;
+  document.getElementById('fcs-body').innerHTML =
+    opt('delay','⏱','Delayed','Later departure, same day') +
+    opt('retime','🕐','Re-timed','New departure time') +
+    opt('cancel','❌','Flight cancelled','The flight will not operate') +
+    (fs.action !== 'cancel' ? rchField('New departure time (STD, 24-hour)', rchTime('fcs-std', '')) : '') +
+    rchField('Reason / note (optional)', `<input id="fcs-reason" class="rch-input" type="text" maxlength="200" placeholder="e.g. Aircraft change" autocomplete="off"/>`);
+}
+async function saveFlightChange(){
+  const fs = _rosterState.flightSheet; if(!fs) return;
+  const btn = document.getElementById('fcs-save');
+  let type, changes;
+  if(fs.action === 'cancel'){ type = 'cancelled'; changes = { status: 'cancelled' }; }
+  else {
+    const std = rchCleanTime(document.getElementById('fcs-std').value);
+    if(!std){ toast('⚠ Enter the new departure time (e.g. 1430).'); return; }
+    type = fs.action === 'delay' ? 'delayed' : 'retimed';
+    changes = { std_local: std, std_utc: null };
+    if(fs.action === 'delay') changes.status = 'delayed';
+  }
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('roster_apply_flight_change', {
+    p_flight: fs.flight, p_date: fs.date, p_change_type: type, p_changes: changes,
+    p_reason: document.getElementById('fcs-reason').value.trim() || null });
+  btn.disabled = false;
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    toast(missing ? '⚠ Flight-wide changes need a database update (migration 21).' : '⚠ ' + error.message);
+    return;
+  }
+  toast(`✅ ${data?.changed || 0} crew updated`);
+  closeFlightChange();
+  loadDeskDay();
+}
+
+// Crew: officer changes the crew member has not yet acknowledged
+async function rosterShowAck(rosterId){
+  const el = document.getElementById('roster-ack-banner');
+  if(!el) return;
+  el.innerHTML = '';
+  const { data, error } = await sb.from('roster_duty_changes').select('id')
+    .eq('roster_id', rosterId).eq('source', 'officer').is('acknowledged_at', null);
+  if(error || !data?.length || _rosterState.rosterId !== rosterId) return;
+  el.innerHTML = `<div class="ack-banner"><div style="flex:1">Your roster officer made <b>${data.length}</b> change${data.length>1?'s':''} to your roster. Tap a duty to see what changed.</div>
+    <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="rosterAckChanges('${escHtml(rosterId)}')">Got it</button></div>`;
+}
+async function rosterAckChanges(rosterId){
+  const { error } = await sb.rpc('roster_ack_changes', { p_roster_id: rosterId });
+  if(error){ toast('⚠ ' + error.message); return; }
+  document.getElementById('roster-ack-banner').innerHTML = '';
+  toast('✅ Acknowledged');
 }
 
 // ── Unassigned rosters (uploaded for a code nobody has yet) ──
