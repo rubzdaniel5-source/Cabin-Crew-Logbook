@@ -12418,6 +12418,17 @@ function rosterCanChange(d, desk){
   if(d.status === 'completed' || d.status === 'diverted') return false;   // flown: the crew member's record
   return rosterOfficerMode(desk) || !d.officer_locked;
 }
+// A flown flight can be reopened to correct it. Crew can reopen their own
+// flights unless an officer set them; officers can reopen any.
+function rosterCanReopen(d, desk){
+  if(!rosterChangesEnabled(desk ? _rosterState.deskDuties : _rosterState.duties)) return false;
+  if(d.status !== 'completed' && d.status !== 'diverted') return false;
+  return rosterOfficerMode(desk) || !d.officer_locked;
+}
+function openRosterReopen(dutyId, desk){
+  openRosterChangeSheet(dutyId, false, desk);
+  selectRosterChangeAction('reopen');
+}
 function rosterSourceTagHTML(source){
   if(source === 'officer') return '<span class="roster-src-tag roster-src-officer">Roster officer</span>';
   if(source === 'crew')    return '<span class="roster-src-tag roster-src-crew">Crew-reported</span>';
@@ -12471,6 +12482,7 @@ function rosterCardFooterHTML(d, showComplete, desk){
 
   const btns = [];
   if(showComplete) btns.push(`<button class="roster-complete-btn" onclick="openRosterCompleteSheet('${d.id}')">✅ Mark as Complete</button>`);
+  if(rosterCanReopen(d, desk)) btns.push(`<button class="roster-change-btn" onclick="openRosterReopen('${d.id}', ${!!desk})">↩ Reopen</button>`);
   if(rosterCanChange(d, desk)) btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', false, ${!!desk})">${officer ? '✎ Change duty' : '✎ Report a change'}</button>`);
   if(changed)            btns.push(`<button class="roster-change-btn" onclick="openRosterChangeSheet('${d.id}', true, ${!!desk})">🕘 History</button>`);
   return note + (btns.length ? `<div class="roster-card-actions">${btns.join('')}</div>` : '');
@@ -13040,7 +13052,25 @@ async function saveRosterComplete(){
             toast('✅ Marked as ' + status + ' · Flight log updated');
           }
         } else {
-          toast('✅ Flight marked as ' + status);
+          // Completed again after a reopen: bring the existing log entry up to date
+          const upd = {
+            arr:        status === 'diverted' && divert ? divert : (duty.destination || null),
+            std:        atd || duty.std_local || duty.std_utc || null,
+            sta:        ata || duty.sta_local || duty.sta_utc || null,
+            block_time: blockMins ? minsToHHMM(blockMins) : null,
+            status:     status === 'diverted' ? 'diverted' : 'completed',
+            delay:      rosterDelayMins(duty, atd),
+          };
+          const { data: updRow, error: uErr } = await sb.from('flights').update(upd).eq('id', existing.id).select().single();
+          if(uErr){
+            console.warn('Could not update flight log entry:', uErr.message);
+            toast('✅ Marked as ' + status + ' (flight log entry not updated — check it)');
+          } else {
+            if(updRow) await idbPut('flights', {...rowToFlight(updRow), synced:true});
+            cache.flights = (await idbAll('flights')).filter(f=>!f._deleted)
+                              .sort((a,b)=>b.date.localeCompare(a.date));
+            toast('✅ Flight marked as ' + status + ' · Flight log updated');
+          }
         }
       } catch(fEx){
         console.warn('Flight log auto-create error:', fEx.message);
@@ -13067,6 +13097,9 @@ async function saveRosterComplete(){
 // ═══════════════════════════════════════════════
 function rosterChangeActions(d, officer){
   const st = d.status;
+  if(st === 'completed' || st === 'diverted')
+    return [{ key:'reopen', icon:'↩', title:'Reopen this flight',
+              sub:'Mark it as not flown so it can be corrected or completed again' }];
   if(isRosterFlight(d)){
     if(st === 'cancelled' || st === 'removed' || st === 'no_show')
       return [{ key:'reinstate', icon:'↩', title:'Flight is back on', sub: officer ? 'Put this flight back on the roster' : 'Put this flight back on my roster' }];
@@ -13279,6 +13312,11 @@ function selectRosterChangeAction(key){
         ${ROSTER_GROUND_TYPES.filter(([v]) => v !== cur).map(([v,t]) => `<option value="${v}">${t}</option>`).join('')}
       </select>`);
   }
+  if(key === 'reopen'){
+    html += `<div class="roster-change-note" style="margin-bottom:12px">The flight goes back to <b>Rostered</b> so it can be corrected or marked complete again. `
+      + `${rosterOfficerMode(_rosterState.changeDesk) ? 'It stays on the crew member’s record until they complete it again. ' : 'Your flight log entry is kept and updated when you complete it again. '}`
+      + `A reason is required.</div>`;
+  }
   // cancel / reinstate need only a reason
   html += rchReason() + '<div style="height:16px"></div>';
   document.getElementById('rch-body').innerHTML = html;
@@ -13384,6 +13422,9 @@ async function saveRosterChange(){
       type = 'no_show'; changes = { status: 'no_show' };
     } else if(key === 'reinstate'){
       type = 'reinstated'; changes = { status: 'rostered' };
+    } else if(key === 'reopen'){
+      if(!reason){ toast('⚠ Say why this flight is being reopened.'); return; }
+      type = 'reopened'; changes = { status: 'rostered' };
     } else if(key === 'stooddown'){
       const nt = rchVal('rch-type');
       if(!nt){ type = 'removed'; changes = { status: 'removed' }; }
