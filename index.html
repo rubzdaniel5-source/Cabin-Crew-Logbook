@@ -2249,6 +2249,18 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
     </div>
   </div>
 
+  <!-- Activity overview card (admin only) -->
+  <div id="admin-activity-card" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openActivityOverview()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#0c4a6e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📈</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Activity Overview</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Who is active, roster work and changes at a glance</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
   <!-- Staff accounts card (admin only) -->
   <div id="admin-staff-card" style="display:none;margin-bottom:14px">
     <div class="card" onclick="openStaffAdmin()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
@@ -3023,6 +3035,16 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
 <!-- ═══════════════════════════════════════════════════════════
      USER MANAGEMENT OVERLAY (admin only)
 ════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="activity-overlay" style="background:var(--color-app-bg);padding:0">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">📈 Activity Overview</h2>
+      <button class="fs-close" onclick="closeActivityOverview()">✕</button>
+    </div>
+    <div id="activity-body" style="padding:16px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="fs-overlay" id="staff-admin-overlay" style="background:var(--color-app-bg);padding:0">
   <div style="display:flex;flex-direction:column;height:100%">
     <div class="fs-modal-hdr" style="background:var(--navy)">
@@ -9766,6 +9788,80 @@ async function forcePasswordSave(){
 }
 
 // ═══════════════════════════════════════════════
+// ADMIN — activity overview
+// ═══════════════════════════════════════════════
+let _actDays = 7, _actData = null, _actErr = null;
+async function openActivityOverview(){
+  if(!isAdmin){ toast('⚠ Admin access only.'); return; }
+  document.getElementById('activity-overlay').classList.add('open');
+  loadAdminActivity();
+}
+function closeActivityOverview(){ document.getElementById('activity-overlay').classList.remove('open'); }
+function actSetDays(n){ _actDays = n; loadAdminActivity(); }
+async function loadAdminActivity(){
+  const body = document.getElementById('activity-body');
+  if(!_actData) body.innerHTML = '<div class="empty" style="padding:30px 0;text-align:center">Loading…</div>';
+  const { data, error } = await sb.rpc('admin_activity_overview', { p_days: _actDays });
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    _actErr = missing ? 'The activity overview needs the database update (migration 25).' : error.message; _actData = null;
+  } else { _actData = data; _actErr = null; }
+  renderAdminActivity();
+}
+function actAgo(ts){
+  if(!ts) return 'never';
+  const m = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 60000));
+  if(m < 2) return 'just now'; if(m < 60) return m + ' min ago';
+  if(m < 1440) return Math.round(m/60) + ' h ago'; return Math.round(m/1440) + ' d ago';
+}
+const ACT_TYPE_LABELS = { delayed:'Delayed', retimed:'Retimed', postponed:'Postponed', cancelled:'Cancelled', removed:'Removed from flight',
+  reinstated:'Reinstated', flight_changed:'Flight changed', swapped:'Swapped', activated:'Standby activated', assigned:'Assigned', stood_down:'Stood down',
+  type_changed:'Duty type changed', added:'Duty added' };
+function renderAdminActivity(){
+  const el = document.getElementById('activity-body'); if(!el) return;
+  const chips = [7,30].map(n => `<button class="desk-chip ${_actDays===n?'active':''}" onclick="actSetDays(${n})">Last ${n} days</button>`).join('');
+  if(_actErr){ el.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:12px">${chips}</div><div class="desk-warn">${escHtml(_actErr)}</div>`; return; }
+  const d = _actData; if(!d) return;
+  const tile = (v, l, sub) => `<div class="staff-card" style="margin:0;text-align:center;padding:12px 6px">
+      <div style="font-size:1.35rem;font-weight:900;color:var(--color-text-primary)">${v}</div>
+      <div style="font-size:.68rem;color:var(--color-text-muted);margin-top:2px">${l}</div>${sub?`<div style="font-size:.62rem;color:var(--color-text-muted);opacity:.7">${sub}</div>`:''}</div>`;
+  const u = d.users || {}, r = d.roster || {};
+  const bySrc = r.by_source || {};
+  const tiles = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+    ${tile(u.active_24h ?? 0, 'Active in 24 h', 'of ' + (u.total ?? 0) + ' users')}
+    ${tile(u.active_period ?? 0, 'Active in ' + d.period_days + ' days')}
+    ${tile(r.uploads ?? 0, 'Rosters uploaded')}
+    ${tile(r.changes ?? 0, 'Roster changes', (bySrc.officer||0) + ' officer · ' + (bySrc.crew||0) + ' crew')}
+    ${tile(r.unacknowledged ?? 0, 'Unacknowledged', 'officer changes')}
+    ${tile(u.new_period ?? 0, 'New sign-ups')}</div>`;
+
+  const daily = d.daily || [];
+  const max = Math.max(1, ...daily.map(x => x.changes + x.uploads));
+  const bars = `<div class="desk-pending-h" style="margin:4px 0 8px;color:var(--color-text-muted)">Roster work per day</div>
+    <div style="display:flex;align-items:flex-end;gap:${daily.length>14?2:6}px;height:90px;margin-bottom:4px">${daily.map(x => {
+      const v = x.changes + x.uploads;
+      return `<div title="${x.day}: ${x.changes} changes, ${x.uploads} uploads" style="flex:1;min-width:0;height:${Math.max(3, Math.round(v/max*100))}%;background:${v?'var(--color-accent,#4f8ef7)':'var(--color-border)'};border-radius:3px 3px 0 0"></div>`; }).join('')}</div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--color-text-muted);margin-bottom:16px"><span>${daily[0]?.day.slice(5)||''}</span><span>${daily.length?daily[daily.length-1].day.slice(5):''}</span></div>`;
+
+  const types = Object.entries(r.by_type || {}).sort((a,b) => b[1]-a[1]);
+  const typeHtml = types.length ? `<div class="desk-pending-h" style="margin:0 0 8px;color:var(--color-text-muted)">Officer changes by type</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${types.map(([k,n]) => `<span class="role-pill" style="font-size:.7rem;padding:4px 10px">${escHtml(ACT_TYPE_LABELS[k]||k)} · ${n}</span>`).join('')}</div>` : '';
+
+  const offs = (d.officers || []).filter(o => o.changes || o.uploads);
+  const offHtml = `<div class="desk-pending-h" style="margin:0 0 8px;color:var(--color-text-muted)">Roster officers</div>` + (offs.length
+    ? offs.map(o => `<div class="staff-card" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:6px"><b style="font-size:.82rem">${escHtml(o.full_name||'—')}</b><span style="font-size:.74rem;color:var(--color-text-muted)">${o.changes} changes · ${o.uploads} uploads</span></div>`).join('')
+    : `<div style="font-size:.78rem;color:var(--color-text-muted);margin-bottom:6px">No officer activity in this period.</div>`);
+
+  const rec = d.recent_users || [];
+  const recHtml = `<div class="desk-pending-h" style="margin:16px 0 8px;color:var(--color-text-muted)">Recently active</div>` + (rec.length
+    ? rec.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--color-border);font-size:.8rem"><span><b>${escHtml(x.full_name||'—')}</b> <span class="role-pill ${x.role==='roster_officer'?'officer':x.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[x.role]||x.role)}</span></span><span style="color:var(--color-text-muted);font-size:.72rem">${actAgo(x.last_seen_at)}</span></div>`).join('')
+    : `<div style="font-size:.78rem;color:var(--color-text-muted)">Nobody recorded yet. Activity is tracked from the moment this update is live.</div>`)
+    + `<div style="font-size:.7rem;color:var(--color-text-muted);margin-top:10px">${u.never_seen ?? 0} users not seen since tracking began.</div>`;
+
+  el.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:12px">${chips}</div>` + tiles + bars + typeHtml + offHtml + recHtml;
+}
+
+// ═══════════════════════════════════════════════
 // ADMIN — staff accounts (roster officer, check-in agent, ops manager)
 // ═══════════════════════════════════════════════
 const STAFF_ROLE_OPTIONS = [
@@ -12024,6 +12120,15 @@ async function onLoggedIn(){
   if(profile?.blocked === true){
     showBlockedScreen();
     return;
+  }
+
+  // Last-seen stamp for the admin activity overview (throttled server-side)
+  try{ sb.rpc('touch_last_seen').then(()=>{},()=>{}); }catch{}
+  if(!window._seenHooked){
+    window._seenHooked = true;
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'visible' && currentUser && isOnline){ try{ sb.rpc('touch_last_seen').then(()=>{},()=>{}); }catch{} }
+    });
   }
 
   // ── Role → interface ───────────────────────────────────
@@ -15973,6 +16078,8 @@ function renderDB(){
 
   const staffCard = document.getElementById('admin-staff-card');
   if(staffCard) staffCard.style.display = adminVis;
+  const actCard = document.getElementById('admin-activity-card');
+  if(actCard) actCard.style.display = adminVis;
 
   // Show users management KPI card for admins
   const usersKPI = document.getElementById('admin-users-kpi');
