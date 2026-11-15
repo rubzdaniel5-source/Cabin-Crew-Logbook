@@ -10060,7 +10060,7 @@ function genTempPassword(){
 async function openStaffAdmin(){
   if(!isAdmin){ toast('⚠ Admin access only.'); return; }
   document.getElementById('staff-admin-overlay').classList.add('open');
-  _staffCreated = null; _staffResetFor = null;
+  _staffCreated = null; _staffResetFor = null; _staffView = 'main'; _imp = null;
   renderStaffAdmin();
   loadStaffList();
 }
@@ -10138,8 +10138,191 @@ function staffSetFilter(f){ _staffFilter = f; renderStaffAdmin(); }
 function staffStartReset(id){ _staffResetFor = id; renderStaffAdmin(); const i = document.getElementById('stf-reset-pw'); if(i) i.value = genTempPassword(); }
 function staffGenFor(inputId){ const i = document.getElementById(inputId); if(i){ i.type = 'text'; i.value = genTempPassword(); } }
 
+// ── Bulk import (CSV) ──
+let _staffView = 'main', _imp = null;
+const IMP_MAX = 100;
+const IMP_ROLE_ALIASES = {
+  roster_officer:'roster_officer', rosterofficer:'roster_officer', roster:'roster_officer', ro:'roster_officer',
+  check_in_agent:'check_in_agent', checkin_agent:'check_in_agent', checkinagent:'check_in_agent', check_in:'check_in_agent', checkin:'check_in_agent', agent:'check_in_agent',
+  ops_manager:'ops_manager', opsmanager:'ops_manager', ops_mgr:'ops_manager', ops:'ops_manager', operations:'ops_manager', operations_manager:'ops_manager',
+};
+function impNormRole(v){ return IMP_ROLE_ALIASES[String(v||'').trim().toLowerCase().replace(/[\s\-]+/g,'_')] || null; }
+
+function impSplitCsv(text){
+  text = String(text||'').replace(/^﻿/, '');
+  const first = text.split(/\r?\n/).find(l => l.trim()) || '';
+  const delim = [',',';','\t'].map(d => [d, first.split(d).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if(c === '"') q = true;
+    else if(c === delim){ row.push(cur); cur = ''; }
+    else if(c === '\n' || c === '\r'){ if(c === '\r' && text[i+1] === '\n') i++; row.push(cur); cur = ''; if(row.some(x => x.trim())) rows.push(row); row = []; }
+    else cur += c;
+  }
+  row.push(cur); if(row.some(x => x.trim())) rows.push(row);
+  return rows.map(r => r.map(x => x.trim()));
+}
+
+function parseStaffCsv(text, defaultRole){
+  const rows = impSplitCsv(text);
+  if(!rows.length) return [];
+  const norm = h => h.toLowerCase().replace(/[^a-z]/g,'');
+  const known = { name:'name', fullname:'name', staffname:'name', email:'email', emailaddress:'email', phone:'phone', phonenumber:'phone', mobile:'phone', tel:'phone', role:'role', password:'password', temporarypassword:'password', temppassword:'password' };
+  const head = rows[0].map(h => known[norm(h)]);
+  const hasHeader = head.filter(Boolean).length >= 2;
+  const cols = hasHeader ? head : ['name','email','phone','role','password'];
+  const out = [], seen = new Set();
+  rows.slice(hasHeader ? 1 : 0).forEach((r, i) => {
+    const rec = {}; cols.forEach((k, j) => { if(k && r[j] !== undefined) rec[k] = r[j]; });
+    const row = { line: i + (hasHeader ? 2 : 1), name: (rec.name||'').trim(), email: (rec.email||'').trim().toLowerCase(),
+                  phone: (rec.phone||'').trim(), password: rec.password||'', role: null, generated: false, error: null };
+    if(!row.name) row.error = 'Name is missing.';
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) row.error = 'Email is not valid.';
+    else if(seen.has(row.email)) row.error = 'Email appears twice in the file.';
+    if(rec.role && rec.role.trim()){
+      row.role = impNormRole(rec.role);
+      if(!row.role && !row.error) row.error = 'Role “' + rec.role + '” is not recognised.';
+    } else row.role = defaultRole;
+    if(!row.error && row.password && (row.password.length < 8 || row.password.length > 72)) row.error = 'Password must be 8–72 characters.';
+    if(!row.password){ row.password = genTempPassword(); row.generated = true; }
+    if(row.email) seen.add(row.email);
+    out.push(row);
+  });
+  return out;
+}
+
+function staffOpenImport(){
+  _staffView = 'import'; _imp = { step:'input', text:'', defaultRole:'roster_officer', rows:[], busy:false };
+  renderStaffAdmin();
+}
+function staffCloseImport(){ if(_imp?.busy) return; _staffView = 'main'; _imp = null; renderStaffAdmin(); loadStaffList(); }
+function impReadFile(inp){
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { _imp.text = String(rd.result||''); const ta = document.getElementById('imp-text'); if(ta) ta.value = _imp.text; toast('📄 ' + f.name + ' loaded'); };
+  rd.readAsText(f);
+}
+function impTemplate(){
+  const csv = 'name,email,phone,role,password\nJane Nakato,jane@example.com,+256700000001,roster officer,\nPeter Okello,peter@example.com,+256700000002,check-in agent,\nSarah Auma,sarah@example.com,,ops manager,\n';
+  impDownload('staff-import-template.csv', csv);
+}
+function impDownload(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type:'text/csv' })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function impPreview(){
+  const text = document.getElementById('imp-text').value;
+  const defaultRole = document.getElementById('imp-role').value;
+  _imp.text = text; _imp.defaultRole = defaultRole;
+  const rows = parseStaffCsv(text, defaultRole);
+  if(!rows.length){ toast('⚠ Paste or upload a CSV first.'); return; }
+  if(rows.length > IMP_MAX){ toast('⚠ At most ' + IMP_MAX + ' accounts per import.'); return; }
+  _imp.rows = rows; _imp.step = 'preview'; renderStaffAdmin();
+}
+async function impRun(){
+  if(_imp.busy) return;
+  const todo = _imp.rows.filter(r => !r.error && !r.status);
+  if(!todo.length){ toast('⚠ Nothing valid to import.'); return; }
+  _imp.busy = true; _imp.step = 'running'; renderStaffAdmin();
+  for(const r of todo){
+    r.status = 'working'; renderStaffAdmin();
+    try{
+      const { data, error } = await sb.functions.invoke('admin-create-staff', { body:{ action:'create', full_name:r.name, email:r.email, phone:r.phone, password:r.password, role:r.role } });
+      if(error || data?.error){ r.status = 'failed'; r.error = error ? await staffFnError(error) : data.error; }
+      else r.status = 'created';
+    }catch(e){ r.status = 'failed'; r.error = String(e.message || e); }
+  }
+  _imp.busy = false; _imp.step = 'done'; renderStaffAdmin();
+  const n = _imp.rows.filter(r => r.status === 'created').length;
+  toast('✅ ' + n + ' account' + (n === 1 ? '' : 's') + ' created');
+}
+function impResultsCsv(){
+  const q = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
+  return 'name,email,phone,role,temporary_password\n' + _imp.rows.filter(r => r.status === 'created')
+    .map(r => [r.name, r.email, r.phone, ROLE_LABELS[r.role]||r.role, r.password].map(q).join(',')).join('\n') + '\n';
+}
+function impCopyResults(){
+  const txt = _imp.rows.filter(r => r.status === 'created').map(r => `${r.name} — ${ROLE_LABELS[r.role]||r.role}\n${r.email}\nTemporary password: ${r.password}`).join('\n\n');
+  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>toast('📋 Copied')).catch(()=>fallbackCopy(txt)); else fallbackCopy(txt);
+}
+
+function renderStaffImport(el){
+  const st = _imp;
+  if(st.step === 'input'){   // a background refresh must not wipe what is being typed
+    const ta = document.getElementById('imp-text'), sel = document.getElementById('imp-role');
+    if(ta) st.text = ta.value; if(sel) st.defaultRole = sel.value;
+  }
+  const roleOpts = STAFF_ROLE_OPTIONS.map(([v,l]) => `<option value="${v}" ${st.defaultRole===v?'selected':''}>${l}</option>`).join('');
+  const back = `<button class="btn btn-ghost btn-sm" style="width:auto;margin-bottom:12px" onclick="staffCloseImport()" ${st.busy?'disabled':''}>‹ Back to staff accounts</button>`;
+  if(st.step === 'input'){
+    el.innerHTML = back + `<div class="staff-card">
+      <div style="font-weight:800;font-size:.88rem;margin-bottom:6px">Import staff from CSV</div>
+      <div style="font-size:.74rem;color:var(--color-text-muted);line-height:1.5;margin-bottom:10px">
+        Columns: <b>name, email, phone, role, password</b>. Role and password are optional — a missing role uses the default below and a missing password is generated.
+        Up to ${IMP_MAX} accounts at a time.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="document.getElementById('imp-file').click()">📄 Choose file</button>
+        <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="impTemplate()">⬇ Template</button>
+        <input type="file" id="imp-file" accept=".csv,text/csv,text/plain" style="display:none" onchange="impReadFile(this)"/>
+      </div>
+      <textarea id="imp-text" class="rch-input" rows="8" placeholder="Or paste rows here…" style="font-family:monospace;font-size:.72rem;margin-bottom:10px">${escHtml(st.text)}</textarea>
+      <div style="font-size:.72rem;color:var(--color-text-muted);margin-bottom:4px">Default role</div>
+      <select id="imp-role" class="rch-input" style="margin-bottom:12px">${roleOpts}</select>
+      <button class="btn btn-primary" style="width:100%" onclick="impPreview()">Review</button></div>`;
+    return;
+  }
+  const ok = st.rows.filter(r => !r.error || r.status === 'created').length;
+  const rowHtml = st.rows.map(r => {
+    const badge = r.status === 'created' ? '<span class="role-pill agent">Created</span>'
+      : r.status === 'working' ? '<span class="role-pill">Creating…</span>'
+      : r.error ? '<span class="role-pill" style="background:rgba(239,68,68,.2);color:#fca5a5">' + (r.status === 'failed' ? 'Failed' : 'Skipped') + '</span>'
+      : '<span class="role-pill">Ready</span>';
+    return `<div class="staff-card" style="padding:10px 12px;margin-bottom:6px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:.82rem">${escHtml(r.name||'—')}</b>
+        <span class="role-pill ${r.role==='roster_officer'?'officer':r.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[r.role]||'—')}</span>${badge}</div>
+      <div style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px">${escHtml(r.email||'')}${r.phone?' · '+escHtml(r.phone):''}${r.generated?' · password generated':''}</div>
+      ${r.error ? `<div style="font-size:.72rem;color:#fca5a5;margin-top:3px">Row ${r.line}: ${escHtml(r.error)}</div>` : ''}</div>`;
+  }).join('');
+  let head = '', foot = '';
+  if(st.step === 'preview'){
+    head = `<div style="font-size:.8rem;margin-bottom:10px"><b>${st.rows.filter(r=>!r.error).length}</b> ready · <b>${st.rows.filter(r=>r.error).length}</b> with problems (these are skipped)</div>`;
+    foot = `<div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" style="flex:1" onclick="_imp.step='input';renderStaffAdmin()">‹ Edit</button>
+      <button class="btn btn-primary" style="flex:2" onclick="impRun()" ${st.rows.some(r=>!r.error)?'':'disabled'}>Create ${st.rows.filter(r=>!r.error).length} accounts</button></div>`;
+  } else if(st.step === 'running'){
+    const done = st.rows.filter(r => r.status === 'created' || r.status === 'failed').length;
+    head = `<div style="font-size:.8rem;margin-bottom:10px">Creating accounts… ${done} of ${st.rows.filter(r=>r.status||!r.error).length}. Keep this screen open.</div>`;
+  } else {
+    const made = st.rows.filter(r => r.status === 'created').length, failed = st.rows.filter(r => r.status === 'failed').length;
+    head = `<div class="${failed?'desk-warn':'desk-ok'}" style="margin-bottom:12px"><b>${made} created${failed?`, ${failed} failed`:''}.</b><br>
+      <span style="font-size:.72rem">Temporary passwords are shown only now. Copy or download them before leaving this screen. Each person sets their own password at first sign-in.</span>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" style="width:auto" onclick="impCopyResults()" ${made?'':'disabled'}>📋 Copy all</button>
+        <button class="btn btn-ghost btn-sm" style="width:auto" onclick="impDownload('new-staff-accounts.csv', impResultsCsv())" ${made?'':'disabled'}>⬇ Download CSV</button>
+        <button class="btn btn-ghost btn-sm" style="width:auto" onclick="staffCloseImport()">Done</button></div></div>`;
+    // show passwords for created rows
+    el.innerHTML = back + head + st.rows.map(r => {
+      const badge = r.status === 'created' ? '<span class="role-pill agent">Created</span>' : '<span class="role-pill" style="background:rgba(239,68,68,.2);color:#fca5a5">' + (r.status === 'failed' ? 'Failed' : 'Skipped') + '</span>';
+      return `<div class="staff-card" style="padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:.82rem">${escHtml(r.name||'—')}</b>
+          <span class="role-pill">${escHtml(ROLE_LABELS[r.role]||'—')}</span>${badge}</div>
+        <div style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px">${escHtml(r.email||'')}</div>
+        ${r.status==='created' ? `<div style="font-size:.76rem;margin-top:4px">Temporary password: <b style="font-family:monospace;user-select:all">${escHtml(r.password)}</b></div>` : ''}
+        ${r.error ? `<div style="font-size:.72rem;color:#fca5a5;margin-top:3px">Row ${r.line}: ${escHtml(r.error)}</div>` : ''}</div>`;
+    }).join('');
+    return;
+  }
+  el.innerHTML = back + head + rowHtml + foot;
+}
+
 function renderStaffAdmin(){
   const el = document.getElementById('staff-admin-body'); if(!el) return;
+  if(_staffView === 'import'){ renderStaffImport(el); return; }
   const roleOpts = STAFF_ROLE_OPTIONS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
   const created = _staffCreated ? `
     <div class="desk-ok" style="margin-bottom:14px">
@@ -10154,7 +10337,10 @@ function renderStaffAdmin(){
 
   const form = `
     <div class="staff-card">
-      <div style="font-weight:800;font-size:.88rem;margin-bottom:10px">New staff account</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:800;font-size:.88rem">New staff account</div>
+        <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="staffOpenImport()">📥 Import CSV</button>
+      </div>
       <input id="stf-name" class="rch-input" placeholder="Full name" autocomplete="off" style="margin-bottom:8px"/>
       <input id="stf-email" class="rch-input" type="email" placeholder="Email" autocomplete="off" style="margin-bottom:8px"/>
       <input id="stf-phone" class="rch-input" type="tel" placeholder="Phone (optional)" autocomplete="off" style="margin-bottom:8px"/>
