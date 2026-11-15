@@ -5763,9 +5763,28 @@ async function gsSelectCabin(cabin, cfg){
 }
 
 // ── Seat Map renderer ─────────────────────────────────────────────────────────
+/** The passenger holding a seat on the loaded manifest (012C on the manifest = 12C on the map). */
+function gsPaxForSeat(seatNum){
+  const want = normSeat(seatNum);
+  return (_gs.paxManifest || []).find(p => p.seat && normSeat(p.seat) === want) || null;
+}
+
 function gsRenderSeatMap(cabin){
   const body = document.getElementById('gs-seatmap-body');
   body.innerHTML = '';
+
+  // Manifest status strip: tells crew whether names are loaded, and who has no seat yet
+  const strip = document.createElement('div');
+  strip.style.cssText = 'font-size:.7rem;color:var(--muted);text-align:center;margin:4px 8px 10px;line-height:1.5';
+  const mf = _gs.paxManifest;
+  if(!mf){
+    strip.textContent = 'No passenger manifest loaded for this flight — names appear once ops uploads it.';
+  } else {
+    const unseated = mf.filter(p => !/^\d+[A-Z]$/.test(normSeat(p.seat)));
+    strip.innerHTML = `Manifest: <b>${mf.length}</b> pax · <b>${mf.length - unseated.length}</b> seated` +
+      (unseated.length ? ` · <details style="display:inline"><summary style="display:inline;cursor:pointer;color:#fbbf24">${unseated.length} without a seat</summary><div style="margin-top:4px">${unseated.map(p => escHtml((p.name||'').split('/')[0] || '?')).join(', ')}</div></details>` : '');
+  }
+  body.appendChild(strip);
 
   // Order lookup: seatNum → order
   const seatOrderMap = {};
@@ -5859,7 +5878,7 @@ function gsRenderSeatMap(cabin){
         }
 
         // PAX name label — show surname if manifest loaded for this flight
-        const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+        const pax = gsPaxForSeat(seatNum);
         if(pax){
           const nameEl = document.createElement('div');
           nameEl.className = 'gs-seat-pax';
@@ -5914,7 +5933,7 @@ async function gsOpenOrderSheet(seatNum, existingOrder){
   // Show pax name in sheet header if manifest is loaded
   const paxInfoEl = document.getElementById('gs-sheet-pax-info');
   if(paxInfoEl){
-    const pax = _gs.paxManifest?.find(p => p.seat && p.seat.toUpperCase() === seatNum.toUpperCase());
+    const pax = gsPaxForSeat(seatNum);
     if(pax){
       const statusBadge = pax.status === 'checked_in'
         ? '<span style="font-size:.6rem;background:rgba(26,122,69,.35);color:#2ecc71;border:1px solid #1a7a45;border-radius:4px;padding:1px 5px;margin-left:4px">✓ Checked In</span>'
@@ -10474,8 +10493,8 @@ async function agentUploadManifest(){
 
   let passengers=[], summary={}, raw_text='';
   try{
-    raw_text  = await _agentFile.text();
-    const res = parsePNLText(raw_text);
+    raw_text  = await extractManifestText(_agentFile, t => { btn.textContent = t; });
+    const res = _agentFile.name.toLowerCase().endsWith('.csv') ? { passengers: parseManifestCSV(raw_text).map((r,i)=>({ seq:i+1, name:r.name||r.passenger_name||r.pax_name||'', cabin:amadeusClassToDisplay(r.class||r.cabin_class||r.seat_class||''), seat:normSeat(r.seat||r.seat_number||''), status:(r.status||'').toLowerCase().includes('check')?'checked_in':'pending', dep:r.dep||r.from||'', arr:r.arr||r.to||'' })), summary:{} } : parsePNLText(raw_text);
     passengers = res.passengers;
     summary    = res.summary;
   }catch(e){ toast('⚠ Parse error: '+e.message); btn.textContent='⬆ Upload Manifest'; btn.disabled=false; return; }
@@ -10502,7 +10521,7 @@ async function agentUploadManifest(){
 
   btn.textContent='⬆ Upload Manifest'; btn.disabled=false;
   if(error){ toast('⚠ '+error.message); return; }
-  toast(`✅ Manifest uploaded — ${passengers.length} passengers`);
+  toast(passengers.length ? `✅ Manifest uploaded — ${passengers.length} passengers` : '⚠ Uploaded, but no passengers could be read from this file.');
   _agentFile = null;
   document.getElementById('agent-file-name').textContent='';
   document.getElementById('agent-upload-btn').style.display='none';
@@ -11309,9 +11328,96 @@ function handleManifestFile(input){
   document.getElementById('mfst-upload-btn').style.display = 'block';
 }
 
+// ── Manifest text extraction ──────────────────────────────
+// PDF.js hands back loose text fragments, not lines. Join them naively and a
+// whole page becomes ONE line, which the line-based PNL parser cannot read
+// (that was the "No pax data" bug). Rebuild real lines from the fragments' positions.
+function pdfItemsToLines(items){
+  const rows = [];
+  const frag = items.filter(it => typeof it.str === 'string' && it.str !== '');
+  frag.sort((a,b) => (b.transform ? b.transform[5] : b.y) - (a.transform ? a.transform[5] : a.y));
+  for(const it of frag){
+    const y = it.transform ? it.transform[5] : it.y;
+    const row = rows.find(r => Math.abs(r.y - y) <= 2.5);
+    if(row) row.items.push(it); else rows.push({ y, items:[it] });
+  }
+  return rows.map(r => {
+    r.items.sort((a,b) => (a.transform ? a.transform[4] : a.x) - (b.transform ? b.transform[4] : b.x));
+    let line = '', prevEnd = null;
+    for(const it of r.items){
+      const x = it.transform ? it.transform[4] : it.x;
+      if(prevEnd !== null && x - prevEnd > 1.2 && !/\s$/.test(line) && !/^\s/.test(it.str)) line += ' ';
+      line += it.str;
+      prevEnd = x + (it.width || 0);
+    }
+    return line.replace(/\s+$/,'');
+  }).filter(l => l.trim());
+}
+
+async function extractManifestText(file, setStatus){
+  const name = file.name.toLowerCase();
+  if(!name.endsWith('.pdf')) return await file.text();
+  setStatus && setStatus('Reading PDF…');
+  if(!window.pdfjsLib){
+    await new Promise((resolve, reject)=>{
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      sc.onload = resolve;
+      sc.onerror = ()=>reject(new Error('Could not load PDF reader. Check your internet connection.'));
+      document.head.appendChild(sc);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  let text = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const content = await (await pdf.getPage(i)).getTextContent();
+    text += pdfItemsToLines(content.items).join('\n') + '\n';
+  }
+  if(text.trim().length >= 50) return text;
+
+  // Scanned PDF: no text layer → OCR
+  setStatus && setStatus('Running OCR…');
+  toast('⏳ Scanned PDF detected — running OCR. This may take a moment…');
+  if(!window.Tesseract){
+    await new Promise((resolve, reject)=>{
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+      sc.onload = resolve;
+      sc.onerror = ()=>reject(new Error('Could not load OCR engine. Check your internet connection.'));
+      document.head.appendChild(sc);
+    });
+  }
+  const worker = await window.Tesseract.createWorker('eng');
+  let ocr = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const { data: { text: t } } = await worker.recognize(canvas);
+    ocr += t + '\n';
+  }
+  await worker.terminate();
+  return ocr;
+}
+
+// Safety net: text that lost its line breaks (older uploads were stored that way).
+function normalizePNLText(text){
+  let t = String(text || '').replace(/\r/g, '');
+  if((t.match(/\n/g) || []).length >= 5) return t;
+  return t.replace(/\s+(?=LIST OF:)/gi, '\n')
+          .replace(/\s+(?=[A-Z0-9]{2}\d{1,4}\s+\d{2}[A-Z]{3}\s+[A-Z]{3}\s+STD)/g, '\n')
+          .replace(/\s+(?=\d{1,3}\.[A-Z][A-Z' \-]*\/)/g, '\n');
+}
+
+// Amadeus writes seats as 012C; the seat map uses 12C. Compare them the same way.
+function normSeat(s){ return String(s || '').trim().toUpperCase().replace(/^0+(?=\d)/, ''); }
+
 // ── Parse Amadeus PNL text format ─────────────────────────
 function parsePNLText(text){
-  const lines      = text.split(/\r?\n/);
+  const lines      = normalizePNLText(text).split(/\r?\n/);
   const passengers = [];
   let summary      = {};
 
@@ -11376,7 +11482,7 @@ function parsePNLText(text){
       cabin_code: cabinCode,
       cabin:      displayClass,
       status:     status === 'A' ? 'checked_in' : 'pending',
-      seat:       seat,
+      seat:       normSeat(seat),
     });
   }
   return { summary, passengers };
@@ -11412,66 +11518,8 @@ async function uploadManifest(){
 
   try{
     if(fname.endsWith('.pdf')){
-      btn.textContent = 'Reading PDF…';
-      // ── Step 1: Load PDF.js from CDN (lazy — only when a PDF is uploaded) ──
-      if(!window.pdfjsLib){
-        await new Promise((resolve, reject)=>{
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-          s.onload = resolve;
-          s.onerror = ()=>reject(new Error('Could not load PDF reader. Check your internet connection.'));
-          document.head.appendChild(s);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-
-      // ── Step 2: Extract text from all pages via PDF.js ───────────────────
-      const arrayBuffer = await _manifestFile.arrayBuffer();
-      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-      for(let i = 1; i <= pdf.numPages; i++){
-        const page        = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        // Items have .str (text) and .hasEOL; join with space, newline at page end
-        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
-      }
-
-      // ── Step 3: If text layer is empty → scanned PDF → try OCR via Tesseract.js
-      if(fullText.trim().length < 50){
-        btn.textContent = 'Running OCR…';
-        toast('⏳ Scanned PDF detected — running OCR. This may take a moment…');
-
-        // Lazy-load Tesseract.js (≈10 MB; cached by browser after first load)
-        if(!window.Tesseract){
-          await new Promise((resolve, reject)=>{
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
-            s.onload = resolve;
-            s.onerror = ()=>reject(new Error('Could not load OCR engine. Check your internet connection.'));
-            document.head.appendChild(s);
-          });
-        }
-
-        const worker = await window.Tesseract.createWorker('eng');
-        let ocrText = '';
-        for(let i = 1; i <= pdf.numPages; i++){
-          const page     = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 }); // 1.5× good for manifest text
-          const canvas   = document.createElement('canvas');
-          canvas.width   = viewport.width;
-          canvas.height  = viewport.height;
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-          const { data: { text } } = await worker.recognize(canvas);
-          ocrText += text + '\n';
-        }
-        await worker.terminate();
-        fullText = ocrText;
-      }
-
+      const fullText = await extractManifestText(_manifestFile, t => { btn.textContent = t; });
       raw_text = fullText;
-
-      // ── Step 4: Parse extracted text with existing PNL parser ─────────────
       if(fullText.trim().length < 50){
         passengers = [];
         summary    = { note: 'Could not extract text from this PDF. It may be a scanned image with low quality. Try a CSV export from your DCS system.' };
@@ -11496,7 +11544,7 @@ async function uploadManifest(){
           seq:    i+1,
           name:   r.name||r.passenger_name||r.pax_name||'',
           cabin:  amadeusClassToDisplay(r.class||r.cabin_class||r.seat_class||''),
-          seat:   r.seat||r.seat_number||'',
+          seat:   normSeat(r.seat||r.seat_number||''),
           status: (r.status||'').toLowerCase().includes('check')?'checked_in':'pending',
           dep:    r.dep||r.from||dep,
           arr:    r.arr||r.to||arr,
@@ -11593,6 +11641,11 @@ async function loadManifests(){
       const py = pax.filter(p=>p.cabin==='PYC').length;
       const yc = pax.filter(p=>p.cabin==='YC').length;
       const methodBadge = m.upload_method ? `<span class="mfst-upload-method ${m.upload_method}">${m.upload_method==='api'?'🔗 API':m.upload_method==='agent'?'🎫 Agent':'👤 Admin'}</span>` : '';
+      let repairable = 0;
+      if(!pax.length && m.raw_text){ try{ repairable = parsePNLText(m.raw_text).passengers.length; }catch{} }
+      const repairBtn = (canManage && repairable)
+        ? `<button onclick="event.stopPropagation();repairManifest('${m.id}')" style="margin-top:6px;padding:5px 9px;border-radius:7px;border:1px solid rgba(46,204,113,.5);background:rgba(46,204,113,.12);color:#2ecc71;font-size:.68rem;cursor:pointer">🔧 Re-read file (${repairable} pax found)</button>`
+        : '';
       const deleteBtn = canManage
         ? `<button onclick="event.stopPropagation();deleteManifest('${m.id}','${escHtml(m.flight_number)}','${m.flight_date}')"
             style="padding:5px 10px;border-radius:7px;border:1px solid rgba(184,41,42,.5);background:rgba(184,41,42,.12);color:#ff6b6b;font-size:.7rem;cursor:pointer;flex-shrink:0">🗑 Delete</button>`
@@ -11609,7 +11662,7 @@ async function loadManifests(){
             ${pax.length > 0
               ? `<div style="font-weight:700;color:var(--color-text-primary)">${pax.length} pax</div>
                  <div>${jc?`JC:${jc} ·`:''} ${py?`PYC:${py} ·`:''} YC:${yc}</div>`
-              : '<div>No pax data</div>'}
+              : `<div>No pax data</div>${repairBtn}`}
           </div>
         </div>
         ${summary.gate ? `<div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">Gate ${summary.gate} · Board ${summary.board_time||'—'} · STD ${summary.std||'—'}</div>` : ''}
@@ -11623,6 +11676,19 @@ async function loadManifests(){
   }catch(e){
     el.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center">Error: ${escHtml(e.message)}</div>`;
   }
+}
+
+// Re-read a stored manifest whose passengers were lost to the old PDF line bug
+async function repairManifest(id){
+  const { data, error } = await sb.from('passenger_manifests').select('raw_text').eq('id', id).single();
+  if(error || !data?.raw_text){ toast('⚠ No saved file text to re-read.'); return; }
+  const parsed = parsePNLText(data.raw_text);
+  if(!parsed.passengers.length){ toast('⚠ Still no passengers found in the saved text. Please upload the file again.'); return; }
+  const { error: uErr } = await sb.from('passenger_manifests')
+    .update({ passengers: JSON.stringify(parsed.passengers), flight_summary: JSON.stringify(parsed.summary) }).eq('id', id);
+  if(uErr){ toast('⚠ ' + uErr.message); return; }
+  toast(`✅ ${parsed.passengers.length} passengers recovered`);
+  loadManifests();
 }
 
 // ── View a single manifest ────────────────────────────────
