@@ -2249,6 +2249,18 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
     </div>
   </div>
 
+  <!-- Audit log card (admin only) -->
+  <div id="admin-audit-card" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openAuditLog()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#64748b,#1e293b);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📜</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Audit Log</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Who changed what, and when</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
   <!-- Role permissions card (admin only) -->
   <div id="admin-perms-card" style="display:none;margin-bottom:14px">
     <div class="card" onclick="openPermsMatrix()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
@@ -3047,6 +3059,16 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
 <!-- ═══════════════════════════════════════════════════════════
      USER MANAGEMENT OVERLAY (admin only)
 ════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="audit-overlay" style="background:var(--color-app-bg);padding:0">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">📜 Audit Log</h2>
+      <button class="fs-close" onclick="closeAuditLog()">✕</button>
+    </div>
+    <div id="audit-body" style="padding:14px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="fs-overlay" id="perms-overlay" style="background:var(--color-app-bg);padding:0">
   <div style="display:flex;flex-direction:column;height:100%">
     <div class="fs-modal-hdr" style="background:var(--navy)">
@@ -9810,6 +9832,81 @@ async function forcePasswordSave(){
 }
 
 // ═══════════════════════════════════════════════
+// ADMIN — audit log
+// ═══════════════════════════════════════════════
+let _auditKind = 'all', _auditRows = [], _auditMore = false, _auditErr = null, _auditBusy = false;
+const AUDIT_PAGE = 40;
+const AUDIT_LABELS = {
+  staff_created:'Staff account created', staff_password_reset:'Temporary password set', role_changed:'Role changed',
+  blocked:'Account blocked', unblocked:'Account unblocked', admin_granted:'Admin rights granted', admin_revoked:'Admin rights removed',
+  crew_code_changed:'Crew code changed',
+};
+const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷' };
+
+function openAuditLog(){
+  if(!isAdmin){ toast('⚠ Admin access only.'); return; }
+  document.getElementById('audit-overlay').classList.add('open');
+  _auditRows = []; loadAudit(true);
+}
+function closeAuditLog(){ document.getElementById('audit-overlay').classList.remove('open'); }
+function auditSetKind(k){ _auditKind = k; _auditRows = []; loadAudit(true); }
+
+async function loadAudit(reset){
+  if(_auditBusy) return; _auditBusy = true;
+  if(reset){ _auditRows = []; renderAudit(true); }
+  const before = !reset && _auditRows.length ? _auditRows[_auditRows.length-1].at : null;
+  const { data, error } = await sb.rpc('admin_audit_list', { p_limit: AUDIT_PAGE, p_before: before, p_kind: _auditKind });
+  _auditBusy = false;
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    _auditErr = missing ? 'The audit log needs the database update (migration 26).' : error.message;
+  } else {
+    _auditErr = null;
+    _auditRows = _auditRows.concat(data || []);
+    _auditMore = (data || []).length === AUDIT_PAGE;
+  }
+  renderAudit(false);
+}
+
+function auditDescribe(r){
+  const d = r.details || {};
+  if(r.kind === 'roster'){
+    const bits = [];
+    if(d.reason) bits.push('“' + d.reason + '”');
+    return bits.join(' ');
+  }
+  if(r.action === 'role_changed') return (ROLE_LABELS[d.from] || d.from || '—') + ' → ' + (ROLE_LABELS[d.to] || d.to || '—');
+  if(r.action === 'staff_created') return ROLE_LABELS[d.role] || d.role || '';
+  if(r.action === 'crew_code_changed') return (d.from || '—') + ' → ' + (d.to || '—');
+  return '';
+}
+
+function renderAudit(loading){
+  const el = document.getElementById('audit-body'); if(!el) return;
+  const chips = [['all','All'],['account','Accounts'],['roster','Roster']].map(([v,l]) =>
+    `<button class="desk-chip ${_auditKind===v?'active':''}" onclick="auditSetKind('${v}')">${l}</button>`).join('');
+  let body;
+  if(_auditErr) body = `<div class="desk-warn">${escHtml(_auditErr)}</div>`;
+  else if(loading && !_auditRows.length) body = '<div class="empty" style="padding:30px 0;text-align:center">Loading…</div>';
+  else if(!_auditRows.length) body = '<div class="empty" style="padding:30px 0;text-align:center">Nothing recorded yet. Account changes and roster officer changes appear here from now on.</div>';
+  else body = _auditRows.map(r => {
+    const isRoster = r.kind === 'roster';
+    const title = isRoster ? ('Roster · ' + (ACT_TYPE_LABELS[r.action] || r.action)) : (AUDIT_LABELS[r.action] || r.action);
+    const icon  = isRoster ? '🗂' : (AUDIT_ICONS[r.action] || '•');
+    const desc  = auditDescribe(r);
+    const when  = new Date(r.at);
+    return `<div style="display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--color-border)">
+      <div style="font-size:1.1rem;width:24px;text-align:center;flex-shrink:0">${icon}</div>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:.82rem;font-weight:800;color:var(--color-text-primary)">${escHtml(title)}</div>
+        <div style="font-size:.76rem;color:var(--color-text-primary);margin-top:1px">${escHtml(r.target_label || '—')}${desc ? ' · <span style="color:var(--color-text-muted)">' + escHtml(desc) + '</span>' : ''}</div>
+        <div style="font-size:.68rem;color:var(--color-text-muted);margin-top:3px">by ${escHtml(r.actor_name || 'System')} · ${actAgo(r.at)} · ${when.toLocaleString([], {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})}</div>
+      </div></div>`;
+  }).join('') + (_auditMore ? `<button class="btn btn-ghost" style="width:100%;margin-top:12px" onclick="loadAudit(false)">Load older</button>` : '');
+  el.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px">${chips}</div>` + body;
+}
+
+// ═══════════════════════════════════════════════
 // ADMIN — role permissions matrix (reference)
 // ═══════════════════════════════════════════════
 // Columns: crew · roster officer · check-in agent · ops manager · admin.
@@ -9842,6 +9939,7 @@ const PERM_MATRIX = [
     ['Staff accounts (create, reset, block)',   [0,0,0,0,1]],
     ['User management & roles',                 [0,0,0,0,1]],
     ['Activity overview & sign-up control',     [0,0,0,0,1]],
+    ['Audit log',                               [0,0,0,0,1]],
   ]],
 ];
 function openPermsMatrix(){
@@ -16162,6 +16260,8 @@ function renderDB(){
 
   const staffCard = document.getElementById('admin-staff-card');
   if(staffCard) staffCard.style.display = adminVis;
+  const auditCard = document.getElementById('admin-audit-card');
+  if(auditCard) auditCard.style.display = adminVis;
   const permsCard = document.getElementById('admin-perms-card');
   if(permsCard) permsCard.style.display = adminVis;
   const actCard = document.getElementById('admin-activity-card');

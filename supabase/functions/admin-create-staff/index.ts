@@ -47,6 +47,16 @@ export function validateCreate(b: Record<string, unknown>): string | null {
   return null;
 }
 
+// Audit trail (migration 26). Never lets a logging problem fail the request.
+async function audit(admin: any, me: any, action: string, targetId: string, label: string, details: Record<string, unknown>) {
+  try {
+    await admin.from('admin_audit_log').insert({
+      tenant_id: me.tenant_id, actor_id: me.id, actor_name: me.full_name ?? null,
+      action, target_id: targetId, target_label: label, details,
+    });
+  } catch { /* table may not exist yet */ }
+}
+
 export async function handle(req: Request, env: Env, makeClient: MakeClient): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'POST only.' });
@@ -96,6 +106,7 @@ export async function handle(req: Request, env: Env, makeClient: MakeClient): Pr
       await admin.auth.admin.deleteUser(created.user.id);          // no half-created accounts
       return json(500, { error: 'Could not save the profile: ' + pErr.message });
     }
+    await audit(admin, me, 'staff_created', created.user.id, fullName || email, { role });
     return json(200, { ok: true, user: { id: created.user.id, email, full_name: fullName, role } });
   }
 
@@ -111,6 +122,7 @@ export async function handle(req: Request, env: Env, makeClient: MakeClient): Pr
     const { error: rErr } = await admin.auth.admin.updateUserById(target.id, { password: pw });
     if (rErr) return json(400, { error: rErr.message });
     await admin.from('profiles').update({ must_change_password: true }).eq('id', target.id);
+    await audit(admin, me, 'staff_password_reset', target.id, String(body.user_id), {});
     return json(200, { ok: true });
   }
 
