@@ -9839,9 +9839,9 @@ const AUDIT_PAGE = 40;
 const AUDIT_LABELS = {
   staff_created:'Staff account created', staff_password_reset:'Temporary password set', role_changed:'Role changed',
   blocked:'Account blocked', unblocked:'Account unblocked', admin_granted:'Admin rights granted', admin_revoked:'Admin rights removed',
-  crew_code_changed:'Crew code changed',
+  crew_code_changed:'Crew code changed', base_changed:'Base changed',
 };
-const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷' };
+const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷', base_changed:'📍' };
 
 function openAuditLog(){
   if(!isAdmin){ toast('⚠ Admin access only.'); return; }
@@ -9877,7 +9877,7 @@ function auditDescribe(r){
   }
   if(r.action === 'role_changed') return (ROLE_LABELS[d.from] || d.from || '—') + ' → ' + (ROLE_LABELS[d.to] || d.to || '—');
   if(r.action === 'staff_created') return ROLE_LABELS[d.role] || d.role || '';
-  if(r.action === 'crew_code_changed') return (d.from || '—') + ' → ' + (d.to || '—');
+  if(r.action === 'crew_code_changed' || r.action === 'base_changed') return (d.from || '—') + ' → ' + (d.to || '—');
   return '';
 }
 
@@ -10049,7 +10049,27 @@ function renderAdminActivity(){
 const STAFF_ROLE_OPTIONS = [
   ['roster_officer','Roster Officer'], ['check_in_agent','Check-in Agent'], ['ops_manager','Ops Manager'],
 ];
-let _staffList = [], _staffFilter = 'all', _staffCreated = null, _staffResetFor = null;
+let _staffList = [], _staffFilter = 'all', _staffBase = 'all', _staffCreated = null, _staffResetFor = null;
+function normBase(v){ return String(v||'').trim().toUpperCase(); }
+function validBase(v){ return v === '' || /^[A-Z]{3}$/.test(v); }
+async function staffApplyBase(userId, base){
+  if(!base) return true;
+  const { error } = await sb.rpc('admin_set_base', { p_user_id: userId, p_base: base });
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    toast('⚠ Account created, but the base was not saved' + (missing ? ' (needs migration 27).' : ': ' + error.message));
+    return false;
+  }
+  return true;
+}
+async function staffSetBase(userId, raw){
+  const base = normBase(raw);
+  if(!validBase(base)){ toast('⚠ A base is a 3-letter code, e.g. EBB.'); loadStaffList(); return; }
+  const { error } = await sb.rpc('admin_set_base', { p_user_id: userId, p_base: base });
+  if(error){ toast('⚠ ' + error.message); loadStaffList(); return; }
+  toast(base ? '📍 Base set to ' + base : 'Base cleared'); loadStaffList();
+}
+function staffSetBaseFilter(b){ _staffBase = b; renderStaffAdmin(); }
 
 function genTempPassword(){
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -10094,12 +10114,15 @@ async function staffCreate(){
   const v = id => (document.getElementById(id)?.value || '').trim();
   const body = { action:'create', full_name: v('stf-name'), email: v('stf-email'), phone: v('stf-phone'),
                  password: document.getElementById('stf-pw').value, role: v('stf-role') };
+  const base = normBase(v('stf-base'));
+  if(!validBase(base)){ toast('⚠ A base is a 3-letter code, e.g. EBB.'); return; }
   const btn = document.getElementById('stf-create');
   btn.disabled = true; btn.textContent = 'Creating…';
   const { data, error } = await sb.functions.invoke('admin-create-staff', { body });
   btn.disabled = false; btn.textContent = 'Create account';
   if(error || data?.error){ toast('⚠ ' + (error ? await staffFnError(error) : data.error)); return; }
-  _staffCreated = { name: body.full_name, email: body.email.toLowerCase(), password: body.password, role: body.role };
+  if(base) await staffApplyBase(data?.user?.id, base);
+  _staffCreated = { name: body.full_name, email: body.email.toLowerCase(), password: body.password, role: body.role, base };
   toast('✅ Account created');
   renderStaffAdmin();
   loadStaffList();
@@ -10171,15 +10194,16 @@ function parseStaffCsv(text, defaultRole){
   const rows = impSplitCsv(text);
   if(!rows.length) return [];
   const norm = h => h.toLowerCase().replace(/[^a-z]/g,'');
-  const known = { name:'name', fullname:'name', staffname:'name', email:'email', emailaddress:'email', phone:'phone', phonenumber:'phone', mobile:'phone', tel:'phone', role:'role', password:'password', temporarypassword:'password', temppassword:'password' };
+  const known = { name:'name', fullname:'name', staffname:'name', email:'email', emailaddress:'email', phone:'phone', phonenumber:'phone', mobile:'phone', tel:'phone', role:'role', base:'base', station:'base', homebase:'base', airport:'base', password:'password', temporarypassword:'password', temppassword:'password' };
   const head = rows[0].map(h => known[norm(h)]);
   const hasHeader = head.filter(Boolean).length >= 2;
-  const cols = hasHeader ? head : ['name','email','phone','role','password'];
+  const cols = hasHeader ? head : ['name','email','phone','role','password','base'];
   const out = [], seen = new Set();
   rows.slice(hasHeader ? 1 : 0).forEach((r, i) => {
     const rec = {}; cols.forEach((k, j) => { if(k && r[j] !== undefined) rec[k] = r[j]; });
     const row = { line: i + (hasHeader ? 2 : 1), name: (rec.name||'').trim(), email: (rec.email||'').trim().toLowerCase(),
-                  phone: (rec.phone||'').trim(), password: rec.password||'', role: null, generated: false, error: null };
+                  phone: (rec.phone||'').trim(), password: rec.password||'', role: null, generated: false, error: null,
+                  base: (rec.base||'').trim().toUpperCase() };
     if(!row.name) row.error = 'Name is missing.';
     else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) row.error = 'Email is not valid.';
     else if(seen.has(row.email)) row.error = 'Email appears twice in the file.';
@@ -10187,6 +10211,7 @@ function parseStaffCsv(text, defaultRole){
       row.role = impNormRole(rec.role);
       if(!row.role && !row.error) row.error = 'Role “' + rec.role + '” is not recognised.';
     } else row.role = defaultRole;
+    if(!row.error && row.base && !/^[A-Z]{3}$/.test(row.base)) row.error = 'Base “' + row.base + '” must be a 3-letter code.';
     if(!row.error && row.password && (row.password.length < 8 || row.password.length > 72)) row.error = 'Password must be 8–72 characters.';
     if(!row.password){ row.password = genTempPassword(); row.generated = true; }
     if(row.email) seen.add(row.email);
@@ -10207,7 +10232,7 @@ function impReadFile(inp){
   rd.readAsText(f);
 }
 function impTemplate(){
-  const csv = 'name,email,phone,role,password\nJane Nakato,jane@example.com,+256700000001,roster officer,\nPeter Okello,peter@example.com,+256700000002,check-in agent,\nSarah Auma,sarah@example.com,,ops manager,\n';
+  const csv = 'name,email,phone,role,password,base\nJane Nakato,jane@example.com,+256700000001,roster officer,,EBB\nPeter Okello,peter@example.com,+256700000002,check-in agent,,EBB\nSarah Auma,sarah@example.com,,ops manager,,\n';
   impDownload('staff-import-template.csv', csv);
 }
 function impDownload(name, text){
@@ -10234,7 +10259,7 @@ async function impRun(){
     try{
       const { data, error } = await sb.functions.invoke('admin-create-staff', { body:{ action:'create', full_name:r.name, email:r.email, phone:r.phone, password:r.password, role:r.role } });
       if(error || data?.error){ r.status = 'failed'; r.error = error ? await staffFnError(error) : data.error; }
-      else r.status = 'created';
+      else { r.status = 'created'; if(r.base) await staffApplyBase(data?.user?.id, r.base); }
     }catch(e){ r.status = 'failed'; r.error = String(e.message || e); }
   }
   _imp.busy = false; _imp.step = 'done'; renderStaffAdmin();
@@ -10243,8 +10268,8 @@ async function impRun(){
 }
 function impResultsCsv(){
   const q = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
-  return 'name,email,phone,role,temporary_password\n' + _imp.rows.filter(r => r.status === 'created')
-    .map(r => [r.name, r.email, r.phone, ROLE_LABELS[r.role]||r.role, r.password].map(q).join(',')).join('\n') + '\n';
+  return 'name,email,phone,role,base,temporary_password\n' + _imp.rows.filter(r => r.status === 'created')
+    .map(r => [r.name, r.email, r.phone, ROLE_LABELS[r.role]||r.role, r.base, r.password].map(q).join(',')).join('\n') + '\n';
 }
 function impCopyResults(){
   const txt = _imp.rows.filter(r => r.status === 'created').map(r => `${r.name} — ${ROLE_LABELS[r.role]||r.role}\n${r.email}\nTemporary password: ${r.password}`).join('\n\n');
@@ -10263,7 +10288,7 @@ function renderStaffImport(el){
     el.innerHTML = back + `<div class="staff-card">
       <div style="font-weight:800;font-size:.88rem;margin-bottom:6px">Import staff from CSV</div>
       <div style="font-size:.74rem;color:var(--color-text-muted);line-height:1.5;margin-bottom:10px">
-        Columns: <b>name, email, phone, role, password</b>. Role and password are optional — a missing role uses the default below and a missing password is generated.
+        Columns: <b>name, email, phone, role, password, base</b>. Everything except name and email is optional — a missing role uses the default below, a missing password is generated, and base is a 3-letter code such as EBB.
         Up to ${IMP_MAX} accounts at a time.</div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="document.getElementById('imp-file').click()">📄 Choose file</button>
@@ -10285,7 +10310,7 @@ function renderStaffImport(el){
     return `<div class="staff-card" style="padding:10px 12px;margin-bottom:6px">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:.82rem">${escHtml(r.name||'—')}</b>
         <span class="role-pill ${r.role==='roster_officer'?'officer':r.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[r.role]||'—')}</span>${badge}</div>
-      <div style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px">${escHtml(r.email||'')}${r.phone?' · '+escHtml(r.phone):''}${r.generated?' · password generated':''}</div>
+      <div style="font-size:.72rem;color:var(--color-text-muted);margin-top:3px">${escHtml(r.email||'')}${r.phone?' · '+escHtml(r.phone):''}${r.base?' · 📍 '+escHtml(r.base):''}${r.generated?' · password generated':''}</div>
       ${r.error ? `<div style="font-size:.72rem;color:#fca5a5;margin-top:3px">Row ${r.line}: ${escHtml(r.error)}</div>` : ''}</div>`;
   }).join('');
   let head = '', foot = '';
@@ -10327,7 +10352,7 @@ function renderStaffAdmin(){
   const created = _staffCreated ? `
     <div class="desk-ok" style="margin-bottom:14px">
       <b>${_staffCreated.reset ? 'Temporary password set' : 'Account created'} for ${escHtml(_staffCreated.name)}</b><br>
-      Email: ${escHtml(_staffCreated.email)}<br>
+      Email: ${escHtml(_staffCreated.email)}${_staffCreated.base ? '<br>Base: ' + escHtml(_staffCreated.base) : ''}<br>
       Temporary password: <b style="font-family:monospace;user-select:all">${escHtml(_staffCreated.password)}</b><br>
       <span style="font-size:.72rem;opacity:.85">Shown once. They must set their own password at first sign-in.</span>
       <div style="display:flex;gap:8px;margin-top:8px">
@@ -10345,6 +10370,8 @@ function renderStaffAdmin(){
       <input id="stf-email" class="rch-input" type="email" placeholder="Email" autocomplete="off" style="margin-bottom:8px"/>
       <input id="stf-phone" class="rch-input" type="tel" placeholder="Phone (optional)" autocomplete="off" style="margin-bottom:8px"/>
       <select id="stf-role" class="rch-input" style="margin-bottom:8px">${roleOpts}</select>
+      <input id="stf-base" class="rch-input" placeholder="Base e.g. EBB (optional)" maxlength="3" autocapitalize="characters" autocomplete="off" list="stf-base-list" style="margin-bottom:8px;text-transform:uppercase"/>
+      <datalist id="stf-base-list">${[...new Set(['EBB'].concat(_staffList.map(u => u.base).filter(Boolean)))].map(b => `<option value="${escHtml(b)}">`).join('')}</datalist>
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <input id="stf-pw" class="rch-input" type="text" placeholder="Temporary password (min 8)" autocomplete="off" style="flex:1;min-width:0;font-family:monospace"/>
         <button class="btn btn-ghost btn-sm" style="width:auto;flex:0 0 auto" onclick="staffGenFor('stf-pw')">🎲 Generate</button>
@@ -10354,7 +10381,12 @@ function renderStaffAdmin(){
 
   const chips = [['all','All']].concat(STAFF_ROLE_OPTIONS).map(([v,l]) =>
     `<button class="desk-chip ${_staffFilter===v?'active':''}" onclick="staffSetFilter('${v}')">${l}</button>`).join('');
-  const list = _staffList.filter(u => _staffFilter === 'all' || u.role === _staffFilter);
+  const bases = [...new Set(_staffList.map(u => u.base).filter(Boolean))].sort();
+  if(_staffBase !== 'all' && !bases.includes(_staffBase) && _staffBase !== 'none') _staffBase = 'all';
+  const baseChips = bases.length ? ['all'].concat(bases, ['none']).map(b =>
+    `<button class="desk-chip ${_staffBase===b?'active':''}" onclick="staffSetBaseFilter('${b}')">${b==='all'?'Any base':b==='none'?'No base':'📍 '+b}</button>`).join('') : '';
+  const list = _staffList.filter(u => (_staffFilter === 'all' || u.role === _staffFilter)
+    && (_staffBase === 'all' || (_staffBase === 'none' ? !u.base : u.base === _staffBase)));
   const rows = _staffLoadErr ? `<div class="desk-warn">${escHtml(_staffLoadErr)}</div>`
     : list.length ? list.map(u => {
       const status = u.blocked ? '<span class="role-pill" style="background:rgba(239,68,68,.2);color:#fca5a5">Blocked</span>'
@@ -10368,20 +10400,21 @@ function renderStaffAdmin(){
         </div>` : '';
       return `<div class="staff-card">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:.86rem">${escHtml(u.full_name||'—')}</b>
-          <span class="role-pill ${u.role==='roster_officer'?'officer':u.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[u.role]||u.role)}</span>${status}</div>
+          <span class="role-pill ${u.role==='roster_officer'?'officer':u.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[u.role]||u.role)}</span>${u.base?`<span class="role-pill" style="background:rgba(148,163,184,.2);color:#cbd5e1">📍 ${escHtml(u.base)}</span>`:''}${status}</div>
         <div style="font-size:.74rem;color:var(--color-text-muted);margin-top:4px">${escHtml(u.email||'')}${u.phone?' · '+escHtml(u.phone):''}${u.created_by_name?' · created by '+escHtml(u.created_by_name):''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           <select class="rch-input" style="width:auto;flex:0 0 auto;font-size:.74rem;padding:6px 8px" onchange="staffSetRole('${u.user_id}', this.value)">
             ${STAFF_ROLE_OPTIONS.map(([v,l]) => `<option value="${v}" ${u.role===v?'selected':''}>${l}</option>`).join('')}</select>
+          <input class="rch-input" value="${escHtml(u.base||'')}" placeholder="Base" maxlength="3" autocapitalize="characters" title="Base (3-letter code)" style="width:64px;flex:0 0 auto;font-size:.74rem;padding:6px 8px;text-transform:uppercase;text-align:center" onchange="staffSetBase('${u.user_id}', this.value)"/>
           <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="staffStartReset('${u.user_id}')">🔑 Reset password</button>
           <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="staffToggleBlock('${u.user_id}', ${!u.blocked})">${u.blocked?'Unblock':'Block'}</button>
         </div>${reset}</div>`;
     }).join('') : `<div class="empty" style="padding:18px 0;text-align:center">No staff accounts yet.</div>`;
 
   // keep what the admin has typed when the list re-renders
-  const keep = {}; ['stf-name','stf-email','stf-phone','stf-role','stf-pw','stf-reset-pw'].forEach(id => { const e = document.getElementById(id); if(e) keep[id] = e.value; });
+  const keep = {}; ['stf-name','stf-email','stf-phone','stf-role','stf-base','stf-pw','stf-reset-pw'].forEach(id => { const e = document.getElementById(id); if(e) keep[id] = e.value; });
   el.innerHTML = created + form + `<div class="desk-pending-h" style="margin:16px 0 8px;color:var(--color-text-muted)">Staff accounts</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${chips}</div>` + rows;
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${baseChips?'6':'10'}px">${chips}</div>${baseChips?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${baseChips}</div>`:''}` + rows;
   Object.entries(keep).forEach(([id,val]) => { const e = document.getElementById(id); if(e && val) e.value = val; });
 }
 
