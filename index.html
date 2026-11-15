@@ -2249,6 +2249,18 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
     </div>
   </div>
 
+  <!-- Role permissions card (admin only) -->
+  <div id="admin-perms-card" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openPermsMatrix()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#92400e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">🔐</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Role Permissions</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">What each role can see and do</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
   <!-- Activity overview card (admin only) -->
   <div id="admin-activity-card" style="display:none;margin-bottom:14px">
     <div class="card" onclick="openActivityOverview()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
@@ -3035,6 +3047,16 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
 <!-- ═══════════════════════════════════════════════════════════
      USER MANAGEMENT OVERLAY (admin only)
 ════════════════════════════════════════════════════════════ -->
+<div class="fs-overlay" id="perms-overlay" style="background:var(--color-app-bg);padding:0">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">🔐 Role Permissions</h2>
+      <button class="fs-close" onclick="closePermsMatrix()">✕</button>
+    </div>
+    <div id="perms-body" style="padding:14px 10px;overflow:auto;flex:1"></div>
+  </div>
+</div>
+
 <div class="fs-overlay" id="activity-overlay" style="background:var(--color-app-bg);padding:0">
   <div style="display:flex;flex-direction:column;height:100%">
     <div class="fs-modal-hdr" style="background:var(--navy)">
@@ -9788,6 +9810,68 @@ async function forcePasswordSave(){
 }
 
 // ═══════════════════════════════════════════════
+// ADMIN — role permissions matrix (reference)
+// ═══════════════════════════════════════════════
+// Columns: crew · roster officer · check-in agent · ops manager · admin.
+// 1 = full access, 0 = none, string = limited (the text says how).
+const PERM_ROLES = [['crew','Crew'],['roster_officer','Roster Officer'],['check_in_agent','Check-in'],['ops_manager','Ops Mgr'],['admin','Admin']];
+const PERM_MATRIX = [
+  ['Own work', [
+    ['Dashboard, flight log & per diem',        [1,0,0,0,1]],
+    ['My Roster (view, complete, report changes)', [1,0,0,0,1]],
+    ['Own profile & password',                  [1,1,1,1,1]],
+  ]],
+  ['Roster', [
+    ['Roster Desk (assign, change, swap, reopen)', [0,1,0,0,1]],
+    ['Bulk roster upload & revisions',          [0,1,0,0,1]],
+    ['Acknowledge & see officer change feed',   [0,1,0,0,1]],
+  ]],
+  ['Operations', [
+    ['Passenger manifest — upload',             [0,0,1,1,1]],
+    ['Passenger manifest — view & manage',      [0,0,0,1,1]],
+    ['Cabin Notices',                           [1,0,0,1,1]],
+    ['Announcements',                           [1,0,0,1,1]],
+    ['Passenger Feedback',                      [1,0,0,1,1]],
+    ['Manuals',                                 [1,0,0,1,1]],
+    ['Chat',                                    [1,0,0,1,1]],
+    ['Nexa Crew AI & IQSMS link',               [1,0,0,0,1]],
+    ['Purser Flight Report & Cabin Log',        ['Purser only',0,0,0,1]],
+    ['GUESTORA',                                [0,0,0,0,1]],
+  ]],
+  ['Administration', [
+    ['Staff accounts (create, reset, block)',   [0,0,0,0,1]],
+    ['User management & roles',                 [0,0,0,0,1]],
+    ['Activity overview & sign-up control',     [0,0,0,0,1]],
+  ]],
+];
+function openPermsMatrix(){
+  if(!isAdmin){ toast('⚠ Admin access only.'); return; }
+  document.getElementById('perms-overlay').classList.add('open');
+  const cell = v => v === 1 ? '<span style="color:#34d399;font-weight:900">✓</span>'
+                  : v === 0 ? '<span style="color:var(--color-text-muted);opacity:.45">—</span>'
+                  : `<span style="color:#fbbf24;font-size:.55rem;font-weight:700;line-height:1.1;display:inline-block">${escHtml(v)}</span>`;
+  let h = `<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:.72rem">
+    <colgroup><col style="width:36%">${PERM_ROLES.map(()=>'<col style="width:12.8%">').join('')}</colgroup>
+    <thead><tr><th></th>${
+      PERM_ROLES.map(([,l]) => `<th style="padding:8px 1px;font-size:.58rem;font-weight:800;color:var(--color-text-muted);text-align:center;line-height:1.2">${l}</th>`).join('')}</tr></thead><tbody>`;
+  for(const [group, rows] of PERM_MATRIX){
+    h += `<tr><td colspan="${PERM_ROLES.length+1}" style="padding:14px 6px 6px;font-size:.66rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted)">${group}</td></tr>`;
+    for(const [label, cells] of rows){
+      h += `<tr style="border-top:1px solid var(--color-border)"><td style="padding:9px 6px 9px 2px;color:var(--color-text-primary);line-height:1.3">${escHtml(label)}</td>${
+        cells.map(c => `<td style="text-align:center;padding:9px 4px">${cell(c)}</td>`).join('')}</tr>`;
+    }
+  }
+  h += `</tbody></table>
+    <div style="font-size:.7rem;color:var(--color-text-muted);line-height:1.55;margin-top:16px">
+      <b>✓</b> full access · <b>—</b> no access. Access is enforced by the server, not just hidden in the app.
+      An account has one role; admins always get the full app. Staff roles (Roster Officer, Check-in Agent, Ops Manager)
+      open straight into their own workspace and never see the crew app. Change a role from <b>Staff Accounts</b>.
+    </div>`;
+  document.getElementById('perms-body').innerHTML = h;
+}
+function closePermsMatrix(){ document.getElementById('perms-overlay').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════
 // ADMIN — activity overview
 // ═══════════════════════════════════════════════
 let _actDays = 7, _actData = null, _actErr = null;
@@ -16078,6 +16162,8 @@ function renderDB(){
 
   const staffCard = document.getElementById('admin-staff-card');
   if(staffCard) staffCard.style.display = adminVis;
+  const permsCard = document.getElementById('admin-perms-card');
+  if(permsCard) permsCard.style.display = adminVis;
   const actCard = document.getElementById('admin-activity-card');
   if(actCard) actCard.style.display = adminVis;
 
