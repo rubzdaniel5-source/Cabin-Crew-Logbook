@@ -10125,6 +10125,8 @@ function staffFnError(error){
         if(error.context.status === 404) throw 0;
       }
     }catch(_){ return 'The staff-account service is not deployed yet. Deploy the Edge Function “admin-create-staff” in Supabase (steps are in the function’s file).'; }
+    if(error?.name === 'FunctionsFetchError' || /failed to send a request/i.test(error?.message||''))
+      return 'Could not reach the staff-account service. In Supabase → Edge Functions, check that “admin-create-staff” is deployed with that exact name and that “Verify JWT” is switched off for it.';
     return error?.message || 'Request failed.';
   })();
 }
