@@ -10116,17 +10116,23 @@ async function loadStaffList(){
 let _staffLoadErr = null;
 
 function staffFnError(error){
-  // supabase-js wraps non-2xx replies; the real message is in the response body
+  // supabase-js hides the real reply behind "non-2xx"; read the body so the admin sees the actual reason
   return (async () => {
-    try{
-      if(error?.context && typeof error.context.json === 'function'){
-        const j = await error.context.json();
-        if(j?.error) return j.error;
-        if(error.context.status === 404) throw 0;
-      }
-    }catch(_){ return 'The staff-account service is not deployed yet. Deploy the Edge Function “admin-create-staff” in Supabase (steps are in the function’s file).'; }
     if(error?.name === 'FunctionsFetchError' || /failed to send a request/i.test(error?.message||''))
       return 'Could not reach the staff-account service. In Supabase → Edge Functions, check that “admin-create-staff” is deployed with that exact name and that “Verify JWT” is switched off for it.';
+    const res = error?.context;
+    if(res && typeof res.text === 'function'){
+      const status = res.status;
+      let msg = '';
+      try{
+        const raw = await res.text();
+        try{ const j = JSON.parse(raw); msg = j.error || j.message || j.msg || j.detail || raw; }catch{ msg = raw; }
+      }catch{}
+      msg = String(msg || '').slice(0, 300);
+      if(status === 404) return 'The staff-account service is not deployed under the name “admin-create-staff”.';
+      if(status === 401 && /jwt/i.test(msg)) return 'Supabase rejected the login token (' + msg + '). Switch “Verify JWT” off for admin-create-staff, then try again.';
+      return (msg || 'Request failed') + ' [' + status + ']';
+    }
     return error?.message || 'Request failed.';
   })();
 }
