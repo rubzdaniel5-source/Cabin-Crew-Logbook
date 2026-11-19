@@ -3749,7 +3749,7 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
     <!-- Meal inventory strip (hidden when no inventory set) -->
     <div id="gs-inventory-strip" style="display:none;padding:7px 14px 6px;border-bottom:1px solid var(--color-border);background:rgba(0,0,0,.18)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:.68rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">Meal Uplift</span>
+        <span style="font-size:.68rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">Main Course Uplift</span>
         <button onclick="gsOpenInventoryModal()" style="font-size:.65rem;color:var(--color-accent);background:none;border:none;cursor:pointer;padding:0">Edit</button>
       </div>
       <div id="gs-inventory-pills" style="display:flex;flex-wrap:wrap;gap:5px"></div>
@@ -3772,7 +3772,7 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--color-border);flex-shrink:0">
         <div>
           <div style="font-size:.95rem;font-weight:800;color:var(--color-text-primary)">🍽️ Meal Uplift Count</div>
-          <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Enter how many of each item came on board</div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Enter how many of each main course came on board</div>
         </div>
         <button onclick="gsCloseInventoryModal()" style="background:rgba(255,255,255,.08);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1.1rem;color:var(--color-text-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
       </div>
@@ -5750,6 +5750,8 @@ async function gsSelectCabin(cabin, cfg){
   gsRenderSeatMap(cabin);
   gsRenderInventoryStrip();
   gsShowView('seatmap');
+  // Pick up a manifest that was uploaded after this session was opened
+  if(_gs.pkg?.flightNum && _gs.pkg?.date) gsLoadPaxManifest(_gs.pkg.flightNum, _gs.pkg.date);
   // On first entry to seatmap for a session with no inventory set, prompt crew to enter counts.
   // We only do this once per session (mealInventory stays set even if all items are 0).
   if(_gs.mealInventory === null){
@@ -6354,23 +6356,37 @@ function gsCloseOrderSheet(){
  * Called automatically on first seat-map entry if no inventory set;
  * also called via "Edit" button on the inventory strip.
  */
+/** Available main-course items of a menu. A section counts as "main course" by id or name
+ *  (mains / main course / entrée); if a custom menu has no such section, fall back to every
+ *  non-beverage item so the crew is never left with nothing to count. */
+function gsIsMainSection(sub){
+  return sub?.id === 'mains' || /\bmains?\b|main\s*course|entr[eé]e/i.test(sub?.label || '');
+}
+function gsMainCourseItems(menu){
+  const pick = (test) => {
+    const out = [];
+    (menu?.categories || []).forEach(cat => (cat.subcategories || []).forEach(sub => {
+      if(!test(cat, sub)) return;
+      (sub.items || []).filter(it => it.available).forEach(it =>
+        out.push({ id: it.id, name: it.name, catLabel: cat.label, subLabel: sub.label }));
+    }));
+    return out;
+  };
+  const mains = pick((cat, sub) => gsIsMainSection(sub));
+  return mains.length ? mains : pick((cat) => cat.id !== 'beverages' && !/beverage|drink/i.test(cat.label || ''));
+}
+
 async function gsOpenInventoryModal(){
   const menu = _gs.activeMenu || await guestoraGetActiveMenu().catch(()=>null);
   if(!menu || !menu.categories || !menu.categories.length){
     toast('No menu configured. Add a menu in GUESTORA Admin first.');
     return;
   }
-  // Build list of all available items (across all categories)
-  const allItems = [];
-  menu.categories.forEach(cat=>{
-    cat.subcategories.forEach(sub=>{
-      sub.items.filter(it=>it.available).forEach(it=>{
-        allItems.push({ id:it.id, name:it.name, catLabel:cat.label, subLabel:sub.label });
-      });
-    });
-  });
+  // Uplift is counted for MAIN COURSES only. Starters and desserts travel with the mains
+  // and drinks are always sufficient, so tracking them is just noise.
+  const allItems = gsMainCourseItems(menu);
   if(!allItems.length){
-    toast('No available menu items to track.');
+    toast('No available main courses to count.');
     return;
   }
   // Build modal body
@@ -6449,8 +6465,8 @@ function gsCloseInventoryModal(){
  * Builds a seat→pax lookup used by the seat map renderer and order sheet.
  */
 async function gsLoadPaxManifest(flightNum, date){
-  _gs.paxManifest = null;
-  if(!isOnline) return; // offline: no manifest (future: could cache in IDB)
+  // (a manifest already loaded stays in place if we are offline or the refresh finds nothing new)
+  if(!isOnline) return; // offline: keep what we have
   try{
     const { data, error } = await sb.from('passenger_manifests')
       .select('passengers')
