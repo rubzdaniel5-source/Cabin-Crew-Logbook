@@ -2,7 +2,7 @@
 // Crew Logbook Service Worker
 // Version bump here when you want clients to pick up a new shell.
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE = 'crew-logbook-v75';
+const CACHE = 'crew-logbook-v76';
 
 // ── Critical shell: must all succeed for the app to work offline ──────────────
 // supabase-js is included here because auth is gated on it — the app cannot
@@ -115,4 +115,22 @@ self.addEventListener('fetch', e => {
 // ── Messages from the page ────────────────────────────────────────────────────
 self.addEventListener('message', e => {
   if (e.data === 'skipWaiting') self.skipWaiting();
+});
+
+// ── Push notifications ────────────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Crew Logbook', {
+    body: d.body || '', tag: d.tag || undefined, renotify: !!d.tag,
+    icon: './icon.svg', badge: './icon.svg', data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

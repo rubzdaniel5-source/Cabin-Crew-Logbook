@@ -1943,6 +1943,13 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
       📡 My Roster requires a connection to load.
     </div>
 
+    <!-- Calendar -->
+    <div class="staff-card" id="cal-card" style="margin-top:4px">
+      <button onclick="calToggle()" style="display:flex;width:100%;align-items:center;justify-content:space-between;background:none;border:none;color:var(--color-text-primary);font-family:inherit;font-size:.86rem;font-weight:800;padding:0;cursor:pointer;text-align:left">
+        <span>📅 Add roster to my calendar</span><span id="cal-arrow" style="color:var(--color-text-muted)">▾</span></button>
+      <div id="cal-body" style="display:none"></div>
+    </div>
+
     <!-- Messages from the crew office -->
     <div class="staff-card" id="mg-card" style="margin-top:4px">
       <button onclick="mgmToggle()" style="display:flex;width:100%;align-items:center;justify-content:space-between;background:none;border:none;color:var(--color-text-primary);font-family:inherit;font-size:.86rem;font-weight:800;padding:0;cursor:pointer;text-align:left">
@@ -10016,6 +10023,7 @@ const PERM_MATRIX = [
     ['Request leave / days off (own)',          [1,0,0,0,1]],
     ['Send messages to crew (one or many, email + in-app)', [0,1,0,0,1]],
     ['Read crew messages, acknowledge, email preferences (own)', [1,0,0,0,1]],
+    ['Calendar export, live calendar link & phone notifications (own)', [1,0,0,0,1]],
     ['Acknowledge & see officer change feed',   [0,1,0,0,1]],
   ]],
   ['Operations', [
@@ -11131,6 +11139,7 @@ async function mgmLoad(){
   } else { _mgm.err = null; _mgm.rows = l.data || []; }
   _mgm.prefs = p.error ? null : (Array.isArray(p.data) ? p.data[0] : p.data) || null;
   mgmRender();
+  pushRefresh().then(mgmRender).catch(() => {});
   const unread = (_mgm.rows || []).filter(r => !r.read_at && !r.requires_ack).map(r => r.id);
   if(unread.length){ try{ await sb.rpc('msg_my_mark_read', { p_ids: unread }); }catch{} }
   const b = document.getElementById('mgm-badge'); if(b) b.textContent = (_mgm.rows || []).filter(r => !r.read_at && r.requires_ack).length ? String((_mgm.rows || []).filter(r => !r.read_at && r.requires_ack).length) : '';
@@ -11145,10 +11154,16 @@ function mgmRender(){
       <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:4px">— ${escHtml(m.sender_name || 'Crew office')}</div>
       ${m.requires_ack ? (m.ack_at ? '<div style="font-size:.72rem;margin-top:4px;color:var(--color-text-muted)">✔ You acknowledged this</div>'
         : `<button class="btn btn-primary btn-sm" style="width:auto;margin-top:6px" onclick="mgmAck('${escHtml(m.id)}')">✔ Acknowledge</button>`) : ''}</div>`).join('');
-  const p = _mgm.prefs || { email_roster:true, email_messages:true, email_leave:true };
-  const ck = (k, l) => `<label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:4px 0"><input type="checkbox" id="mgp-${k}" ${p['email_' + k] ? 'checked' : ''} onchange="mgmSavePrefs()"/> ${l}</label>`;
+  const p = _mgm.prefs || { email_roster:true, email_messages:true, email_leave:true, push_roster:true, push_messages:true, push_leave:true };
+  const ck = (k, l) => `<label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:4px 0"><input type="checkbox" id="mgp-${k}" ${p[k] ? 'checked' : ''} onchange="mgmSavePrefs()"/> ${l}</label>`;
+  const ps = _mgm.push || {};
+  const pushBtn = ps.unsupported ? `<div style="font-size:.74rem;color:var(--color-text-muted)">${escHtml(ps.unsupported)}</div>`
+    : ps.on ? `<div style="font-size:.78rem;margin-bottom:6px">📲 Phone notifications are <b>on</b> for this device.</div><button class="roster-change-btn" style="flex:none;padding:5px 12px" onclick="pushDisable()">Turn off on this device</button>`
+    : `<button class="btn btn-primary btn-sm" style="width:auto" onclick="pushEnable()"${ps.busy ? ' disabled' : ''}>📲 Turn on phone notifications</button>${ps.err ? `<div class="desk-warn" style="margin-top:6px">${escHtml(ps.err)}</div>` : ''}`;
   el.innerHTML = (rows || '<div style="font-size:.78rem;color:var(--color-text-muted);margin:10px 0">No messages yet.</div>') +
-    `<div class="cd-h" style="margin-top:12px">Email notifications</div>${ck('roster','Roster changes made by the crew office')}${ck('messages','Messages from the crew office')}${ck('leave','Leave decisions')}`;
+    `<div class="cd-h" style="margin-top:12px">Phone notifications</div>${pushBtn}
+     <div style="margin-top:8px">${ck('push_roster','Notify me of roster changes')}${ck('push_messages','Notify me of messages')}${ck('push_leave','Notify me of leave decisions')}</div>
+     <div class="cd-h" style="margin-top:12px">Email notifications</div>${ck('email_roster','Roster changes made by the crew office')}${ck('email_messages','Messages from the crew office')}${ck('email_leave','Leave decisions')}`;
 }
 async function mgmAck(id){
   const { error } = await sb.rpc('msg_my_ack', { p_id: id });
@@ -11157,9 +11172,163 @@ async function mgmAck(id){
 }
 async function mgmSavePrefs(){
   const g = k => !!document.getElementById('mgp-' + k)?.checked;
-  const { error } = await sb.rpc('comm_prefs_set', { p_roster: g('roster'), p_messages: g('messages'), p_leave: g('leave') });
+  const v = { email_roster:g('email_roster'), email_messages:g('email_messages'), email_leave:g('email_leave'), push_roster:g('push_roster'), push_messages:g('push_messages'), push_leave:g('push_leave') };
+  const { error } = await sb.rpc('comm_prefs_set', { p_roster:v.email_roster, p_messages:v.email_messages, p_leave:v.email_leave, p_push_roster:v.push_roster, p_push_messages:v.push_messages, p_push_leave:v.push_leave });
   if(error){ toast('⚠ ' + error.message); return; }
-  _mgm.prefs = { email_roster:g('roster'), email_messages:g('messages'), email_leave:g('leave') }; toast('Saved');
+  _mgm.prefs = v; toast('Saved');
+}
+
+// ═══════════════════════════════════════════════
+// PHONE PUSH (Web Push) — subscribe this device
+// ═══════════════════════════════════════════════
+let _pushKey = null;
+function swReady(){ return Promise.race([navigator.serviceWorker.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('The app is still starting up. Try again in a moment.')), 6000))]); }
+function b64uToBytes(b){ const p = '='.repeat((4 - b.length % 4) % 4); const r = atob((b + p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); }
+function bytesToB64u(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+async function pushRefresh(){
+  const ps = _mgm.push = { on:false };
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    const ios = /iphone|ipad/i.test(navigator.userAgent);
+    ps.unsupported = ios ? 'On iPhone, add Crew Logbook to your Home Screen first (Share → Add to Home Screen), then open it from there to turn on notifications.' : 'This browser does not support phone notifications.';
+    return;
+  }
+  try{
+    const reg = await swReady(); const sub = await reg.pushManager.getSubscription();
+    ps.on = !!sub && Notification.permission === 'granted';
+    if(sub && ps.on){ try{ const { data } = await sb.rpc('push_my_count'); if(!data){ await pushSaveSub(sub); } }catch{} }
+  }catch{}
+}
+async function pushSaveSub(sub){
+  const j = sub.toJSON();
+  const { error } = await sb.rpc('push_sub_save', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent });
+  if(error) throw new Error(error.message);
+}
+async function pushEnable(){
+  const ps = _mgm.push || (_mgm.push = {}); ps.err = null; ps.busy = true; mgmRender();
+  try{
+    if(!isOnline) throw new Error('You need a connection.');
+    if(!_pushKey){
+      const r = await fetch(SUPABASE_URL + '/functions/v1/send-push'); const j = await r.json().catch(() => ({}));
+      if(!j.publicKey) throw new Error('Phone notifications are not switched on by your administrator yet.');
+      _pushKey = j.publicKey;
+    }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted') throw new Error('Notifications are blocked. Allow them for this site in your browser or phone settings, then try again.');
+    const reg = await swReady();
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64uToBytes(_pushKey) });
+    await pushSaveSub(sub);
+    ps.on = true; toast('✅ Phone notifications on');
+  }catch(e){ ps.err = e.message || String(e); }
+  ps.busy = false; mgmRender();
+}
+async function pushDisable(){
+  try{
+    const reg = await swReady(); const sub = await reg.pushManager.getSubscription();
+    if(sub){ const ep = sub.endpoint; await sub.unsubscribe(); try{ await sb.rpc('push_sub_delete', { p_endpoint: ep }); }catch{} }
+    toast('Phone notifications off');
+  }catch(e){ toast('⚠ ' + (e.message || e)); }
+  await pushRefresh(); mgmRender();
+}
+
+// ═══════════════════════════════════════════════
+// CALENDAR — .ics download + private subscription link
+// ═══════════════════════════════════════════════
+const _cal = { open:false, token:null, armed:false, err:null };
+const ICS_TYPE = { WOFF:'Weekly off', DMA:'Duty may be assigned', NA:'Not available', SBY:'Standby', TRG:'Training', GRD:'Ground duty', SICK:'Sick', LEAVE:'Leave', LAYOVER:'Layover' };
+function icsEsc(s){ return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function icsFold(line){
+  const enc = new TextEncoder(); if(enc.encode(line).length <= 75) return line;
+  const out = []; let cur = '', bytes = 0;
+  for(const ch of line){ const b = enc.encode(ch).length; if(bytes + b > (out.length ? 74 : 75)){ out.push(cur); cur = ch; bytes = b; } else { cur += ch; bytes += b; } }
+  out.push(cur); return out.join('\r\n ');
+}
+function icsHM(s){ const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); if(!m) return null; const v = +m[1]*60 + +m[2]; return v < 1440 ? v : null; }
+function icsStamp(ms){ const d = new Date(ms), p = n => String(n).padStart(2,'0'); return `${d.getUTCFullYear()}${p(d.getUTCMonth()+1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}00Z`; }
+function icsDay(ms){ return icsStamp(ms).slice(0,8); }
+// Same rules as the roster-ics Edge Function, so a download and the live feed agree.
+function icsDutyEvent(d){
+  const [y,m,day] = d.duty_date.split('-').map(Number), dayMs = Date.UTC(y, m-1, day);
+  const type = (d.duty_type || '').toUpperCase();
+  const route = d.origin && d.destination ? `${d.origin}–${d.destination}` : '';
+  const isFlight = !!d.flight_number || type.startsWith('OP');
+  const label = isFlight ? `✈ ${[d.flight_number, route].filter(Boolean).join(' ') || 'Flight'}` : (ICS_TYPE[type] || (type.includes('LAYOVER') ? 'Layover' : d.duty_type || 'Duty'));
+  const cancelled = d.status === 'cancelled';
+  const st = icsStamp(d.last_changed_at ? Date.parse(d.last_changed_at) : Date.now());
+  const L = ['BEGIN:VEVENT', `UID:${d.id}@crewlogbook.app`, `DTSTAMP:${st}`, `LAST-MODIFIED:${st}`];
+  const sl = icsHM(d.std_local), su = icsHM(d.std_utc), al = icsHM(d.sta_local), au = icsHM(d.sta_utc);
+  let timed = false;
+  if(sl !== null && (isFlight || !ICS_TYPE[type])){
+    timed = true;
+    if(su !== null){
+      const off = ((sl - su + 1440 + 720) % 1440) - 720, start = dayMs + sl*60000 - off*60000;
+      const dur = au !== null ? ((au - su + 1440) % 1440 || 60) : al !== null ? ((al - sl + 1440) % 1440 || 60) : 60;
+      L.push(`DTSTART:${icsStamp(start)}`, `DTEND:${icsStamp(start + dur*60000)}`);
+    } else {
+      const start = dayMs + sl*60000, dur = al !== null ? ((al - sl + 1440) % 1440 || 60) : 60;
+      L.push(`DTSTART:${icsStamp(start).replace('Z','')}`, `DTEND:${icsStamp(start + dur*60000).replace('Z','')}`);
+    }
+  }
+  if(!timed) L.push(`DTSTART;VALUE=DATE:${icsDay(dayMs)}`, `DTEND;VALUE=DATE:${icsDay(dayMs + 86400000)}`);
+  L.push(`SUMMARY:${icsEsc((cancelled ? 'CANCELLED ' : '') + label)}`);
+  const desc = [d.duty_type ? `Duty: ${d.duty_type}` : '', d.remark || '', d.status && d.status !== 'rostered' ? `Status: ${d.status}` : ''].filter(Boolean).join('\n');
+  if(desc) L.push(`DESCRIPTION:${icsEsc(desc)}`);
+  if(d.origin) L.push(`LOCATION:${icsEsc(d.origin)}`);
+  L.push('TRANSP:' + (isFlight || ['TRG','GRD','SBY'].includes(type) ? 'OPAQUE' : 'TRANSPARENT'));
+  if(cancelled) L.push('STATUS:CANCELLED');
+  else if(isFlight && timed) L.push('BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc(label)}`,'TRIGGER:-PT2H','END:VALARM');
+  L.push('END:VEVENT'); return L;
+}
+function icsBuild(duties, name){
+  const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Crew Logbook//Roster//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH', `X-WR-CALNAME:${icsEsc('Crew roster' + (name ? ' – ' + name : ''))}`];
+  duties.forEach(d => L.push(...icsDutyEvent(d)));
+  L.push('END:VCALENDAR'); return L.map(icsFold).join('\r\n') + '\r\n';
+}
+function calToggle(){
+  _cal.open = !_cal.open;
+  document.getElementById('cal-body').style.display = _cal.open ? '' : 'none';
+  document.getElementById('cal-arrow').textContent = _cal.open ? '▴' : '▾';
+  if(_cal.open){ calRender(); if(!_cal.token) calLoadToken(); }
+}
+async function calLoadToken(){
+  if(!isOnline){ _cal.err = 'The live calendar link needs a connection.'; calRender(); return; }
+  const { data, error } = await sb.rpc('cal_token_get');
+  if(error){ _cal.err = /could not find the function/i.test(error.message) ? 'The calendar link is not switched on yet.' : error.message; }
+  else { _cal.token = data; _cal.err = null; }
+  calRender();
+}
+function calFeedUrl(){ return _cal.token ? `${SUPABASE_URL}/functions/v1/roster-ics?t=${_cal.token}` : ''; }
+function calRender(){
+  const el = document.getElementById('cal-body'); if(!el || !_cal.open) return;
+  const n = (_rosterState.duties || []).length, url = calFeedUrl();
+  el.innerHTML = `<div style="font-size:.78rem;color:var(--color-text-muted);margin:10px 0 8px">Flights and duties appear in your phone's calendar with their UTC-correct times, and cancelled duties are crossed out.</div>
+    <div class="cd-h">Download</div>
+    <button class="btn btn-primary btn-sm" style="width:auto" onclick="calDownload()"${n ? '' : ' disabled'}>⬇ Download this roster (.ics)</button>
+    <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:4px">${n ? n + ' duties from the roster shown above. A one-off copy that does not update.' : 'Open a roster above first.'}</div>
+    <div class="cd-h" style="margin-top:14px">Live calendar link (updates itself)</div>
+    ${_cal.err ? `<div class="desk-warn">${escHtml(_cal.err)}</div>` : url ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" style="width:auto" onclick="calSubscribe()">📅 Subscribe</button>
+        <button class="roster-change-btn" style="flex:none;padding:5px 12px" onclick="calCopy()">Copy link</button></div>
+      <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:6px">Your calendar app refreshes it every few hours, so roster changes follow you automatically. Anyone with this link can see your roster — don't share it. <button class="roster-change-btn" style="flex:none;padding:2px 8px;min-height:22px" onclick="calReset()">${_cal.armed ? 'Tap again to replace the link' : 'Replace link'}</button></div>`
+      : '<div class="empty" style="padding:8px 0">Loading…</div>'}`;
+}
+function calDownload(){
+  const duties = _rosterState.duties || []; if(!duties.length){ toast('Open a roster first'); return; }
+  const name = (duties[0] && (document.getElementById('roster-period-select')?.selectedOptions[0]?.textContent || '')) || '';
+  dl(new Blob([icsBuild(duties, '')], { type:'text/calendar;charset=utf-8' }), 'roster.ics');
+  toast('✅ Calendar file downloaded — open it to add the duties');
+}
+function calSubscribe(){ const u = calFeedUrl(); if(u) location.href = u.replace(/^https:/, 'webcal:'); }
+async function calCopy(){
+  try{ await navigator.clipboard.writeText(calFeedUrl()); toast('Link copied — paste it into "Add calendar from URL"'); }
+  catch{ toast('⚠ Could not copy. Long-press the Subscribe button instead.'); }
+}
+async function calReset(){
+  if(!_cal.armed){ _cal.armed = true; calRender(); setTimeout(() => { if(_cal.armed){ _cal.armed = false; calRender(); } }, 4000); return; }
+  _cal.armed = false;
+  const { data, error } = await sb.rpc('cal_token_reset');
+  if(error){ toast('⚠ ' + error.message); return; }
+  _cal.token = data; toast('New link created — re-subscribe in your calendar app'); calRender();
 }
 
 function genTempPassword(){
@@ -14313,6 +14482,7 @@ async function loadRosterDuties(rosterId, desk){
     if(!desk && _rosterState.rosterId !== rosterId) return;
     if(desk) _rosterState.deskDuties = data || []; else _rosterState.duties = data || [];
     renderRosterDuties(desk);
+    if(!desk && typeof calRender === 'function') calRender();
     if(desk) deskUpdateDeleteBtn(); else rosterShowAck(rosterId);
   }catch(e){
     listEl.innerHTML =
