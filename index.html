@@ -1021,6 +1021,10 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
 .role-pill.officer{background:rgba(245,158,11,.18);color:#fcd34d}
 .role-pill.agent{background:rgba(16,185,129,.18);color:#6ee7b7}
 .staff-card{border:1px solid var(--color-border);border-radius:12px;padding:12px;margin-bottom:10px}
+.cd-fld{margin-bottom:8px;min-width:0}
+.cd-lbl{display:block;font-size:.64rem;font-weight:800;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.cd-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.cd-h{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);margin:16px 0 8px}
 #agent-screen{display:none;position:fixed;inset:0;background:var(--color-app-bg);z-index:9998;flex-direction:column}
 .agent-hdr{background:var(--navy);padding:18px 16px;color:#fff;position:relative}
 .agent-hdr-title{font-size:1rem;font-weight:900}
@@ -1969,6 +1973,7 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
         <input class="rch-input" type="text" id="desk-search" placeholder="Search crew name or code…" oninput="renderDeskCrewList()" autocomplete="off" style="padding-left:38px"/>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button class="roster-change-btn" onclick="openCrewDirectory()" style="flex:none;padding:6px 12px;white-space:nowrap">👥 Crew directory</button>
         <button class="roster-change-btn" onclick="openActivity()" style="flex:none;padding:6px 12px;white-space:nowrap">🔔 Activity<span class="tab-badge" id="desk-act-badge"></span></button>
         <button class="btn btn-primary btn-sm" onclick="openRosterBulk()" style="width:auto;flex:0 0 auto;white-space:nowrap">📚 Bulk upload PDFs</button>
       </div>
@@ -2280,6 +2285,18 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
       <div style="flex:1">
         <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Activity Overview</div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Who is active, roster work and changes at a glance</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  </div>
+
+  <!-- Crew directory card (admin only) -->
+  <div id="admin-crewdir-card" style="display:none;margin-bottom:14px">
+    <div class="card" onclick="openCrewDirectory()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#0d9488,#134e4a);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">👥</div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:800;color:var(--color-text-primary)">Crew Directory</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Add, import and manage crew — codes, status, accounts and rosters</div>
       </div>
       <span style="color:var(--muted);font-size:1.1rem">›</span>
     </div>
@@ -3086,6 +3103,16 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
       <button class="fs-close" onclick="closeActivityOverview()">✕</button>
     </div>
     <div id="activity-body" style="padding:16px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<div class="fs-overlay" id="crewdir-overlay" style="background:var(--color-app-bg);padding:0">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="fs-modal-hdr" style="background:var(--navy)">
+      <h2 style="color:#fff">👥 Crew Directory</h2>
+      <button class="fs-close" onclick="closeCrewDirectory()">✕</button>
+    </div>
+    <div id="crewdir-body" style="padding:14px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
 
@@ -9875,8 +9902,10 @@ const AUDIT_LABELS = {
   staff_created:'Staff account created', staff_password_reset:'Temporary password set', role_changed:'Role changed',
   blocked:'Account blocked', unblocked:'Account unblocked', admin_granted:'Admin rights granted', admin_revoked:'Admin rights removed',
   crew_code_changed:'Crew code changed', base_changed:'Base changed',
+  crew_added:'Crew member added', crew_updated:'Crew details changed', crew_archived:'Crew record archived', crew_restored:'Crew record restored',
+  crew_merged:'Crew records merged', crew_linked:'Account linked to crew record', crew_unlinked:'Account unlinked from crew record', crew_imported:'Crew directory import',
 };
-const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷', base_changed:'📍' };
+const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷', base_changed:'📍', crew_added:'🧑‍✈️', crew_updated:'✏️', crew_archived:'🗄', crew_restored:'♻️', crew_merged:'🔀', crew_linked:'🔗', crew_unlinked:'🔓', crew_imported:'📥' };
 
 function openAuditLog(){
   if(!isAdmin){ toast('⚠ Admin access only.'); return; }
@@ -9913,6 +9942,11 @@ function auditDescribe(r){
   if(r.action === 'role_changed') return (ROLE_LABELS[d.from] || d.from || '—') + ' → ' + (ROLE_LABELS[d.to] || d.to || '—');
   if(r.action === 'staff_created') return ROLE_LABELS[d.role] || d.role || '';
   if(r.action === 'crew_code_changed' || r.action === 'base_changed') return (d.from || '—') + ' → ' + (d.to || '—');
+  if(r.action === 'crew_added') return d.code ? 'Code ' + d.code : '';
+  if(r.action === 'crew_updated') return (d.fields || []).join(', ') + (d.status_to ? ' · status ' + (CD_STATUS[d.status_from]||d.status_from||'—') + ' → ' + (CD_STATUS[d.status_to]||d.status_to) : '');
+  if(r.action === 'crew_linked') return (d.account || '') + (d.by ? ' (' + d.by + ')' : '');
+  if(r.action === 'crew_merged') return 'Merged in: ' + (d.merged || '') + (d.merged_code ? ' · ' + d.merged_code : '');
+  if(r.action === 'crew_imported') return (d.created||0) + ' added · ' + (d.updated||0) + ' updated' + (d.failed ? ' · ' + d.failed + ' failed' : '');
   return '';
 }
 
@@ -9956,6 +9990,7 @@ const PERM_MATRIX = [
   ['Roster', [
     ['Roster Desk (assign, change, swap, reopen)', [0,1,0,0,1]],
     ['Bulk roster upload & revisions',          [0,1,0,0,1]],
+    ['Crew Directory (add, edit, import, merge)', [0,1,0,0,1]],
     ['Acknowledge & see officer change feed',   [0,1,0,0,1]],
   ]],
   ['Operations', [
@@ -10105,6 +10140,451 @@ async function staffSetBase(userId, raw){
   toast(base ? '📍 Base set to ' + base : 'Base cleared'); loadStaffList();
 }
 function staffSetBaseFilter(b){ _staffBase = b; renderStaffAdmin(); }
+
+// ═══════════════════════════════════════════════
+// CREW DIRECTORY — crew exist as records before they have an account or a roster.
+// Roster officers and admins add, edit, import, merge and archive crew, link
+// an account, and jump to a crew member's roster. All access is enforced by the
+// database (crew_dir_* functions, migration 28); this screen is only shown to
+// people the server already recognises as officers/admins.
+// ═══════════════════════════════════════════════
+const CD_STATUS = { active:'Active', on_leave:'On leave', probation:'Probation', suspended:'Suspended', resigned:'Resigned' };
+const CD_COLS = ['crew_code','full_name','staff_number','rank','base','status','join_date','seniority_no','email','phone','emergency_name','emergency_phone','languages','nationality','notes'];
+const CD_CSV_KEYS = { code:'crew_code', crewcode:'crew_code', crewid:'crew_code', name:'full_name', fullname:'full_name', crewname:'full_name',
+  staffno:'staff_number', staffnumber:'staff_number', employeeno:'staff_number', employeenumber:'staff_number', staffid:'staff_number',
+  rank:'rank', position:'rank', grade:'rank', base:'base', station:'base', homebase:'base', status:'status',
+  joindate:'join_date', joined:'join_date', datejoined:'join_date', startdate:'join_date',
+  seniority:'seniority_no', seniorityno:'seniority_no', senioritynumber:'seniority_no',
+  email:'email', emailaddress:'email', phone:'phone', mobile:'phone', phonenumber:'phone', tel:'phone',
+  emergencyname:'emergency_name', emergencycontact:'emergency_name', emergencyphone:'emergency_phone', emergencynumber:'emergency_phone',
+  languages:'languages', language:'languages', nationality:'nationality', notes:'notes', note:'notes', remarks:'notes' };
+let _cd = { list:[], err:null, loading:false, filter:'all', base:'all', q:'', view:'list', sel:null, draft:null,
+            armed:null, accounts:null, linking:false, mergeId:'', imp:null, busy:false };
+
+function cdAllowed(){ return isAdmin || isRosterOfficer; }
+
+async function openCrewDirectory(){
+  if(!cdAllowed()){ toast('⚠ For roster officers and administrators only.'); return; }
+  if(!isOnline){ toast('📡 The crew directory needs a connection.'); return; }
+  document.getElementById('crewdir-overlay').classList.add('open');
+  _cd.view = 'list'; _cd.sel = null; _cd.draft = null; _cd.armed = null; _cd.imp = null; _cd.linking = false;
+  renderCrewDir();
+  await cdLoad();
+}
+function closeCrewDirectory(){ document.getElementById('crewdir-overlay').classList.remove('open'); }
+
+async function cdLoad(){
+  _cd.loading = true; if(_cd.view === 'list') renderCrewDir();
+  const { data, error } = await sb.rpc('crew_dir_list', { p_include_archived: true });
+  _cd.loading = false;
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    _cd.err = missing ? 'The crew directory needs a database update (migration 28).' : error.message;
+    _cd.list = [];
+  } else { _cd.err = null; _cd.list = data || []; }
+  if(_cd.sel) _cd.sel = _cd.list.find(r => r.id === _cd.sel.id) || null;
+  renderCrewDir();
+}
+
+function cdLabel(r){ return r.full_name + (r.crew_code ? ' · ' + r.crew_code : ''); }
+function cdStash(){ if(_cd.view === 'form') _cd.draft = cdCollect(); }
+function cdArm(key){
+  cdStash(); _cd.armed = key; renderCrewDir();
+  setTimeout(() => { if(_cd.armed === key){ cdStash(); _cd.armed = null; renderCrewDir(); } }, 4000);
+}
+
+function renderCrewDir(){
+  const el = document.getElementById('crewdir-body'); if(!el) return;
+  if(_cd.view === 'form')   return renderCdForm(el);
+  if(_cd.view === 'import') return renderCdImport(el);
+  const q = _cd.q.trim().toLowerCase();
+  const live = _cd.list.filter(r => !r.archived_at);
+  const bases = [...new Set(live.map(r => r.base).filter(Boolean))].sort();
+  if(_cd.base !== 'all' && !bases.includes(_cd.base)) _cd.base = 'all';
+  const counts = {
+    all: live.length,
+    noacct: live.filter(r => !r.user_id).length,
+    nocode: live.filter(r => !r.crew_code).length,
+    inactive: live.filter(r => r.status !== 'active').length,
+    archived: _cd.list.length - live.length,
+  };
+  const chip = (k, l) => `<button class="desk-chip ${_cd.filter===k?'active':''}" onclick="cdSetFilter('${k}')">${l} · ${counts[k]}</button>`;
+  const baseChips = bases.length > 1 ? ['all'].concat(bases).map(b =>
+    `<button class="desk-chip ${_cd.base===b?'active':''}" onclick="cdSetBase('${b}')">${b==='all'?'Any base':'📍 '+escHtml(b)}</button>`).join('') : '';
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="cdNew()">＋ Add crew</button>
+      <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdOpenImport()">📥 Import CSV</button>
+      <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdExport()">⬇ Export</button>
+    </div>
+    <div class="search-wrap"><span class="search-ico">🔍</span>
+      <input class="rch-input" id="cd-search" type="text" placeholder="Search name, code, email, staff no…" value="${escHtml(_cd.q)}" oninput="cdSearch(this.value)" autocomplete="off" style="padding-left:38px"/></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 ${baseChips?'6':'10'}px">${chip('all','All')}${chip('noacct','No account')}${chip('nocode','No code')}${chip('inactive','Not active')}${chip('archived','Archived')}</div>
+    ${baseChips ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${baseChips}</div>` : ''}
+    <div id="cd-rows"></div>`;
+  cdRenderRows();
+}
+
+function cdFiltered(){
+  const q = _cd.q.trim().toLowerCase();
+  return _cd.list.filter(r => {
+    if(_cd.filter === 'archived' ? !r.archived_at : !!r.archived_at) return false;
+    if(_cd.filter === 'noacct'   && r.user_id) return false;
+    if(_cd.filter === 'nocode'   && r.crew_code) return false;
+    if(_cd.filter === 'inactive' && r.status === 'active') return false;
+    if(_cd.base !== 'all' && r.base !== _cd.base) return false;
+    if(q && ![r.full_name, r.crew_code, r.email, r.staff_number, r.phone].some(v => (v||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function cdRenderRows(){
+  const el = document.getElementById('cd-rows'); if(!el) return;
+  if(_cd.err){ el.innerHTML = `<div class="desk-warn">${escHtml(_cd.err)}</div>`; return; }
+  if(_cd.loading && !_cd.list.length){ el.innerHTML = '<div class="empty" style="padding:30px 0;text-align:center">Loading…</div>'; return; }
+  const rows = cdFiltered();
+  if(!rows.length){
+    el.innerHTML = `<div class="empty" style="padding:30px 0;text-align:center">${_cd.list.length ? 'No crew match.' : 'No crew yet. Add the first crew member, or import a CSV.'}</div>`;
+    return;
+  }
+  el.innerHTML = rows.map(r => {
+    const acct = r.account_state === 'active' ? '<span class="desk-badge desk-badge-ok">Account</span>'
+               : r.account_state === 'blocked' ? '<span class="desk-badge desk-badge-warn">Blocked</span>'
+               : '<span class="desk-badge desk-badge-off">No account</span>';
+    const st = r.status !== 'active' ? `<span class="desk-badge desk-badge-warn">${escHtml(CD_STATUS[r.status]||r.status)}</span>` : '';
+    const wait = r.waiting_rosters ? `<span class="desk-badge desk-badge-warn">📋 ${r.waiting_rosters} waiting</span>` : '';
+    const sub = [r.crew_code ? escHtml(r.crew_code) : '<span style="color:#fde68a">No crew code</span>', r.rank ? escHtml(r.rank) : '', r.base ? '📍 ' + escHtml(r.base) : ''].filter(Boolean).join(' · ');
+    return `<button class="desk-crew-card" onclick="cdOpen('${escHtml(r.id)}')">
+      <div style="min-width:0;flex:1">
+        <div class="desk-crew-name">${escHtml(r.full_name)}${acct}${st}${wait}</div>
+        <div class="desk-crew-sub">${sub}</div>
+      </div><span style="color:var(--color-text-muted)">›</span></button>`;
+  }).join('');
+}
+function cdSearch(v){ _cd.q = v; cdRenderRows(); }
+function cdSetFilter(k){ _cd.filter = k; renderCrewDir(); }
+function cdSetBase(b){ _cd.base = b; renderCrewDir(); }
+
+function cdNew(){ _cd.sel = null; _cd.draft = null; _cd.armed = null; _cd.linking = false; _cd.mergeId = ''; _cd.view = 'form'; renderCrewDir(); }
+function cdOpen(id){
+  _cd.sel = _cd.list.find(r => r.id === id) || null; _cd.draft = null; _cd.armed = null; _cd.linking = false; _cd.mergeId = '';
+  if(!_cd.sel) return; _cd.view = 'form'; renderCrewDir();
+}
+function cdBack(){ _cd.view = 'list'; _cd.sel = null; _cd.draft = null; _cd.armed = null; _cd.imp = null; _cd.linking = false; renderCrewDir(); }
+
+// ── Form ──────────────────────────────────────
+function cdField(id, label, val, extra){
+  return `<div class="cd-fld"><label class="cd-lbl" for="cd-f-${id}">${label}</label>
+    <input id="cd-f-${id}" class="rch-input" value="${escHtml(val == null ? '' : val)}" ${extra||''}/></div>`;
+}
+function cdCollect(){
+  const g = id => (document.getElementById('cd-f-' + id)?.value ?? '').trim();
+  return { full_name:g('full_name'), crew_code:g('crew_code').toUpperCase(), staff_number:g('staff_number'), rank:g('rank'),
+           base:g('base').toUpperCase(), status:g('status') || 'active', join_date:g('join_date'), seniority_no:g('seniority_no'),
+           email:g('email').toLowerCase(), phone:g('phone'), emergency_name:g('emergency_name'), emergency_phone:g('emergency_phone'),
+           languages:g('languages'), nationality:g('nationality'), notes:g('notes') };
+}
+function renderCdForm(el){
+  const r = _cd.sel, isNew = !r;
+  const v = _cd.draft || (r ? Object.fromEntries(CD_COLS.map(k => [k, r[k] == null ? '' : r[k]])) : { status:'active' });
+  const ranks = [...new Set(['JCCM','SCCM','P','SP','SFP'].concat(_cd.list.map(x => x.rank).filter(Boolean)))];
+  const bases = [...new Set(['EBB'].concat(_cd.list.map(x => x.base).filter(Boolean)))];
+  const stOpts = Object.entries(CD_STATUS).map(([k,l]) => `<option value="${k}" ${v.status===k?'selected':''}>${l}</option>`).join('');
+  let h = `<button class="roster-change-btn" onclick="cdBack()" style="flex:none;margin-bottom:12px;padding:6px 12px">‹ All crew</button>
+    <div style="font-weight:800;font-size:1rem;margin-bottom:2px">${isNew ? 'New crew member' : escHtml(r.full_name)}</div>
+    ${r && r.archived_at ? '<div class="desk-warn" style="margin-top:8px">This record is archived. Restore it below to use it again.</div>' : ''}
+    <div class="staff-card" style="margin-top:10px">
+      ${cdField('full_name','Full name',v.full_name,'autocomplete="off"')}
+      <div class="cd-grid">
+        ${cdField('crew_code','Crew code',v.crew_code,'autocapitalize="characters" autocomplete="off" style="text-transform:uppercase" maxlength="20"')}
+        ${cdField('staff_number','Staff number',v.staff_number,'autocomplete="off"')}
+        ${cdField('rank','Rank',v.rank,'list="cd-rank-list" autocomplete="off"')}
+        ${cdField('base','Base',v.base,'list="cd-base-list" maxlength="3" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase"')}
+        <div class="cd-fld"><label class="cd-lbl" for="cd-f-status">Status</label><select id="cd-f-status" class="rch-input">${stOpts}</select></div>
+        ${cdField('join_date','Join date',v.join_date,'type="date"')}
+        ${cdField('seniority_no','Seniority no.',v.seniority_no,'type="number" inputmode="numeric" min="1"')}
+        ${cdField('nationality','Nationality',v.nationality,'autocomplete="off"')}
+      </div>
+      <datalist id="cd-rank-list">${ranks.map(x => `<option value="${escHtml(x)}">`).join('')}</datalist>
+      <datalist id="cd-base-list">${bases.map(x => `<option value="${escHtml(x)}">`).join('')}</datalist>
+      <div class="cd-h" style="margin-top:6px">Contact</div>
+      ${cdField('email','Email',v.email,'type="email" autocomplete="off"')}
+      ${cdField('phone','Phone',v.phone,'type="tel" autocomplete="off"')}
+      <div class="cd-grid">
+        ${cdField('emergency_name','Emergency contact',v.emergency_name,'autocomplete="off"')}
+        ${cdField('emergency_phone','Emergency phone',v.emergency_phone,'type="tel" autocomplete="off"')}
+      </div>
+      ${cdField('languages','Languages',v.languages,'autocomplete="off" placeholder="e.g. English, Luganda, Swahili"')}
+      <div class="cd-fld"><label class="cd-lbl" for="cd-f-notes">Notes (officers and admins only)</label>
+        <textarea id="cd-f-notes" class="rch-input" rows="3" style="resize:vertical">${escHtml(v.notes||'')}</textarea></div>
+      <button id="cd-save" class="btn btn-primary" style="width:100%;margin-top:4px" onclick="cdSave()">${isNew ? 'Add crew member' : 'Save changes'}</button>
+    </div>`;
+  if(r) h += cdAccountHTML(r) + cdRosterHTML(r) + cdManageHTML(r);
+  el.innerHTML = h;
+}
+
+async function cdSave(){
+  if(_cd.busy) return;
+  const d = cdCollect(); const r = _cd.sel;
+  if(!d.full_name){ toast('⚠ Enter a name'); return; }
+  if(d.base && !/^[A-Z]{3}$/.test(d.base)){ toast('⚠ A base is a 3-letter code, e.g. EBB'); return; }
+  _cd.busy = true; const btn = document.getElementById('cd-save'); if(btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('crew_dir_save', { p_id: r ? r.id : null, p_data: d });
+  _cd.busy = false; if(btn) btn.disabled = false;
+  if(error){ toast('⚠ ' + error.message); return; }
+  _cd.draft = null;
+  toast(r ? '✅ Saved' : '✅ ' + d.full_name + ' added');
+  await cdLoad();
+  if(!r){ _cd.sel = _cd.list.find(x => x.id === data) || null; if(!_cd.sel) _cd.view = 'list'; renderCrewDir(); }
+}
+
+// ── Account ───────────────────────────────────
+function cdAccountHTML(r){
+  let body;
+  if(r.user_id){
+    const seen = r.last_seen_at ? 'last opened the app ' + actAgo(r.last_seen_at) : 'has not opened the app yet';
+    const armed = _cd.armed === 'unlink';
+    body = `<div style="font-size:.8rem;line-height:1.5">${r.account_state === 'blocked' ? '⛔ Linked account is <b>blocked</b>.' : '✅ Linked to an account'} — ${escHtml(seen)}.</div>
+      <div style="margin-top:8px"><button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="${armed ? 'cdUnlink()' : `cdArm('unlink')`}">${armed ? 'Tap again to unlink' : '🔓 Unlink account'}</button></div>`;
+  } else if(_cd.linking){
+    const opts = (_cd.accounts || []);
+    body = `<div style="font-size:.78rem;color:var(--color-text-muted);margin-bottom:8px">Pick the account that belongs to ${escHtml(r.full_name)}. Their crew code${r.crew_code ? ' (' + escHtml(r.crew_code) + ')' : ''} is applied to it and any waiting rosters are handed over.</div>
+      ${_cd.accounts === null ? '<div class="empty" style="padding:8px 0">Loading accounts…</div>'
+        : opts.length ? `<div style="display:flex;gap:8px"><select id="cd-link-sel" class="rch-input" style="flex:1;min-width:0">
+            <option value="">Choose an account…</option>${opts.map(a => `<option value="${escHtml(a.user_id)}">${escHtml(a.display_name)}${a.email ? ' · ' + escHtml(a.email) : ''}${a.crew_code ? ' · ' + escHtml(a.crew_code) : ''}</option>`).join('')}</select>
+            <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="cdLink()">Link</button></div>`
+        : '<div class="desk-warn">Every crew account is already linked to a record.</div>'}
+      <div style="margin-top:8px"><button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="cdStash();_cd.linking=false;renderCrewDir()">Cancel</button></div>`;
+  } else {
+    body = `<div style="font-size:.8rem;line-height:1.5">No account yet.${r.email ? ' When they sign up with <b>' + escHtml(r.email) + '</b> and confirm that email, this record links automatically and their rosters appear.' : ' Add their email above so the record links automatically when they sign up.'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="cdStartLink()">🔗 Link an existing account</button>
+        ${r.email ? `<button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="cdCopyInvite()">📋 Copy invite message</button>` : ''}
+      </div>`;
+  }
+  return `<div class="cd-h">Account</div><div class="staff-card">${body}</div>`;
+}
+async function cdStartLink(){
+  cdStash(); _cd.linking = true; _cd.accounts = null; renderCrewDir();
+  const { data, error } = await sb.rpc('crew_dir_accounts');
+  if(error){ toast('⚠ ' + error.message); _cd.linking = false; renderCrewDir(); return; }
+  _cd.accounts = data || []; renderCrewDir();
+}
+async function cdLink(){
+  const uid = document.getElementById('cd-link-sel')?.value;
+  if(!uid){ toast('⚠ Choose an account first'); return; }
+  const r = _cd.sel; cdStash();
+  const { error } = await sb.rpc('crew_dir_link', { p_id: r.id, p_user_id: uid });
+  if(error){ toast('⚠ ' + error.message); return; }
+  _cd.linking = false; _cd.draft = null; toast('✅ Account linked');
+  await cdLoad(); refreshDeskAfterDirectory();
+}
+async function cdUnlink(){
+  const r = _cd.sel; cdStash(); _cd.armed = null;
+  const { error } = await sb.rpc('crew_dir_unlink', { p_id: r.id });
+  if(error){ toast('⚠ ' + error.message); renderCrewDir(); return; }
+  _cd.draft = null; toast('Account unlinked'); await cdLoad(); refreshDeskAfterDirectory();
+}
+function cdCopyInvite(){
+  const r = _cd.sel; if(!r) return;
+  const first = (r.full_name || '').split(/\s+/)[0];
+  const msg = `Hello ${first}, your crew record is ready on Crew Logbook. Sign up at https://crewlogbook.app with ${r.email}, confirm your email, and your roster will appear automatically.`;
+  (navigator.clipboard?.writeText(msg) || Promise.reject()).then(() => toast('📋 Invite message copied'), () => {
+    const ta = document.createElement('textarea'); ta.value = msg; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('📋 Invite message copied'); }catch{ toast('⚠ Could not copy'); }
+    ta.remove();
+  });
+}
+function refreshDeskAfterDirectory(){ _rosterState.deskCrewList = []; }
+
+// ── Roster ────────────────────────────────────
+function cdRosterHTML(r){
+  let body;
+  if(r.user_id){
+    body = `<div style="font-size:.8rem;line-height:1.5">${r.roster_count ? `${r.roster_count} roster${r.roster_count>1?'s':''} on file${r.latest_to ? ', latest until <b>' + escHtml(rosterShortDate(r.latest_to)) + '</b>' : ''}.` : 'No roster published yet.'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="cdOpenRoster('${escHtml(r.user_id)}')">🗂 Open roster</button>
+      </div>`;
+  } else {
+    body = `<div style="font-size:.8rem;line-height:1.5">${r.waiting_rosters ? `<b>${r.waiting_rosters}</b> roster${r.waiting_rosters>1?'s are':' is'} waiting under code <b>${escHtml(r.crew_code)}</b>. They attach automatically when this record is linked to an account.`
+      : r.crew_code ? `No rosters waiting for code <b>${escHtml(r.crew_code)}</b>.` : 'Give this crew member a crew code so uploaded rosters can find them.'}</div>
+      <div style="margin-top:8px"><button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="cdBulkUpload()">📚 Bulk upload rosters</button></div>`;
+  }
+  return `<div class="cd-h">Roster</div><div class="staff-card">${body}</div>`;
+}
+async function cdOpenRoster(userId){
+  closeCrewDirectory();
+  if(!document.body.classList.contains('role-locked')){ showTab('log'); }
+  switchLogView('desk');
+  if(!_rosterState.deskCrewList.some(c => c.user_id === userId)) await loadDeskCrewList();
+  if(_rosterState.deskCrewList.some(c => c.user_id === userId)) openDeskCrew(userId);
+  else toast('⚠ That roster is not available on the Roster Desk yet.');
+}
+function cdBulkUpload(){
+  closeCrewDirectory();
+  if(!document.body.classList.contains('role-locked')){ showTab('log'); }
+  switchLogView('desk');
+  openRosterBulk();
+}
+
+// ── Manage: archive / merge ───────────────────
+function cdManageHTML(r){
+  const arch = !!r.archived_at;
+  const aArmed = _cd.armed === 'archive', mArmed = _cd.armed === 'merge';
+  const others = _cd.list.filter(x => x.id !== r.id && !x.archived_at);
+  const merge = `<div style="font-size:.78rem;color:var(--color-text-muted);margin-bottom:6px">Duplicate record for the same person? Fold it into <b>${escHtml(r.full_name)}</b>: its details fill any blanks here, the duplicate is removed, and rosters waiting on its code move across.</div>
+    <div style="display:flex;gap:8px"><select id="cd-merge-sel" class="rch-input" style="flex:1;min-width:0" onchange="_cd.mergeId=this.value">
+      <option value="">Choose the duplicate…</option>${others.map(x => `<option value="${escHtml(x.id)}" ${_cd.mergeId===x.id?'selected':''}>${escHtml(cdLabel(x))}</option>`).join('')}</select>
+      <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="${mArmed ? 'cdMerge()' : `cdMergeArm()`}">${mArmed ? 'Tap again to merge' : 'Merge'}</button></div>`;
+  return `<div class="cd-h">Manage</div><div class="staff-card">
+    ${arch ? '' : merge + '<div style="height:12px"></div>'}
+    <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="${aArmed ? `cdArchive(${arch ? 'false' : 'true'})` : `cdArm('archive')`}">${aArmed ? 'Tap again to confirm' : arch ? '♻ Restore record' : '🗄 Archive record'}</button>
+    <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:6px">${arch ? '' : 'Archiving hides the record from the list. Nothing is deleted, and it can be restored.'}</div></div>`;
+}
+function cdMergeArm(){
+  if(!_cd.mergeId){ toast('⚠ Choose the duplicate first'); return; }
+  cdArm('merge');
+}
+async function cdMerge(){
+  const r = _cd.sel; const drop = _cd.mergeId; cdStash(); _cd.armed = null;
+  if(!drop) return;
+  const { error } = await sb.rpc('crew_dir_merge', { p_keep: r.id, p_drop: drop });
+  if(error){ toast('⚠ ' + error.message); renderCrewDir(); return; }
+  _cd.mergeId = ''; _cd.draft = null; toast('✅ Records merged'); await cdLoad(); refreshDeskAfterDirectory();
+}
+async function cdArchive(flag){
+  const r = _cd.sel; cdStash(); _cd.armed = null;
+  const { error } = await sb.rpc('crew_dir_archive', { p_id: r.id, p_archive: flag });
+  if(error){ toast('⚠ ' + error.message); renderCrewDir(); return; }
+  toast(flag ? '🗄 Archived' : '♻ Restored'); _cd.draft = null;
+  await cdLoad(); if(flag) cdBack();
+}
+
+// ── Export / template ─────────────────────────
+function cdCsvQ(v){ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+function cdExport(){
+  const rows = cdFiltered();
+  if(!rows.length){ toast('Nothing to export'); return; }
+  const csv = CD_COLS.join(',') + '\n' + rows.map(r => CD_COLS.map(k => cdCsvQ(r[k])).join(',')).join('\n') + '\n';
+  dl(new Blob([csv], { type:'text/csv' }), 'crew-directory-' + new Date().toISOString().slice(0,10) + '.csv');
+  toast('⬇ Exported ' + rows.length + ' crew');
+}
+function cdTemplate(){
+  const csv = CD_COLS.join(',') + '\n' +
+    ['UA101','Jane Doe','S1001','SCCM','EBB','active','2022-03-15','12','jane@example.com','+256700000000','John Doe','+256700000001','English; Luganda','Ugandan','']
+      .map(cdCsvQ).join(',') + '\n';
+  dl(new Blob([csv], { type:'text/csv' }), 'crew-directory-template.csv');
+}
+
+// ── CSV import ────────────────────────────────
+function cdNormStatus(s){
+  const k = String(s||'').toLowerCase().replace(/[^a-z]/g, '');
+  if(!k) return '';
+  const map = { active:'active', onleave:'on_leave', leave:'on_leave', probation:'probation', suspended:'suspended', resigned:'resigned', left:'resigned', terminated:'resigned', inactive:'resigned' };
+  return map[k] || null;
+}
+function cdNormDate(s){
+  s = String(s||'').trim(); if(!s) return '';
+  let y, m, d, t;
+  if((t = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))){ y = +t[1]; m = +t[2]; d = +t[3]; }
+  else if((t = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/))){ d = +t[1]; m = +t[2]; y = +t[3]; }
+  else return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if(dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+}
+function parseCdCsv(text){
+  const rows = impSplitCsv(text);
+  if(!rows.length) return [];
+  const norm = h => h.toLowerCase().replace(/[^a-z]/g, '');
+  const head = rows[0].map(h => CD_CSV_KEYS[norm(h)]);
+  const hasHeader = head.filter(Boolean).length >= 2;
+  const cols = hasHeader ? head : CD_COLS;
+  const seen = new Set(), out = [];
+  rows.slice(hasHeader ? 1 : 0).forEach((r, i) => {
+    const rec = {}; cols.forEach((k, j) => { if(k && r[j] !== undefined && String(r[j]).trim() !== '') rec[k] = String(r[j]).trim(); });
+    const row = { line: i + (hasHeader ? 2 : 1), data: rec, error: null };
+    if(rec.crew_code) rec.crew_code = rec.crew_code.toUpperCase();
+    if(rec.base) rec.base = rec.base.toUpperCase();
+    if(rec.email) rec.email = rec.email.toLowerCase();
+    if(!rec.crew_code && !rec.full_name && !rec.email) row.error = 'Needs at least a crew code, a name or an email.';
+    else if(rec.crew_code && !/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(rec.crew_code)) row.error = 'Crew code “' + rec.crew_code + '” has characters that are not allowed.';
+    else if(rec.base && !/^[A-Z]{3}$/.test(rec.base)) row.error = 'Base “' + rec.base + '” must be a 3-letter code.';
+    else if(rec.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rec.email)) row.error = 'Email is not valid.';
+    else if(rec.seniority_no && !/^\d+$/.test(rec.seniority_no)) row.error = 'Seniority must be a whole number.';
+    if(!row.error && rec.status){ const s = cdNormStatus(rec.status); if(s === null) row.error = 'Status “' + rec.status + '” is not recognised.'; else rec.status = s; }
+    if(!row.error && rec.join_date){ const dt = cdNormDate(rec.join_date); if(dt === null) row.error = 'Join date must look like 2025-03-31 or 31/03/2025.'; else rec.join_date = dt; }
+    if(!row.error){
+      const key = rec.crew_code ? 'c:' + rec.crew_code : rec.email ? 'e:' + rec.email : null;
+      if(key && seen.has(key)) row.error = 'Appears twice in the file.'; else if(key) seen.add(key);
+    }
+    out.push(row);
+  });
+  return out;
+}
+function cdOpenImport(){ _cd.imp = { rows: null, done: false, busy: false }; _cd.view = 'import'; renderCrewDir(); }
+function renderCdImport(el){
+  const imp = _cd.imp;
+  let h = `<button class="roster-change-btn" onclick="cdBack()" style="flex:none;margin-bottom:12px;padding:6px 12px">‹ All crew</button>
+    <div style="font-weight:800;font-size:1rem;margin-bottom:6px">Import crew from CSV</div>`;
+  if(!imp.rows){
+    h += `<div style="font-size:.8rem;line-height:1.55;color:var(--color-text-muted);margin-bottom:10px">
+        One crew member per row. A header row is recommended: <b>crew_code, full_name, rank, base, status, email, phone</b> (also staff_number, join_date, seniority_no, emergency_name, emergency_phone, languages, nationality, notes).
+        Existing crew are matched by <b>crew code</b>, then <b>email</b>, and only the columns you fill in are changed — blank cells never erase anything. Up to 500 rows at a time.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input type="file" id="cd-file" accept=".csv,.txt,text/csv" style="display:none" onchange="cdPickFile(this)"/>
+        <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="document.getElementById('cd-file').click()">📂 Choose CSV file</button>
+        <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdTemplate()">⬇ Template</button></div>
+      <textarea id="cd-paste" class="rch-input" rows="6" placeholder="…or paste rows here" style="resize:vertical;font-family:monospace;font-size:.76rem"></textarea>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="cdParsePaste()">Preview</button>`;
+  } else {
+    const ok = imp.rows.filter(r => !r.error).length, bad = imp.rows.length - ok;
+    const tally = imp.done ? {
+      created: imp.rows.filter(r => r.result === 'created').length,
+      updated: imp.rows.filter(r => r.result === 'updated').length,
+      failed:  imp.rows.filter(r => r.error || r.result === 'error').length } : null;
+    h += imp.done ? `<div class="${tally.failed ? 'desk-warn' : 'desk-ok'}"><b>Import finished.</b> ${tally.created} added · ${tally.updated} updated${tally.failed ? ' · ' + tally.failed + ' need attention (below)' : ''}.</div>`
+      : `<div class="desk-ok" style="${bad ? 'background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#fde68a' : ''}"><b>${ok}</b> row${ok===1?'':'s'} ready${bad ? ` · <b>${bad}</b> with problems (skipped)` : ''}.</div>`;
+    h += imp.rows.slice(0, 300).map(r => {
+      const d = r.data;
+      const state = r.error ? `<span class="desk-badge desk-badge-warn">${escHtml(r.error)}</span>`
+        : r.result === 'created' ? '<span class="desk-badge desk-badge-ok">Added</span>'
+        : r.result === 'updated' ? '<span class="desk-badge desk-badge-ok">Updated</span>'
+        : r.result === 'error'   ? `<span class="desk-badge desk-badge-warn">${escHtml(r.message || 'Failed')}</span>` : '';
+      return `<div class="staff-card" style="padding:8px 10px;margin-bottom:6px"><div style="font-size:.8rem;font-weight:700">${escHtml(d.full_name || d.crew_code || d.email || '—')}
+        <span style="font-weight:500;color:var(--color-text-muted)">${[d.crew_code, d.rank, d.base].filter(Boolean).map(escHtml).join(' · ')}</span></div>
+        <div style="margin-top:3px">${state}<span style="font-size:.64rem;color:var(--color-text-muted);margin-left:6px">line ${r.line}</span></div></div>`;
+    }).join('') + (imp.rows.length > 300 ? `<div class="empty" style="padding:8px 0;text-align:center">…and ${imp.rows.length - 300} more rows.</div>` : '');
+    h += imp.done
+      ? `<button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="cdBack()">Back to crew</button>`
+      : `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-ghost" style="flex:1" onclick="cdOpenImport()">Choose another file</button>
+         <button class="btn btn-primary" style="flex:1" ${ok && !imp.busy ? '' : 'disabled'} onclick="cdImportRun()">${imp.busy ? 'Importing…' : 'Import ' + ok}</button></div>`;
+  }
+  el.innerHTML = h;
+}
+function cdPickFile(inp){
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => cdLoadText(String(rd.result || ''));
+  rd.onerror = () => toast('⚠ Could not read that file');
+  rd.readAsText(f);
+}
+function cdParsePaste(){ cdLoadText(document.getElementById('cd-paste')?.value || ''); }
+function cdLoadText(text){
+  const rows = parseCdCsv(text);
+  if(!rows.length){ toast('⚠ No rows found'); return; }
+  if(rows.length > 500){ toast('⚠ Import at most 500 rows at a time'); return; }
+  _cd.imp = { rows, done:false, busy:false }; renderCrewDir();
+}
+async function cdImportRun(){
+  const imp = _cd.imp; if(!imp || imp.busy) return;
+  const ok = imp.rows.filter(r => !r.error); if(!ok.length) return;
+  imp.busy = true; renderCrewDir();
+  const { data, error } = await sb.rpc('crew_dir_import', { p_rows: ok.map(r => r.data) });
+  imp.busy = false;
+  if(error){ toast('⚠ ' + error.message); renderCrewDir(); return; }
+  (data || []).forEach(x => { const row = ok[x.row - 1]; if(row){ row.result = x.result; row.message = x.message; } });
+  imp.done = true; renderCrewDir(); refreshDeskAfterDirectory(); cdLoad();
+}
 
 function genTempPassword(){
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -12615,6 +13095,11 @@ async function onLoggedIn(){
 
   // Last-seen stamp for the admin activity overview (throttled server-side)
   try{ sb.rpc('touch_last_seen').then(()=>{},()=>{}); }catch{}
+  // Crew directory: link this crew member to their record (confirmed-email match) or create one
+  if(profile && !['roster_officer','check_in_agent','ops_manager'].includes(profile.role) && !window._cdClaimed){
+    window._cdClaimed = true;
+    try{ sb.rpc('crew_dir_claim_self').then(()=>{},()=>{}); }catch{}
+  }
   if(!window._seenHooked){
     window._seenHooked = true;
     document.addEventListener('visibilitychange', () => {
@@ -16569,6 +17054,8 @@ function renderDB(){
 
   const staffCard = document.getElementById('admin-staff-card');
   if(staffCard) staffCard.style.display = adminVis;
+  const cdCard = document.getElementById('admin-crewdir-card');
+  if(cdCard) cdCard.style.display = adminVis;
   const auditCard = document.getElementById('admin-audit-card');
   if(auditCard) auditCard.style.display = adminVis;
   const permsCard = document.getElementById('admin-perms-card');
