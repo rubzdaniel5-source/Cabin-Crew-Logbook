@@ -1943,6 +1943,13 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
       📡 My Roster requires a connection to load.
     </div>
 
+    <!-- Messages from the crew office -->
+    <div class="staff-card" id="mg-card" style="margin-top:4px">
+      <button onclick="mgmToggle()" style="display:flex;width:100%;align-items:center;justify-content:space-between;background:none;border:none;color:var(--color-text-primary);font-family:inherit;font-size:.86rem;font-weight:800;padding:0;cursor:pointer;text-align:left">
+        <span>📬 Messages from crew office<span class="tab-badge" id="mgm-badge"></span></span><span id="mgm-arrow" style="color:var(--color-text-muted)">▾</span></button>
+      <div id="mgm-body" style="display:none"></div>
+    </div>
+
     <!-- Leave & off requests -->
     <div class="staff-card" id="lv-card" style="margin-top:4px">
       <button onclick="lvToggle()" style="display:flex;width:100%;align-items:center;justify-content:space-between;background:none;border:none;color:var(--color-text-primary);font-family:inherit;font-size:.86rem;font-weight:800;padding:0;cursor:pointer;text-align:left">
@@ -9914,9 +9921,9 @@ const AUDIT_LABELS = {
   crew_code_changed:'Crew code changed', base_changed:'Base changed',
   crew_added:'Crew member added', crew_updated:'Crew details changed', crew_archived:'Crew record archived', crew_restored:'Crew record restored',
   crew_merged:'Crew records merged', crew_linked:'Account linked to crew record', crew_unlinked:'Account unlinked from crew record', crew_imported:'Crew directory import',
-  crew_doc_saved:'Crew document saved', crew_doc_deleted:'Crew document deleted', leave_saved:'Leave recorded', leave_decided:'Leave decision',
+  crew_doc_saved:'Crew document saved', crew_doc_deleted:'Crew document deleted', leave_saved:'Leave recorded', leave_decided:'Leave decision', message_sent:'Message sent to crew',
 };
-const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷', base_changed:'📍', crew_added:'🧑‍✈️', crew_updated:'✏️', crew_archived:'🗄', crew_restored:'♻️', crew_merged:'🔀', crew_linked:'🔗', crew_unlinked:'🔓', crew_imported:'📥', crew_doc_saved:'📄', crew_doc_deleted:'🗑', leave_saved:'🏖', leave_decided:'⚖️' };
+const AUDIT_ICONS = { staff_created:'🆕', staff_password_reset:'🔑', role_changed:'🛡', blocked:'⛔', unblocked:'✅', admin_granted:'⬆️', admin_revoked:'⬇️', crew_code_changed:'🏷', base_changed:'📍', crew_added:'🧑‍✈️', crew_updated:'✏️', crew_archived:'🗄', crew_restored:'♻️', crew_merged:'🔀', crew_linked:'🔗', crew_unlinked:'🔓', crew_imported:'📥', crew_doc_saved:'📄', crew_doc_deleted:'🗑', leave_saved:'🏖', leave_decided:'⚖️', message_sent:'✉️' };
 
 function openAuditLog(){
   if(!isAdmin){ toast('⚠ Admin access only.'); return; }
@@ -9959,6 +9966,7 @@ function auditDescribe(r){
   if(r.action === 'crew_merged') return 'Merged in: ' + (d.merged || '') + (d.merged_code ? ' · ' + d.merged_code : '');
   if(r.action === 'crew_doc_saved' || r.action === 'crew_doc_deleted') return (CD_DOC_TYPES[d.type] || d.type || '') + (d.label ? ' · ' + d.label : '') + (d.expires_on ? ' · expires ' + d.expires_on : '');
   if(r.action === 'leave_saved' || r.action === 'leave_decided') return (CD_LEAVE_KINDS[d.kind] || d.kind || '') + ' · ' + (d.from || '') + (d.to && d.to !== d.from ? ' → ' + d.to : '') + ' · ' + (CD_LEAVE_STATUS[d.status] || d.status || '');
+  if(r.action === 'message_sent') return (d.audience || '') + ' · ' + (d.recipients||0) + ' crew' + (d.emails ? ' · ' + d.emails + ' emailed' : '') + (d.requires_ack ? ' · acknowledgement required' : '');
   if(r.action === 'crew_imported') return (d.created||0) + ' added · ' + (d.updated||0) + ' updated' + (d.failed ? ' · ' + d.failed + ' failed' : '');
   return '';
 }
@@ -10006,6 +10014,8 @@ const PERM_MATRIX = [
     ['Crew Directory (add, edit, import, merge)', [0,1,0,0,1]],
     ['Crew documents, expiries & leave approvals', [0,1,0,0,1]],
     ['Request leave / days off (own)',          [1,0,0,0,1]],
+    ['Send messages to crew (one or many, email + in-app)', [0,1,0,0,1]],
+    ['Read crew messages, acknowledge, email preferences (own)', [1,0,0,0,1]],
     ['Acknowledge & see officer change feed',   [0,1,0,0,1]],
   ]],
   ['Operations', [
@@ -10216,6 +10226,7 @@ function renderCrewDir(){
   if(_cd.view === 'import') return renderCdImport(el);
   if(_cd.view === 'expiry') return renderCdExpiry(el);
   if(_cd.view === 'leave')  return renderCdLeaveView(el);
+  if(_cd.view === 'msgs')   return renderCdMsgs(el);
   const q = _cd.q.trim().toLowerCase();
   const live = _cd.list.filter(r => !r.archived_at);
   const bases = [...new Set(live.map(r => r.base).filter(Boolean))].sort();
@@ -10238,6 +10249,7 @@ function renderCrewDir(){
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdExport()">⬇ Export</button>
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdOpenExpiry()">⏰ Expiries</button>
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdOpenLeaveView()">🏖 Leave${_cd.pending ? ` <span class="tab-badge" style="margin-left:3px">${_cd.pending}</span>` : ''}</button>
+      <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="mgOpen()">✉ Messages</button>
     </div>
     <div class="search-wrap"><span class="search-ico">🔍</span>
       <input class="rch-input" id="cd-search" type="text" placeholder="Search name, code, email, staff no…" value="${escHtml(_cd.q)}" oninput="cdSearch(this.value)" autocomplete="off" style="padding-left:38px"/></div>
@@ -10319,6 +10331,7 @@ function renderCdForm(el){
   const stOpts = Object.entries(CD_STATUS).map(([k,l]) => `<option value="${k}" ${v.status===k?'selected':''}>${l}</option>`).join('');
   let h = `<button class="roster-change-btn" onclick="cdBack()" style="flex:none;margin-bottom:12px;padding:6px 12px">‹ All crew</button>
     <div style="font-weight:800;font-size:1rem;margin-bottom:2px">${isNew ? 'New crew member' : escHtml(r.full_name)}</div>
+    ${r && !r.archived_at ? `<button class="roster-change-btn" style="flex:none;margin:6px 0 0;padding:5px 12px" onclick="mgOpen('${escHtml(r.id)}')">✉ Send a message</button>` : ''}
     ${r && r.archived_at ? '<div class="desk-warn" style="margin-top:8px">This record is archived. Restore it below to use it again.</div>' : ''}
     <div class="staff-card" style="margin-top:10px">
       ${cdField('full_name','Full name',v.full_name,'autocomplete="off"')}
@@ -10966,6 +10979,187 @@ async function lvCancel(id){
   const { error } = await sb.rpc('leave_my_cancel', { p_id: id });
   if(error){ toast('⚠ ' + error.message); lvRender(); return; }
   toast('Request cancelled'); await lvLoad();
+}
+
+// ═══════════════════════════════════════════════
+// COMMUNICATION — officer compose/history (in Crew Directory) + crew inbox & email preferences
+// ═══════════════════════════════════════════════
+let _mg = { rows:null, err:null, f:null, aud:null, busy:false, armed:false, detail:null, sentMsg:null, t:null };
+function mgBlank(crewId){
+  return { subject:'', body:'', crew:crewId || null, base:'', rank:'', accts:false, ack:false, email:true };
+}
+function mgOpen(crewId){
+  _cd.view = 'msgs'; _mg.f = mgBlank(crewId); _mg.aud = null; _mg.armed = false; _mg.detail = null; _mg.sentMsg = null;
+  document.getElementById('crewdir-overlay').classList.add('open');
+  renderCrewDir(); mgLoad(); mgAudience();
+}
+async function mgLoad(){
+  const { data, error } = await sb.rpc('msg_list', { p_limit: 30 });
+  if(error){
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
+    _mg.err = missing ? 'Messaging needs a database update (migration 30).' : error.message; _mg.rows = [];
+  } else { _mg.err = null; _mg.rows = data || []; }
+  if(_cd.view === 'msgs') mgRenderHistory();
+}
+function mgAudJSON(){
+  const f = _mg.f;
+  if(f.crew) return { mode:'crew', crew_ids:[f.crew] };
+  const a = { mode:'all' };
+  if(f.base) a.base = f.base; if(f.rank) a.rank = f.rank; if(f.accts) a.only_accounts = true;
+  return a;
+}
+function mgCollect(){
+  const f = _mg.f, g = id => document.getElementById(id);
+  if(!g('mg-subject')) return;
+  f.subject = g('mg-subject').value; f.body = g('mg-body').value;
+  f.ack = g('mg-ack').checked; f.email = g('mg-email').checked;
+  if(g('mg-base')){ f.base = g('mg-base').value; f.rank = g('mg-rank').value; f.accts = g('mg-accts').checked; }
+}
+function mgAudChanged(){
+  mgCollect(); _mg.armed = false; _mg.aud = null; mgRenderAud();
+  clearTimeout(_mg.t); _mg.t = setTimeout(mgAudience, 250);
+}
+async function mgAudience(){
+  const { data, error } = await sb.rpc('msg_audience_count', { p_audience: mgAudJSON() });
+  _mg.aud = error ? { err:error.message } : (Array.isArray(data) ? data[0] : data);
+  mgRenderAud();
+}
+function mgRenderAud(){
+  const el = document.getElementById('mg-aud'), btn = document.getElementById('mg-send'); if(!el) return;
+  const a = _mg.aud;
+  if(!a){ el.textContent = 'Counting…'; if(btn) btn.disabled = true; return; }
+  if(a.err){ el.textContent = a.err; if(btn) btn.disabled = true; return; }
+  el.innerHTML = `<b>${a.total}</b> crew · ${a.with_account} with an account · ${a.with_email} with an email address`;
+  if(btn){ btn.disabled = !a.total || _mg.busy; btn.textContent = _mg.armed ? `Tap again to send to ${a.total}` : `Send to ${a.total} crew`; }
+}
+function renderCdMsgs(el){
+  const f = _mg.f || (_mg.f = mgBlank());
+  if(_mg.detail) return mgRenderDetail(el);
+  const live = (_cd.list || []).filter(r => !r.archived_at);
+  const bases = [...new Set(live.map(r => r.base).filter(Boolean))].sort();
+  const ranks = [...new Set(live.map(r => r.rank).filter(Boolean))].sort();
+  const one = f.crew ? live.find(r => r.id === f.crew) : null;
+  const opt = (arr, cur, all) => `<option value="">${all}</option>` + arr.map(x => `<option value="${escHtml(x)}"${x === cur ? ' selected' : ''}>${escHtml(x)}</option>`).join('');
+  const audBlock = f.crew
+    ? `<div style="font-size:.82rem;margin-bottom:8px">To: <b>${escHtml(one ? one.full_name : 'selected crew member')}</b> <button class="roster-change-btn" style="flex:none;padding:3px 10px;min-height:24px;margin-left:6px" onclick="mgCollect();_mg.f.crew=null;_mg.armed=false;renderCrewDir();mgAudChanged()">Send to a group instead</button></div>`
+    : `<div class="cd-grid">
+        <div class="cd-fld"><label class="cd-lbl" for="mg-base">Base</label><select id="mg-base" class="rch-input" onchange="mgAudChanged()">${opt(bases, f.base, 'All bases')}</select></div>
+        <div class="cd-fld"><label class="cd-lbl" for="mg-rank">Rank</label><select id="mg-rank" class="rch-input" onchange="mgAudChanged()">${opt(ranks, f.rank, 'All ranks')}</select></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:2px 0 8px"><input type="checkbox" id="mg-accts" ${f.accts ? 'checked' : ''} onchange="mgAudChanged()"/> Only crew who have an app account</label>`;
+  el.innerHTML = `<button class="roster-change-btn" onclick="cdBack()" style="flex:none;margin-bottom:12px;padding:6px 12px">‹ All crew</button>
+    <div style="font-weight:800;font-size:1rem;margin-bottom:8px">✉ Messages to crew</div>
+    <div class="staff-card">
+      ${audBlock}
+      <div class="cd-fld"><label class="cd-lbl" for="mg-subject">Subject</label><input id="mg-subject" class="rch-input" maxlength="120" autocomplete="off" value="${escHtml(f.subject)}" oninput="_mg.armed=false;mgRenderAud()"/></div>
+      <div class="cd-fld"><label class="cd-lbl" for="mg-body">Message</label><textarea id="mg-body" class="rch-input" rows="5" maxlength="4000" style="resize:vertical" oninput="_mg.armed=false;mgRenderAud()">${escHtml(f.body)}</textarea></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:2px 0"><input type="checkbox" id="mg-ack" ${f.ack ? 'checked' : ''}/> Ask crew to acknowledge they have read it</label>
+      <label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:2px 0 8px"><input type="checkbox" id="mg-email" ${f.email ? 'checked' : ''}/> Also send by email</label>
+      <div id="mg-aud" style="font-size:.76rem;color:var(--color-text-muted);margin-bottom:8px">Counting…</div>
+      ${_mg.sentMsg ? `<div class="desk-warn" style="background:rgba(40,167,69,.12);margin-bottom:8px">${escHtml(_mg.sentMsg)}</div>` : ''}
+      <button id="mg-send" class="btn btn-primary" style="width:100%" onclick="mgSend()" disabled>Send</button>
+    </div>
+    <div class="cd-h" style="margin-top:14px">Sent messages</div><div id="mg-hist"></div>`;
+  mgRenderAud(); mgRenderHistory();
+}
+function mgRenderHistory(){
+  const el = document.getElementById('mg-hist'); if(!el) return;
+  if(_mg.err){ el.innerHTML = `<div class="desk-warn">${escHtml(_mg.err)}</div>`; return; }
+  if(_mg.rows === null){ el.innerHTML = '<div class="empty" style="padding:12px 0">Loading…</div>'; return; }
+  if(!_mg.rows.length){ el.innerHTML = '<div style="font-size:.78rem;color:var(--color-text-muted)">Nothing sent yet.</div>'; return; }
+  el.innerHTML = _mg.rows.map(m => `<div class="cd-item" style="cursor:pointer" onclick="mgDetail('${escHtml(m.id)}')">
+    <div style="display:flex;justify-content:space-between;gap:8px"><div style="font-size:.82rem;font-weight:700;min-width:0">${escHtml(m.subject)}</div><div style="font-size:.7rem;color:var(--color-text-muted);white-space:nowrap">${escHtml(actAgo(m.created_at))}</div></div>
+    <div style="font-size:.72rem;color:var(--color-text-muted);margin-top:2px">To ${escHtml(m.audience_label || '')} · ${m.recipients} crew · 👁 ${m.read_count}/${m.with_account}${m.requires_ack ? ` · ✔ ${m.ack_count}/${m.with_account} acknowledged` : ''}${m.emails_sent || m.emails_failed ? ` · ✉ ${m.emails_sent} sent${m.emails_failed ? `, ${m.emails_failed} failed` : ''}` : ''}</div></div>`).join('');
+}
+async function mgSend(){
+  if(_mg.busy) return;
+  mgCollect(); const f = _mg.f;
+  if(!f.subject.trim() || !f.body.trim()){ toast('⚠ Add a subject and a message'); return; }
+  if(!isOnline){ toast('📡 Sending needs a connection.'); return; }
+  if(!_mg.armed){ _mg.armed = true; mgRenderAud(); setTimeout(() => { if(_mg.armed){ _mg.armed = false; mgRenderAud(); } }, 4000); return; }
+  _mg.busy = true; _mg.armed = false; const btn = document.getElementById('mg-send'); if(btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('msg_send', { p_subject: f.subject.trim(), p_body: f.body.trim(), p_audience: mgAudJSON(), p_requires_ack: f.ack, p_email: f.email });
+  _mg.busy = false;
+  if(error){ toast('⚠ ' + error.message); mgRenderAud(); return; }
+  _mg.sentMsg = `Sent to ${data.recipients} crew (${data.with_account} in-app` + (data.emails_queued ? `, ${data.emails_queued} email${data.emails_queued === 1 ? '' : 's'} queued` : '') + ').';
+  const keep = f.crew; _mg.f = mgBlank(keep); _mg.f.ack = f.ack; _mg.f.email = f.email;
+  renderCrewDir(); mgAudience(); mgLoad();
+}
+async function mgDetail(id){
+  const m = (_mg.rows || []).find(x => x.id === id); if(!m) return;
+  _mg.detail = { m, rows:null, err:null }; renderCrewDir();
+  const { data, error } = await sb.rpc('msg_detail', { p_id: id });
+  if(!_mg.detail) return;
+  _mg.detail.err = error ? error.message : null; _mg.detail.rows = data || []; renderCrewDir();
+}
+function mgRenderDetail(el){
+  const d = _mg.detail, m = d.m;
+  const stateTxt = { sent:'✉ emailed', queued:'✉ waiting to send', sending:'✉ sending…', failed:'⚠ email failed', 'no email':'no email address', 'not sent':'in-app only' };
+  const rows = d.err ? `<div class="desk-warn">${escHtml(d.err)}</div>` : d.rows === null ? '<div class="empty" style="padding:12px 0">Loading…</div>' :
+    d.rows.map(r => `<div class="cd-item"><div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem"><b>${escHtml(r.full_name)}${r.crew_code ? ' · ' + escHtml(r.crew_code) : ''}</b>
+      <span style="color:var(--color-text-muted);font-size:.72rem">${!r.has_account ? 'no app account' : r.ack_at ? '✔ acknowledged' : r.read_at ? '👁 read' : 'unread'}</span></div>
+      <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">${escHtml(stateTxt[r.email_state] || r.email_state)}${r.email_to ? ' · ' + escHtml(r.email_to) : ''}</div></div>`).join('');
+  el.innerHTML = `<button class="roster-change-btn" onclick="_mg.detail=null;renderCrewDir()" style="flex:none;margin-bottom:12px;padding:6px 12px">‹ Messages</button>
+    <div style="font-weight:800;font-size:1rem">${escHtml(m.subject)}</div>
+    <div style="font-size:.72rem;color:var(--color-text-muted);margin:2px 0 8px">To ${escHtml(m.audience_label || '')} · ${escHtml(actAgo(m.created_at))}${m.requires_ack ? ' · acknowledgement requested' : ''}</div>
+    <div class="staff-card" style="white-space:pre-wrap;font-size:.82rem">${escHtml(m.body)}</div>
+    <div class="cd-h" style="margin-top:12px">Recipients (unread and unacknowledged first)</div>${rows}`;
+}
+
+// ── Crew side: inbox + email preferences ──
+let _mgm = { open:false, rows:null, prefs:null, err:null };
+async function mgmInit(){
+  if(!isOnline || !currentUser) return;
+  try{
+    const { data } = await sb.rpc('msg_my_unread_count');
+    const b = document.getElementById('mgm-badge'); if(b) b.textContent = data > 0 ? String(data) : '';
+  }catch{}
+}
+async function mgmToggle(){
+  _mgm.open = !_mgm.open;
+  document.getElementById('mgm-body').style.display = _mgm.open ? '' : 'none';
+  document.getElementById('mgm-arrow').textContent = _mgm.open ? '▴' : '▾';
+  if(_mgm.open) await mgmLoad();
+}
+async function mgmLoad(){
+  if(!isOnline){ _mgm.err = 'Messages need a connection.'; mgmRender(); return; }
+  mgmRender();
+  const [l, p] = await Promise.all([ sb.rpc('msg_my_list'), sb.rpc('comm_prefs_get') ]);
+  if(l.error){
+    const missing = l.error.code === 'PGRST202' || /could not find the function/i.test(l.error.message || '');
+    _mgm.err = missing ? 'Messages are not switched on yet.' : l.error.message; _mgm.rows = [];
+  } else { _mgm.err = null; _mgm.rows = l.data || []; }
+  _mgm.prefs = p.error ? null : (Array.isArray(p.data) ? p.data[0] : p.data) || null;
+  mgmRender();
+  const unread = (_mgm.rows || []).filter(r => !r.read_at && !r.requires_ack).map(r => r.id);
+  if(unread.length){ try{ await sb.rpc('msg_my_mark_read', { p_ids: unread }); }catch{} }
+  const b = document.getElementById('mgm-badge'); if(b) b.textContent = (_mgm.rows || []).filter(r => !r.read_at && r.requires_ack).length ? String((_mgm.rows || []).filter(r => !r.read_at && r.requires_ack).length) : '';
+}
+function mgmRender(){
+  const el = document.getElementById('mgm-body'); if(!el || !_mgm.open) return;
+  if(_mgm.err){ el.innerHTML = `<div class="desk-warn" style="margin:10px 0 0">${escHtml(_mgm.err)}</div>`; return; }
+  if(_mgm.rows === null){ el.innerHTML = '<div class="empty" style="padding:12px 0">Loading…</div>'; return; }
+  const rows = _mgm.rows.map(m => `<div class="cd-item"${!m.read_at ? ' style="border-color:var(--color-accent,#4f8ef7)"' : ''}>
+      <div style="display:flex;justify-content:space-between;gap:8px"><div style="font-size:.82rem;font-weight:700">${escHtml(m.subject)}</div><div style="font-size:.7rem;color:var(--color-text-muted);white-space:nowrap">${escHtml(actAgo(m.created_at))}</div></div>
+      <div style="font-size:.78rem;margin-top:4px;white-space:pre-wrap">${escHtml(m.body)}</div>
+      <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:4px">— ${escHtml(m.sender_name || 'Crew office')}</div>
+      ${m.requires_ack ? (m.ack_at ? '<div style="font-size:.72rem;margin-top:4px;color:var(--color-text-muted)">✔ You acknowledged this</div>'
+        : `<button class="btn btn-primary btn-sm" style="width:auto;margin-top:6px" onclick="mgmAck('${escHtml(m.id)}')">✔ Acknowledge</button>`) : ''}</div>`).join('');
+  const p = _mgm.prefs || { email_roster:true, email_messages:true, email_leave:true };
+  const ck = (k, l) => `<label style="display:flex;gap:8px;align-items:center;font-size:.78rem;margin:4px 0"><input type="checkbox" id="mgp-${k}" ${p['email_' + k] ? 'checked' : ''} onchange="mgmSavePrefs()"/> ${l}</label>`;
+  el.innerHTML = (rows || '<div style="font-size:.78rem;color:var(--color-text-muted);margin:10px 0">No messages yet.</div>') +
+    `<div class="cd-h" style="margin-top:12px">Email notifications</div>${ck('roster','Roster changes made by the crew office')}${ck('messages','Messages from the crew office')}${ck('leave','Leave decisions')}`;
+}
+async function mgmAck(id){
+  const { error } = await sb.rpc('msg_my_ack', { p_id: id });
+  if(error){ toast('⚠ ' + error.message); return; }
+  toast('✅ Acknowledged'); await mgmLoad();
+}
+async function mgmSavePrefs(){
+  const g = k => !!document.getElementById('mgp-' + k)?.checked;
+  const { error } = await sb.rpc('comm_prefs_set', { p_roster: g('roster'), p_messages: g('messages'), p_leave: g('leave') });
+  if(error){ toast('⚠ ' + error.message); return; }
+  _mgm.prefs = { email_roster:g('roster'), email_messages:g('messages'), email_leave:g('leave') }; toast('Saved');
 }
 
 function genTempPassword(){
@@ -14052,6 +14246,7 @@ function updateRosterDeskTab(){
 async function initRosterTab(){
   rosterShowCodeBox();
   lvInit();
+  mgmInit();
   if(!isOnline){
     document.getElementById('roster-offline-notice').style.display = '';
     document.getElementById('roster-duty-list').innerHTML = '';
