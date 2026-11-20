@@ -822,7 +822,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 .gs-seat-num{font-size:.72rem;font-weight:900;line-height:1;z-index:1;margin-top:2px}
 .gs-seat-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25);z-index:1}
 .gs-seat:active{transform:scale(.92)}
-.gs-seat.empty{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.gs-seat.empty{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);padding:0 0 5px;text-align:left;color:#fff} /* undo the global .empty (list placeholder) padding that squeezed passenger names out of empty seats */
 .gs-seat.empty:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(0,0,0,.4)}
 .gs-seat.has-order{background:rgba(201,124,10,.35);border-color:#c97c0a;box-shadow:0 0 10px rgba(201,124,10,.3)}
 .gs-seat.has-order .gs-seat-dot{background:#f5a623}
@@ -873,7 +873,7 @@ header{background:var(--color-nav);color:var(--color-text-primary);padding:14px 
 /* Served check mark on seat */
 .gs-seat.served::after{content:'✓';position:absolute;top:3px;right:5px;font-size:.6rem;color:#2ecc71;font-weight:900}
 .gs-seat-allergen{position:absolute;top:2px;right:4px;font-size:.55rem;color:var(--color-warning);z-index:2;line-height:1}
-.gs-seat-pax{font-size:.5rem;color:rgba(255,255,255,.55);line-height:1;max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;z-index:1}
+.gs-seat-pax{font-size:.54rem;font-weight:700;color:rgba(255,255,255,.8);line-height:1;max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;z-index:1}
 
 /* ── MY ROSTER ─────────────────────────────────────────────── */
 .roster-card{background:var(--color-card,#16213e);border-radius:12px;padding:12px 14px;margin-bottom:9px;border-left:3px solid transparent;position:relative}
