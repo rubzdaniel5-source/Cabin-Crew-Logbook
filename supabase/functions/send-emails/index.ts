@@ -29,13 +29,13 @@ const LEAVE_LABEL: Record<string, string> = {
 };
 
 export interface Job { kind: string; ids: string[]; to_email: string; to_name?: string; items: any[] }
-export interface Mail { subject: string; html: string; text: string }
+export interface Mail { subject: string; html: string; text: string; reply_to?: string }
 
-function shell(appUrl: string, title: string, inner: string): string {
+function shell(appUrl: string, title: string, inner: string, footer = true): string {
   const link = appUrl ? `<p style="margin:24px 0 0"><a href="${esc(appUrl)}" style="color:#0b5ed7">Open Crew Logbook</a></p>` : '';
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:16px;color:#1b1f24">
 <h2 style="margin:0 0 12px;font-size:18px">${esc(title)}</h2>${inner}${link}
-<p style="margin:24px 0 0;font-size:12px;color:#6b7280">You can turn these emails off in Crew Logbook under Roster → Email notifications.</p></div>`;
+${footer ? '<p style="margin:24px 0 0;font-size:12px;color:#6b7280">You can turn these emails off in Crew Logbook under Roster → Email notifications.</p>' : ''}</div>`;
 }
 
 function dutyLine(p: any): string {
@@ -54,6 +54,24 @@ export function renderMail(job: Job, appUrl: string): Mail {
       subject: String(p.subject || 'Message from crew office'),
       html: shell(appUrl, String(p.subject || 'Message'), `<p>Hi ${esc(name)},</p><p>${body}</p>${ack}<p style="color:#6b7280">— ${esc(p.sender_name || 'Crew office')}</p>`),
       text: `Hi ${name},\n\n${p.body}\n\n— ${p.sender_name || 'Crew office'}${p.requires_ack && p.has_account ? '\n\nPlease open Crew Logbook and acknowledge this message.' : ''}${appUrl ? '\n' + appUrl : ''}`,
+    };
+  }
+  if (job.kind === 'feedback') {
+    const p = job.items[0] || {};
+    const type = String(p.type || 'feedback'); const Type = type.charAt(0).toUpperCase() + type.slice(1);
+    const stars = '★'.repeat(Number(p.overall) || 0) + '☆'.repeat(5 - (Number(p.overall) || 0));
+    const rows: [string, string][] = [['Passenger', `${p.name || ''} <${p.email || ''}>`], ['Flight', [p.flight, p.route, p.flight_date].filter(Boolean).join(' · ') || '—'],
+      ['Seat', p.seat || '—'], ['Overall', `${stars} (${p.overall}/5)`]];
+    const cats = Object.entries(p.ratings || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}/5`).join(' · ');
+    if (cats) rows.push(['Categories', cats]);
+    const tr = rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6b7280;vertical-align:top">${esc(k)}</td><td style="padding:3px 0">${esc(v)}</td></tr>`).join('');
+    const quote = p.comments ? `<blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #c9a84c;background:#faf7ee;white-space:pre-wrap">${esc(p.comments)}</blockquote>` : '<p style="color:#6b7280">No comments left.</p>';
+    const urgent = p.urgent ? '<p style="background:#fdecea;color:#b3261e;padding:8px 12px;border-radius:6px;font-weight:bold">⚠ Urgent: complaint rated 2★ or below. Please follow up promptly.</p>' : '';
+    return {
+      subject: `${p.urgent ? '⚠ URGENT · ' : ''}${Type} · ${p.flight || 'no flight given'} · ${p.overall}★`,
+      html: shell(appUrl, `Passenger ${type}`, `${urgent}<p style="margin:0 0 8px;color:#6b7280">For: ${esc(p.department || 'Operations')}</p><table style="font-size:14px;border-collapse:collapse">${tr}</table>${quote}<p style="font-size:12px;color:#6b7280">Reply to this email to answer the passenger directly.</p>`, false),
+      text: `${p.urgent ? 'URGENT - ' : ''}Passenger ${type} (${p.department || ''})\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${p.comments || 'No comments left.'}\n\nReply to this email to answer the passenger.`,
+      reply_to: p.reply_to || undefined,
     };
   }
   if (job.kind === 'leave_decision') {
@@ -108,7 +126,7 @@ export async function handle(req: Request, env: Env, makeClient: (url: string, k
       const r = await fetchImpl('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: env.EMAIL_FROM, to: [job.to_email], subject: mail.subject, html: mail.html, text: mail.text }),
+        body: JSON.stringify({ from: env.EMAIL_FROM, to: [job.to_email], subject: mail.subject, html: mail.html, text: mail.text, ...(mail.reply_to ? { reply_to: mail.reply_to } : {}) }),
       });
       if (!r.ok) {
         err = `Resend ${r.status}: ${(await r.text()).slice(0, 300)}`;

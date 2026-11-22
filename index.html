@@ -3555,14 +3555,19 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
         <option value="3">★★★ 3+ stars</option>
         <option value="low">⚠ Below 3 (urgent)</option>
       </select>
+      <select id="pfb-filter-status" onchange="loadPaxFeedback()" style="display:none;border:1.5px solid var(--border);border-radius:20px;padding:5px 10px;font-size:.75rem;font-family:var(--font);color:var(--color-text-primary);background:var(--color-input-bg)">
+        <option value="">Any status</option><option value="new">🆕 New</option><option value="acknowledged">👀 Acknowledged</option><option value="resolved">✅ Resolved</option>
+      </select>
       <div style="margin-left:auto;font-size:.7rem;color:var(--muted)" id="pfb-count"></div>
     </div>
+    <div id="pfb-stats" style="display:none"></div>
     <!-- QR + link panel (admin only) -->
     <div id="pfb-qr-panel" style="display:none;padding:12px 14px;background:var(--color-card);border-bottom:1px solid var(--color-border)">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div id="pfb-qr-code" style="width:72px;height:72px;background:var(--ice2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0">QR</div>
         <div style="flex:1;min-width:160px">
           <div style="font-size:.72rem;font-weight:800;color:var(--color-text-primary);margin-bottom:4px">Passenger Feedback Link</div>
+          <select id="pfb-flight-sel" onchange="pfbLinkChanged()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.74rem;font-family:var(--font);color:var(--color-text-primary);background:var(--color-input-bg);margin-bottom:5px"></select>
           <div style="font-size:.68rem;color:var(--sky);word-break:break-all;font-family:monospace" id="pfb-link-display"></div>
           <div style="display:flex;gap:6px;margin-top:6px">
             <button class="btn btn-ghost btn-sm" onclick="copyFeedbackLink()">📋 Copy Link</button>
@@ -10031,6 +10036,8 @@ const PERM_MATRIX = [
     ['Passenger manifest — upload',             [0,0,1,1,1]],
     ['Passenger manifest — view & manage',      [0,0,0,1,1]],
     ['Cabin Notices',                           [1,0,0,1,1]],
+    ['Passenger feedback: see feedback for own flights, show QR', [1,0,0,1,1]],
+    ['Passenger feedback: see everything, status, notes, stats, recipients (recipients admin only)', [0,0,0,1,1]],
     ['Notice acknowledgements (acknowledge / see who has read & remind)', [1,0,0,1,1]],
     ['Announcements',                           [1,0,0,1,1]],
     ['Passenger Feedback',                      [1,0,0,1,1]],
@@ -13730,16 +13737,37 @@ const FEEDBACK_BASE_URL = 'https://rubzdaniel5-source.github.io/ug-feedback';
 
 function openPaxFeedbackOverlay(){
   document.getElementById('pax-feedback-overlay').classList.add('open');
-  // Admin: show QR/link panel and Recipients button
+  // Everyone on a flight can show the passenger QR; only admins set the email recipients
   const qrPanel  = document.getElementById('pfb-qr-panel');
   const rcptBtn  = document.getElementById('pfb-rcpt-btn');
-  if(qrPanel) qrPanel.style.display = isAdmin ? 'block' : 'none';
+  if(qrPanel) qrPanel.style.display = ['check_in_agent','roster_officer'].includes(getUserRole()) ? 'none' : 'block';
   if(rcptBtn) rcptBtn.style.display = isAdmin ? 'inline-block' : 'none';
-  // Populate link display
-  const linkEl = document.getElementById('pfb-link-display');
-  if(linkEl) linkEl.textContent = FEEDBACK_BASE_URL;
+  const st = document.getElementById('pfb-filter-status'); if(st) st.style.display = pfbIsManager() ? '' : 'none';
+  pfbFillFlights();
   loadPaxFeedback();
 }
+function pfbIsManager(){ return isAdmin || getUserRole() === 'ops_manager'; }
+// Flights from the crew member's own logbook, newest first, for a flight-specific link/QR
+function pfbFillFlights(){
+  const sel = document.getElementById('pfb-flight-sel'); if(!sel) return;
+  const seen = new Set(), opts = [];
+  (cache.flights || []).slice().sort((a,b) => String(b.date||'').localeCompare(String(a.date||''))).forEach(f => {
+    if(!f.flightNum) return;
+    const num = String(f.flightNum).split('/')[0].toUpperCase().replace(/\s/g,''), k = num + '|' + f.date;
+    if(seen.has(k) || opts.length >= 15) return; seen.add(k);
+    opts.push({ num, date:f.date || '', route:[f.dep, f.arr].filter(Boolean).join('-') });
+  });
+  sel.innerHTML = '<option value="">General link (no flight)</option>' + opts.map((o,i) =>
+    `<option value="${i}" data-n="${escHtml(o.num)}" data-d="${escHtml(o.date)}" data-r="${escHtml(o.route)}">${escHtml(o.num)} · ${escHtml(o.date)}${o.route ? ' · ' + escHtml(o.route) : ''}</option>`).join('');
+  pfbLinkChanged();
+}
+function pfbLink(){
+  const sel = document.getElementById('pfb-flight-sel'), o = sel && sel.selectedOptions[0];
+  if(!o || !o.dataset.n) return FEEDBACK_BASE_URL;
+  const q = new URLSearchParams({ flight:o.dataset.n }); if(o.dataset.r) q.set('route', o.dataset.r); if(o.dataset.d) q.set('date', o.dataset.d);
+  return FEEDBACK_BASE_URL + '/?' + q.toString();
+}
+function pfbLinkChanged(){ const el = document.getElementById('pfb-link-display'); if(el) el.textContent = pfbLink(); }
 
 function openFeedbackRecipients(){
   document.getElementById('pfb-recipients-overlay').classList.add('open');
@@ -13777,85 +13805,103 @@ function closePaxFeedbackOverlay(){
   document.getElementById('pax-feedback-overlay').classList.remove('open');
 }
 
+let _pfbRows = [];
 async function loadPaxFeedback(){
   const listEl  = document.getElementById('pfb-list');
   const countEl = document.getElementById('pfb-count');
   if(!listEl) return;
   listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">Loading…</div>';
-
   const filterType   = document.getElementById('pfb-filter-type')?.value   || '';
   const filterRating = document.getElementById('pfb-filter-rating')?.value || '';
-
+  const filterStatus = document.getElementById('pfb-filter-status')?.value || '';
   try{
-    let query = sb.from('passenger_feedback').select('*').order('created_at',{ascending:false}).limit(100);
-
-    // Crew see feedback for their flights OR feedback with no flight number
-    if(!isAdmin){
-      const myNums = [...new Set(cache.flights.map(f=>f.flightNum).filter(Boolean))];
-      if(myNums.length){
-        // Show feedback matching their flights OR with no flight specified
-        query = query.or(`flight_number.in.(${myNums.join(',')}),flight_number.is.null`);
-      }
-      // If crew has no flights logged yet, show all feedback so they can see it
-    }
-
-    if(filterType) query = query.eq('feedback_type', filterType);
-    if(filterRating === 'low') query = query.lt('overall_rating', 3);
-    else if(filterRating)      query = query.gte('overall_rating', parseInt(filterRating));
-
-    const { data, error } = await query;
+    // Crew only receive feedback for their own flights (decided on the server); managers get everything
+    const myFlights = [...new Set((cache.flights || []).map(f => f.flightNum).filter(Boolean))];
+    const { data, error } = await sb.rpc('feedback_list', { p_type: filterType || null, p_rating: filterRating || null, p_status: filterStatus || null, p_flights: myFlights, p_limit: 100 });
     if(error) throw error;
-    if(!data?.length){
-      listEl.innerHTML = '<div class="empty"><div class="empty-icon">🌟</div><h3>No feedback yet</h3><p>Passenger feedback will appear here once submitted.</p></div>';
+    _pfbRows = data || [];
+    pfbLoadStats();
+    if(!_pfbRows.length){
+      listEl.innerHTML = '<div class="empty"><div class="empty-icon">🌟</div><h3>No feedback yet</h3><p>Passenger feedback for your flights will appear here once submitted.</p></div>';
       if(countEl) countEl.textContent = '';
       return;
     }
-
-    if(countEl) countEl.textContent = `${data.length} result${data.length!==1?'s':''}`;
-
-    const CAT_LABELS = {
-      rating_crew:'Crew', rating_food:'Food', rating_comfort:'Comfort',
-      rating_cleanliness:'Clean', rating_entertainment:'Entertainment', rating_ground:'Ground'
-    };
-
-    listEl.innerHTML = data.map(fb=>{
-      const isUrgent = fb.feedback_type==='complaint' && (fb.overall_rating||5) < 3;
-      const typeIcon = fb.feedback_type==='compliment'?'😊':fb.feedback_type==='complaint'?'😟':'💡';
-      const stars    = fb.overall_rating ? '★'.repeat(fb.overall_rating)+'☆'.repeat(5-fb.overall_rating) : '—';
-      const date     = new Date(fb.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
-
-      const catRatings = Object.entries(CAT_LABELS)
-        .filter(([k])=>fb[k])
-        .map(([k,lbl])=>`<span class="pfb-cat-pill">${lbl} <span>${'★'.repeat(fb[k])}</span></span>`)
-        .join('');
-
-      return `
-      <div class="pfb-card ${isUrgent?'urgent':fb.feedback_type||''}">
-        ${isUrgent?'<div style="font-size:.68rem;font-weight:800;color:var(--red);margin-bottom:4px">⚠ URGENT — Low Rating Complaint</div>':''}
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <div>
-            <span class="pfb-type-badge ${fb.feedback_type||''}">${typeIcon} ${(fb.feedback_type||'feedback').charAt(0).toUpperCase()+(fb.feedback_type||'').slice(1)}</span>
-            <div style="font-weight:800;font-size:.88rem;color:var(--color-text-primary)">${escHtml(fb.passenger_name||'Anonymous')}</div>
-            <div style="font-size:.7rem;color:var(--muted)">${escHtml(fb.passenger_email||'')} ${fb.seat_number?'· Seat '+fb.seat_number:''}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:10px">
-            <div class="pfb-stars">${stars}</div>
-            <div style="font-size:.65rem;color:var(--muted);margin-top:2px">${date}</div>
-          </div>
-        </div>
-        ${fb.flight_number?`<div style="font-size:.7rem;color:var(--sky);font-weight:700;margin-bottom:6px">✈ ${escHtml(fb.flight_number)} ${fb.route?'· '+escHtml(fb.route):''}${fb.flight_date?' · '+fb.flight_date:''}</div>`:''}
-        ${fb.comments?`<div style="font-size:.82rem;color:var(--color-text-primary);line-height:1.55;font-style:italic;border-left:3px solid var(--border2);padding-left:10px;margin-bottom:8px">"${escHtml(fb.comments)}"</div>`:''}
-        ${catRatings?`<div class="pfb-cat-ratings">${catRatings}</div>`:''}
-      </div>`;
-    }).join('');
+    if(countEl) countEl.textContent = `${_pfbRows.length} result${_pfbRows.length!==1?'s':''}`;
+    listEl.innerHTML = _pfbRows.map(pfbCardHTML).join('');
   }catch(e){
-    listEl.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center">Could not load feedback: ${escHtml(e.message)}</div>`;
+    listEl.innerHTML = `<div style="color:var(--muted);padding:20px;text-align:center">Could not load feedback: ${escHtml(/could not find the function/i.test(e.message||'') ? 'it needs a database update (migration 33).' : e.message)}</div>`;
   }
+}
+const PFB_CAT = { rating_crew:'Crew', rating_food:'Food', rating_comfort:'Comfort', rating_cleanliness:'Clean', rating_entertainment:'Entertainment', rating_ground:'Ground' };
+const PFB_STATUS = { new:'🆕 New', acknowledged:'👀 Acknowledged', resolved:'✅ Resolved' };
+function pfbCardHTML(fb){
+  const typeIcon = fb.feedback_type==='compliment'?'😊':fb.feedback_type==='complaint'?'😟':'💡';
+  const stars    = fb.overall_rating ? '★'.repeat(fb.overall_rating)+'☆'.repeat(5-fb.overall_rating) : '—';
+  const date     = new Date(fb.created_at).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
+  const cats = Object.entries(PFB_CAT).filter(([k]) => fb[k]).map(([k,l]) => `<span class="pfb-cat-pill">${l} <span>${'★'.repeat(fb[k])}</span></span>`).join('');
+  const mgr = fb.can_manage;
+  const actions = mgr ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+      <span style="font-size:.68rem;font-weight:700;color:var(--color-text-muted)">${PFB_STATUS[fb.status] || fb.status}${fb.handled_at ? ' · ' + escHtml(actAgo(fb.handled_at)) : ''}</span>
+      ${fb.status !== 'acknowledged' ? `<button class="btn btn-ghost btn-sm" onclick="pfbSetStatus('${escHtml(fb.id)}','acknowledged')">👀 Acknowledge</button>` : ''}
+      ${fb.status !== 'resolved' ? `<button class="btn btn-ghost btn-sm" onclick="pfbSetStatus('${escHtml(fb.id)}','resolved')">✅ Resolve</button>` : `<button class="btn btn-ghost btn-sm" onclick="pfbSetStatus('${escHtml(fb.id)}','new')">Reopen</button>`}
+      <button class="btn btn-ghost btn-sm" onclick="pfbEditNote('${escHtml(fb.id)}')">📝 Note</button>
+      ${fb.passenger_email ? `<a class="btn btn-ghost btn-sm" style="text-decoration:none" href="mailto:${escHtml(fb.passenger_email)}?subject=${encodeURIComponent('Your feedback to Uganda Airlines' + (fb.flight_number ? ' – ' + fb.flight_number : ''))}">✉ Reply</a>` : ''}
+    </div>
+    ${fb.internal_note ? `<div style="font-size:.74rem;margin-top:6px;padding:6px 9px;background:var(--ice2);border-radius:6px">📝 ${escHtml(fb.internal_note)}</div>` : ''}
+    <div id="pfb-note-${escHtml(fb.id)}"></div>` : '';
+  return `
+  <div class="pfb-card ${fb.is_urgent?'urgent':fb.feedback_type||''}">
+    ${fb.is_urgent?'<div style="font-size:.68rem;font-weight:800;color:var(--red);margin-bottom:4px">⚠ URGENT — Low Rating Complaint</div>':''}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <span class="pfb-type-badge ${fb.feedback_type||''}">${typeIcon} ${(fb.feedback_type||'feedback').charAt(0).toUpperCase()+(fb.feedback_type||'').slice(1)}</span>
+        <div style="font-weight:800;font-size:.88rem;color:var(--color-text-primary)">${escHtml(fb.passenger_name||'Anonymous')}</div>
+        <div style="font-size:.7rem;color:var(--muted)">${escHtml(fb.passenger_email||'')}${fb.passenger_email && fb.seat_number ? ' · ' : ''}${fb.seat_number?'Seat '+escHtml(fb.seat_number):''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div class="pfb-stars">${stars}</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:2px">${date}</div>
+      </div>
+    </div>
+    ${fb.flight_number?`<div style="font-size:.7rem;color:var(--sky);font-weight:700;margin-bottom:6px">✈ ${escHtml(fb.flight_number)} ${fb.route?'· '+escHtml(fb.route):''}${fb.flight_date?' · '+escHtml(fb.flight_date):''}</div>`:''}
+    ${fb.comments?`<div style="font-size:.82rem;color:var(--color-text-primary);line-height:1.55;font-style:italic;border-left:3px solid var(--border2);padding-left:10px;margin-bottom:8px">"${escHtml(fb.comments)}"</div>`:''}
+    ${cats?`<div class="pfb-cat-ratings">${cats}</div>`:''}
+    ${actions}
+  </div>`;
+}
+async function pfbSetStatus(id, status, note){
+  const { error } = await sb.rpc('feedback_set_status', { p_id:id, p_status:status, p_note:note === undefined ? null : note });
+  if(error){ toast('⚠ ' + error.message); return; }
+  loadPaxFeedback();
+}
+function pfbEditNote(id){
+  const box = document.getElementById('pfb-note-' + id); if(!box) return;
+  if(box.innerHTML){ box.innerHTML = ''; return; }
+  const cur = (_pfbRows.find(r => r.id === id) || {}).internal_note || '';
+  box.innerHTML = `<textarea id="pfb-note-txt-${escHtml(id)}" rows="2" maxlength="1000" placeholder="Internal note (never shown to the passenger)" style="width:100%;margin-top:6px;border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;font-size:.78rem;font-family:var(--font);background:var(--color-input-bg);color:var(--color-text-primary)">${escHtml(cur)}</textarea>
+    <button class="btn btn-primary btn-sm" style="width:auto;margin-top:4px" onclick="pfbSaveNote('${escHtml(id)}')">Save note</button>`;
+}
+function pfbSaveNote(id){
+  const r = _pfbRows.find(x => x.id === id); if(!r) return;
+  pfbSetStatus(id, r.status, document.getElementById('pfb-note-txt-' + id).value);
+}
+async function pfbLoadStats(){
+  const el = document.getElementById('pfb-stats'); if(!el) return;
+  if(!pfbIsManager()){ el.style.display = 'none'; return; }
+  const { data, error } = await sb.rpc('feedback_stats', { p_days: 30 });
+  const s = Array.isArray(data) ? data[0] : data;
+  if(error || !s){ el.style.display = 'none'; return; }
+  const cat = [['Crew',s.avg_crew],['Food',s.avg_food],['Comfort',s.avg_comfort],['Clean',s.avg_cleanliness],['Entertainment',s.avg_entertainment],['Ground',s.avg_ground]].filter(c => c[1]);
+  el.style.display = 'block';
+  el.innerHTML = `<div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--color-card)">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem"><span><b style="font-size:1rem">${s.avg_overall || '—'}</b>★ avg · last 30 days</span><span><b>${s.total}</b> total</span><span>😟 ${s.complaints}</span><span>😊 ${s.compliments}</span><span>💡 ${s.suggestions}</span>
+      ${s.urgent_open ? `<span style="color:var(--red);font-weight:800">⚠ ${s.urgent_open} urgent open</span>` : ''}${s.new_count ? `<span style="color:var(--sky);font-weight:700">🆕 ${s.new_count} new</span>` : ''}</div>
+    ${cat.length ? `<div class="pfb-cat-ratings" style="margin-top:6px">${cat.map(c => `<span class="pfb-cat-pill">${c[0]} <span>${c[1]}★</span></span>`).join('')}</div>` : ''}</div>`;
 }
 
 // ── QR code and link sharing ──────────────────────────────
 function copyFeedbackLink(){
-  const url = FEEDBACK_BASE_URL;
+  const url = pfbLink();
   if(navigator.clipboard){
     navigator.clipboard.writeText(url).then(()=>toast('📋 Link copied!')).catch(()=>fallbackCopy(url));
   } else { fallbackCopy(url); }
@@ -13870,17 +13916,34 @@ function fallbackCopy(text){
   toast('📋 Link copied!');
 }
 
-function generateQRCode(){
-  const url      = FEEDBACK_BASE_URL;
+let _qrLib = null;
+function pfbLoadQrLib(){
+  if(_qrLib) return Promise.resolve(_qrLib);
+  if(window.qrcode) return Promise.resolve(_qrLib = window.qrcode);
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    sc.onload = () => window.qrcode ? res(_qrLib = window.qrcode) : rej(new Error('qr'));
+    sc.onerror = () => rej(new Error('qr'));
+    document.head.appendChild(sc);
+  });
+}
+async function generateQRCode(){
+  const url      = pfbLink();
   const qrModal  = document.getElementById('qr-modal');
   const qrDisplay= document.getElementById('qr-display');
   const qrUrlTxt = document.getElementById('qr-url-text');
   if(!qrModal) return;
-  // qr-server.com is a reliable free QR API with no auth
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=0B1D3A&margin=10`;
-  qrDisplay.innerHTML = `<img src="${qrImgUrl}" width="200" height="200" alt="QR Code for ${escHtml(url)}"
-    style="border-radius:8px;display:block"
-    onerror="this.outerHTML='<div style=\\'padding:14px;font-size:.72rem;color:var(--muted);text-align:center\\'>Could not generate QR — check internet connection and try again.</div>'"/>`;
+  qrDisplay.innerHTML = '';
+  try{
+    // Drawn on the device, so it also works in flight once the library has been loaded once
+    const q = (await pfbLoadQrLib())(0, 'M'); q.addData(url); q.make();
+    qrDisplay.innerHTML = q.createSvgTag({ cellSize:4, margin:4, scalable:true }).replace('<svg', '<svg style="width:200px;height:200px;background:#fff;border-radius:8px"');
+  }catch{
+    const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=0B1D3A&margin=10`;
+    qrDisplay.innerHTML = `<img src="${qrImgUrl}" width="200" height="200" alt="QR code" style="border-radius:8px;display:block"
+      onerror="this.outerHTML='<div style=\\'padding:14px;font-size:.72rem;color:var(--muted);text-align:center\\'>Could not draw the QR code. Connect to the internet once and try again.</div>'"/>`;
+  }
   if(qrUrlTxt) qrUrlTxt.textContent = url;
   qrModal.style.display = 'flex';
 }
