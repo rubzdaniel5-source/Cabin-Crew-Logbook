@@ -2,7 +2,7 @@
 // Crew Logbook Service Worker
 // Version bump here when you want clients to pick up a new shell.
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE = 'crew-logbook-v80';
+const CACHE = 'crew-logbook-v81';
 
 // ── Critical shell: must all succeed for the app to work offline ──────────────
 // supabase-js is included here because auth is gated on it — the app cannot
@@ -20,6 +20,7 @@ const SHELL_ASSETS = [
 const OPTIONAL_CDN = [
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js',   // the PDF reader's worker — manuals need it offline
   'https://cdn.jsdelivr.net/npm/lucide@0.447.0/dist/umd/lucide.min.js',
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js',
 ];
@@ -85,7 +86,7 @@ self.addEventListener('fetch', e => {
             caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
           }
           return res;
-        });
+        }).catch(() => new Response('', { status: 504, statusText: 'CDN unreachable' }));
       })
     );
     return;

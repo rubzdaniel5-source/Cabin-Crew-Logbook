@@ -21,9 +21,10 @@
 <!-- Content Security Policy: restrict resource origins -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+  worker-src 'self' blob: https://cdn.jsdelivr.net;
   style-src 'self' 'unsafe-inline';
-  connect-src 'self' https://*.supabase.co https://api.anthropic.com https://cdn.jsdelivr.net;
+  connect-src 'self' blob: https://*.supabase.co https://api.anthropic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
   img-src 'self' data: blob: https://*.supabase.co;
   font-src 'self';
   object-src 'none';
@@ -8288,38 +8289,77 @@ async function openManual(id){
   const manual = _manualsCache.find(m => m.id === id);
   if(!manual) return;
 
-  const cachedBlob = await getManualFromIDB(id);
+  // 1. Offline copy (validated — a damaged copy is discarded instead of failing every time)
+  const bytes = await getManualBytes(id);
+  if(bytes){ openPDFInDeviceViewer(null, manual.title, false, bytes); return; }
 
-  if(cachedBlob){
-    const blobUrl = URL.createObjectURL(cachedBlob);
-    openPDFInDeviceViewer(blobUrl, manual.title, true);
-  } else if(isOnline){
-    openPDFInDeviceViewer(manual.file_url, manual.title, false);
-    cacheManualById(id, manual);
-  } else {
-    toast('📴 This manual isn\'t cached yet. Connect to the internet to read it.');
+  // 2. Download
+  if(!isOnline){ toast('📴 This manual isn\'t cached yet. Connect to the internet to read it.'); return; }
+  try{
+    toast('⬇ Loading “' + manual.title + '”…');
+    const fresh = await fetchManualBytes(manual.file_url);
+    storeManualBytes(id, fresh);                 // keep for offline, best-effort
+    openPDFInDeviceViewer(manual.file_url, manual.title, false, fresh);
+  }catch(e){
+    console.warn('[manuals] download failed', e);
+    toast('⚠ Could not download the manual: ' + (e.message || e) + ' — trying your browser instead.');
+    window.open(manual.file_url, '_blank', 'noopener');
   }
 }
 
-async function openPDFInDeviceViewer(url, title, isBlob){
+/** Download a PDF as bytes, checking the reply really is a PDF (a missing file or private bucket returns JSON/HTML). */
+async function fetchManualBytes(url){
+  if(!url) throw new Error('this manual has no file address');
+  const resp = await fetch(url);
+  if(!resp.ok) throw new Error('server replied ' + resp.status + (resp.status === 400 || resp.status === 404 ? ' (file missing or bucket not public)' : ''));
+  const buf = await resp.arrayBuffer();
+  if(!isPdfBytes(buf)) throw new Error('the file is not a readable PDF');
+  return buf;
+}
+function isPdfBytes(buf){
+  if(!buf || buf.byteLength < 8) return false;
+  const h = new Uint8Array(buf.slice(0, 1024));
+  for(let i = 0; i < h.length - 4; i++) if(h[i]===0x25 && h[i+1]===0x50 && h[i+2]===0x44 && h[i+3]===0x46) return true;   // %PDF
+  return false;
+}
+
+async function openPDFInDeviceViewer(url, title, isBlob, bytes){
   if(isIOSStandalone()){
     // iOS PWA: use PDF.js canvas viewer (iframe blocked by iOS)
-    await openIOSPDFViewer(url, title, isBlob);
+    await openIOSPDFViewer(url, title, isBlob, bytes);
   } else {
     // Desktop, Android, iOS browser — native viewer
+    let href = url, temp = false;
+    if(bytes){ href = URL.createObjectURL(new Blob([bytes], { type:'application/pdf' })); temp = true; }
     const a = document.createElement('a');
-    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.href = href; a.target = '_blank'; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast(`📖 Opening "${title}" — tap Done or Back to return`);
-    if(isBlob) setTimeout(()=> URL.revokeObjectURL(url), 60000);
+    if(temp || isBlob) setTimeout(()=> URL.revokeObjectURL(href), 60000);
   }
 }
 
-async function openIOSPDFViewer(url, title, isBlob){
-  if(window.pdfjsLib){
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+/** PDF.js document loader that survives a blocked/failed worker (loads the worker script into the page and retries). */
+async function pdfjsOpen(buffer){
+  if(!window.pdfjsLib) throw new Error('the PDF reader library did not load — check your connection and reopen the app');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  try{
+    return await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;
+  }catch(e){
+    if(!/worker|load failed|fetch|import|script/i.test(String(e && e.message))) throw e;   // a real PDF problem — don't mask it
+    if(!window.pdfjsWorker){
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = pdfjsLib.GlobalWorkerOptions.workerSrc; sc.onload = res;
+        sc.onerror = () => rej(new Error('the PDF reader could not start (worker script blocked or offline)'));
+        document.head.appendChild(sc);
+      });
+    }
+    return await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;   // main-thread worker via window.pdfjsWorker
   }
+}
+
+async function openIOSPDFViewer(url, title, isBlob, bytes){
 
   const overlay  = document.getElementById('ios-pdf-overlay');
   const loading  = document.getElementById('ios-pdf-loading');
@@ -8337,11 +8377,13 @@ async function openIOSPDFViewer(url, title, isBlob){
   if(_iosBlobUrl){ URL.revokeObjectURL(_iosBlobUrl); _iosBlobUrl = null; }
   if(isBlob) _iosBlobUrl = url;
 
+  let stage = 'download';
   try{
     loadText.textContent = 'Loading…';
-    const resp   = await fetch(url);
-    const buffer = await resp.arrayBuffer();
-    _iosPdfDoc   = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const buffer = bytes || await fetchManualBytes(url);
+    stage = 'open';
+    _iosPdfDoc   = await pdfjsOpen(buffer);
+    stage = 'render';
 
     const total = _iosPdfDoc.numPages;
     const dpr   = Math.min(window.devicePixelRatio || 1, 2);
@@ -8445,7 +8487,8 @@ async function openIOSPDFViewer(url, title, isBlob){
 
   }catch(e){
     loading.style.display = 'none';
-    toast('\u26a0 Could not render PDF: ' + e.message);
+    console.warn('[manuals] viewer failed at ' + stage, e);
+    toast('\u26a0 Could not render PDF (' + stage + '): ' + (e && e.message || e));
     closeIOSPDF();
   }
 }
@@ -8530,16 +8573,22 @@ async function openManualsIDB(){
   });
 }
 
+// Stored as raw bytes, not a Blob: iOS Safari can lose or fail to read Blobs kept in IndexedDB ("Load failed").
+async function storeManualBytes(id, buf){
+  try{
+    const db = await openManualsIDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(MANUALS_IDB,'readwrite');
+      tx.objectStore(MANUALS_IDB).put({ id, data: buf, size: buf.byteLength, cachedAt: Date.now() });
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+    });
+    return true;
+  }catch(e){ console.warn('Manual cache failed:', e); return false; }
+}
 async function cacheManualById(id, manual){
   if(!manual?.file_url) return;
-  try{
-    const resp = await fetch(manual.file_url);
-    if(!resp.ok) return;
-    const blob = await resp.blob();
-    const db   = await openManualsIDB();
-    const tx   = db.transaction(MANUALS_IDB,'readwrite');
-    tx.objectStore(MANUALS_IDB).put({ id, blob, cachedAt: Date.now() });
-  }catch(e){ console.warn('Manual cache failed:', e); }
+  try{ await storeManualBytes(id, await fetchManualBytes(manual.file_url)); }
+  catch(e){ console.warn('Manual cache failed:', e); }
 }
 
 async function cacheManual(id, btn){
@@ -8567,14 +8616,23 @@ async function cacheAllManualsInBackground(){
   if(countEl) countEl.textContent = `${cachedIds2.size} of ${_manualsCache.length} available offline`;
 }
 
-async function getManualFromIDB(id){
+/** Offline copy as bytes, or null. Damaged / unreadable / legacy-Blob copies are discarded so the next open re-downloads. */
+async function getManualBytes(id){
   try{
-    const db = await openManualsIDB();
-    return new Promise((res)=>{
+    const db  = await openManualsIDB();
+    const rec = await new Promise((res) => {
       const req = db.transaction(MANUALS_IDB,'readonly').objectStore(MANUALS_IDB).get(id);
-      req.onsuccess = ()=> res(req.result?.blob || null);
-      req.onerror   = ()=> res(null);
+      req.onsuccess = () => res(req.result || null); req.onerror = () => res(null);
     });
+    if(!rec) return null;
+    let buf = rec.data || null;
+    if(!buf && rec.blob){ try{ buf = await rec.blob.arrayBuffer(); }catch{ buf = null; } }   // old format
+    if(buf && isPdfBytes(buf)){
+      if(!rec.data) storeManualBytes(id, buf);   // upgrade old copies to the safe format
+      return buf;
+    }
+    await deleteManualFromIDB(id);
+    return null;
   }catch{ return null; }
 }
 
