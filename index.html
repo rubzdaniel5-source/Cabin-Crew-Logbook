@@ -5475,6 +5475,7 @@ function closeGuestoraOverlay(){
   _gs.activeMenu    = null; // reset so next open fetches fresh menu
   _gs.mealInventory = null; // reset so next session prompts fresh counts
   _gs.paxManifest   = null; // reset so next session fetches fresh manifest
+  _gs.seatOv = {}; _gs.placing = null; gsClosePicker();
 }
 
 // ── View navigation ───────────────────────────────────────────────────────────
@@ -5761,7 +5762,9 @@ async function gsSelectSector(flight){
     });
   }
   // Load pax manifest for this flight (best-effort, non-blocking)
+  _gs.seatOv = {}; _gs.placing = null;
   gsLoadPaxManifest(flightNum, date);
+  gsLoadSeatOverlay();
 
   gsShowView('cabin');
 }
@@ -5809,7 +5812,7 @@ async function gsSelectCabin(cabin, cfg){
   gsRenderInventoryStrip();
   gsShowView('seatmap');
   // Pick up a manifest that was uploaded after this session was opened
-  if(_gs.pkg?.flightNum && _gs.pkg?.date) gsLoadPaxManifest(_gs.pkg.flightNum, _gs.pkg.date);
+  if(_gs.pkg?.flightNum && _gs.pkg?.date){ gsLoadPaxManifest(_gs.pkg.flightNum, _gs.pkg.date); gsLoadSeatOverlay(); }
   // On first entry to seatmap for a session with no inventory set, prompt crew to enter counts.
   // We only do this once per session (mealInventory stays set even if all items are 0).
   if(_gs.mealInventory === null){
@@ -5823,10 +5826,210 @@ async function gsSelectCabin(cabin, cfg){
 }
 
 // ── Seat Map renderer ─────────────────────────────────────────────────────────
-/** The passenger holding a seat on the loaded manifest (012C on the manifest = 12C on the map). */
+// ── Manual seat assignment ────────────────────────────────────────────────────
+// Crew can seat passengers who have no seat on the manifest, move or swap passengers, unseat them and add
+// walk-up passengers. Changes are an overlay on the manifest (table guestora_seat_assignments, migration 35),
+// shared by everyone on the flight, applied instantly on this device and queued while offline.
+_gs.seatOv = {};      // pax_key → overlay row {pax_key, pax_name, cabin, kind, seat|null}
+_gs.placing = null;   // {key,name,cabin,kind,from,pendingSwap} while crew are choosing a seat
+_gs.pickTarget = null;// seat chosen first ("who sits here?")
+_gs.pickList = [];
+let _seatFlushing = false;
+
+function gsPaxKey(name){ return 'm:' + String(name||'').trim().replace(/\s+/g,' ').toUpperCase(); }
+function gsIsSeated(p){ return /^\d+[A-Z]$/.test(normSeat(p.seat)); }
+function gsShortName(n){ return (String(n||'').split('/')[0].trim() || 'Passenger'); }
+function gsCabinCode(cabin){
+  const t = ((cabin?.label||'') + ' ' + (cabin?.id||'')).toLowerCase();
+  return /business|jc/.test(t) ? 'JC' : /premium|pyc/.test(t) ? 'PYC' : 'Y';
+}
+/** Manifest passengers with crew's manual changes applied, plus walk-ups. */
+function gsEffectivePax(){
+  const ov = _gs.seatOv || {}, out = [];
+  (_gs.paxManifest || []).forEach(p => {
+    if(!String(p.name||'').trim()) return;
+    const key = gsPaxKey(p.name), o = ov[key];
+    out.push(Object.assign({}, p, { key, kind:'manifest', manual:!!o, origSeat:p.seat||'',
+      seat: o ? (o.seat||'') : (p.seat||''), cabin: (o && o.cabin) || p.cabin }));
+  });
+  Object.values(ov).filter(o => o.kind === 'walkup').forEach(o =>
+    out.push({ key:o.pax_key, name:o.pax_name, cabin:o.cabin, seat:o.seat||'', kind:'walkup', manual:true, status:'checked_in' }));
+  return out;
+}
+/** The passenger holding a seat (manifest 012C = map 12C), after manual changes. */
 function gsPaxForSeat(seatNum){
   const want = normSeat(seatNum);
-  return (_gs.paxManifest || []).find(p => p.seat && normSeat(p.seat) === want) || null;
+  return gsEffectivePax().find(p => gsIsSeated(p) && normSeat(p.seat) === want) || null;
+}
+
+function gsSeatMetaKey(){ return 'seatov:' + (_gs.pkg?.flightNum||'') + ':' + (_gs.pkg?.date||''); }
+async function gsSeatCacheSave(){ try{ await idbPut('meta', { key:gsSeatMetaKey(), value:_gs.seatOv }); }catch(e){} }
+async function gsSeatQueueGet(){ const r = await idbGet('meta','seatq').catch(()=>null); return (r && r.value) || []; }
+async function gsSeatQueuePut(q){ try{ await idbPut('meta', { key:'seatq', value:q }); }catch(e){} }
+
+function gsRefreshSeatUI(){
+  if(_gs.cabin && document.getElementById('gs-view-seatmap')?.classList.contains('active')) gsRenderSeatMap(_gs.cabin);
+  if(document.getElementById('gs-seat-picker')?.classList.contains('open')) gsRenderSeatPicker();
+}
+
+function gsSeatLocalSet(key, name, cabin, kind, seat, swap){
+  const ov = _gs.seatOv, eff = gsEffectivePax();
+  const me = eff.find(p => p.key === key), old = me ? normSeat(me.seat) : '';
+  if(seat){
+    const occ = eff.find(p => p.key !== key && gsIsSeated(p) && normSeat(p.seat) === seat);
+    if(occ && swap) ov[occ.key] = Object.assign({ pax_key:occ.key, pax_name:occ.name, cabin:occ.cabin, kind:occ.kind }, ov[occ.key]||{}, { seat: old || null });
+  }
+  ov[key] = Object.assign({ pax_key:key, pax_name:name, cabin, kind }, ov[key]||{}, { seat: seat || null });
+}
+
+/** Apply a change here at once, then send it (or queue it while offline). */
+async function gsSeatDo(op){
+  op.flight = _gs.pkg.flightNum; op.date = _gs.pkg.date;
+  if(op.t === 'set') gsSeatLocalSet(op.key, op.name, op.cabin, op.kind, op.seat ? normSeat(op.seat) : null, op.swap);
+  else delete _gs.seatOv[op.key];
+  await gsSeatCacheSave();
+  const q = await gsSeatQueueGet(); q.push(op); await gsSeatQueuePut(q);
+  gsRefreshSeatUI();
+  gsSeatFlush();
+}
+
+async function gsSeatFlush(){
+  if(_seatFlushing || !isOnline) return;
+  _seatFlushing = true;
+  try{
+    const q = await gsSeatQueueGet(); let msg = null, touched = false;
+    while(q.length){
+      const op = q[0];
+      const { error } = op.t === 'set'
+        ? await sb.rpc('gs_seat_set', { p_flight:op.flight, p_date:op.date, p_key:op.key, p_name:op.name, p_cabin:op.cabin||'', p_kind:op.kind, p_seat:op.seat||null, p_swap:!!op.swap })
+        : await sb.rpc('gs_seat_revert', { p_flight:op.flight, p_date:op.date, p_key:op.key });
+      if(error && !error.code && /fetch|network|load failed/i.test(error.message||'')) break;   // offline: keep it queued
+      q.shift(); await gsSeatQueuePut(q); touched = true;
+      if(error) msg = /SEAT_TAKEN/.test(error.message) ? '⚠ ' + error.message.replace(/^.*SEAT_TAKEN:\s*/,'')
+                    : error.code === 'PGRST202' ? '⚠ Seat assignment needs the database update (migration 35).' : '⚠ ' + error.message;
+    }
+    if(msg) toast(msg);
+    if(touched && _gs.pkg) await gsLoadSeatOverlay(true);
+  } finally { _seatFlushing = false; }
+}
+
+async function gsLoadSeatOverlay(skipFlush){
+  if(!_gs.pkg?.flightNum) return;
+  const mk = gsSeatMetaKey();
+  if(!skipFlush && isOnline && (await gsSeatQueueGet()).length){ await gsSeatFlush(); return; }
+  const fromCache = async () => { const c = await idbGet('meta', mk).catch(()=>null); if(c && c.value){ _gs.seatOv = c.value; gsRefreshSeatUI(); } };
+  if(!isOnline){ await fromCache(); return; }
+  const { data, error } = await sb.rpc('gs_seat_list', { p_flight:_gs.pkg.flightNum, p_date:_gs.pkg.date });
+  if(error){ await fromCache(); return; }
+  if((await gsSeatQueueGet()).length) return;          // local changes still waiting — don't overwrite them
+  _gs.seatOv = {}; (data||[]).forEach(r => { _gs.seatOv[r.pax_key] = r; });
+  await gsSeatCacheSave(); gsRefreshSeatUI();
+}
+
+// ── choosing a seat ──
+function gsStartPlacing(p, fromSeat){
+  _gs.placing = { key:p.key, name:p.name, cabin:p.cabin, kind:p.kind, from:fromSeat||null, pendingSwap:null };
+  gsClosePicker(); gsCloseOrderSheet(); gsRenderSeatMap(_gs.cabin);
+}
+function gsCancelPlacing(){ _gs.placing = null; gsRenderSeatMap(_gs.cabin); }
+async function gsPlaceAt(seatNum){
+  const pl = _gs.placing; if(!pl) return;
+  const want = normSeat(seatNum);
+  if(pl.from && normSeat(pl.from) === want){ gsCancelPlacing(); return; }
+  const occ = gsPaxForSeat(want);
+  const hasOrder = _gs.orders.some(o => o.cabin === _gs.cabin.id && o.seatNum === seatNum);
+  if(occ && occ.key !== pl.key){
+    if(pl.pendingSwap !== want){ pl.pendingSwap = want; gsRenderSeatMap(_gs.cabin); return; }   // second tap confirms the swap
+    await gsSeatDo({ t:'set', key:pl.key, name:pl.name, cabin:pl.cabin, kind:pl.kind, seat:want, swap:true });
+    toast('🔁 ' + gsShortName(pl.name) + ' ⇄ ' + gsShortName(occ.name));
+  } else {
+    await gsSeatDo({ t:'set', key:pl.key, name:pl.name, cabin:pl.cabin, kind:pl.kind, seat:want, swap:false });
+    const code = gsCabinCode(_gs.cabin);
+    toast('🪑 ' + gsShortName(pl.name) + ' → ' + want + (pl.cabin && pl.cabin !== code ? ' (ticketed ' + pl.cabin + ')' : '') + (hasOrder ? ' · seat has an order' : ''));
+  }
+  _gs.placing = null; gsRenderSeatMap(_gs.cabin);
+}
+
+// ── picker sheet ──
+function gsOpenSeatPicker(targetSeat){
+  _gs.pickTarget = targetSeat || null;
+  let sheet = document.getElementById('gs-seat-picker');
+  if(!sheet){
+    const bd = document.createElement('div'); bd.className = 'gs-sheet-backdrop'; bd.id = 'gs-seat-picker-bd'; bd.onclick = gsClosePicker;
+    sheet = document.createElement('div'); sheet.className = 'gs-order-sheet'; sheet.id = 'gs-seat-picker';
+    const root = document.getElementById('gs-view-seatmap').parentNode; root.appendChild(bd); root.appendChild(sheet);
+  }
+  gsRenderSeatPicker();
+  document.getElementById('gs-seat-picker-bd').classList.add('open'); sheet.classList.add('open');
+}
+function gsClosePicker(){
+  document.getElementById('gs-seat-picker')?.classList.remove('open');
+  document.getElementById('gs-seat-picker-bd')?.classList.remove('open');
+}
+function gsRenderSeatPicker(){
+  const el = document.getElementById('gs-seat-picker'); if(!el) return;
+  const eff = gsEffectivePax(), tgt = _gs.pickTarget;
+  const unseated = eff.filter(p => !gsIsSeated(p));
+  const manual = eff.filter(p => p.manual);
+  _gs.pickList = tgt ? unseated : unseated.concat(manual.filter(p => gsIsSeated(p)));
+  const row = (p, i, label, extra) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--color-border)">
+      <div style="flex:1;min-width:0"><div style="font-size:.84rem;font-weight:700;color:var(--color-text-primary);overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div>
+      <div style="font-size:.66rem;color:var(--muted)">${escHtml(p.cabin||'')}${p.kind==='walkup'?' · walk-up':''}${gsIsSeated(p)?' · seat '+escHtml(normSeat(p.seat)):''}${p.manual&&p.origSeat?' · was '+escHtml(normSeat(p.origSeat)):''}</div></div>
+      ${extra||''}<button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="gsPickPax(${i})">${label}</button></div>`;
+  const head = tgt ? `Who sits in ${escHtml(tgt)}?` : 'Assign seats';
+  let h = `<div class="gs-sheet-drag"></div><div class="gs-sheet-hdr"><div class="gs-sheet-seat">${head}</div><button class="fs-close" onclick="gsClosePicker()">✕</button></div>`;
+  if(!(_gs.paxManifest||[]).length && !manual.length) h += `<div style="padding:10px 16px;font-size:.74rem;color:var(--muted)">No manifest is loaded for this flight — you can still add passengers below.</div>`;
+  h += `<div style="padding:8px 16px 4px;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Without a seat · ${unseated.length}</div>`;
+  h += unseated.length ? unseated.map(p => row(p, _gs.pickList.indexOf(p), tgt ? 'Seat here' : 'Choose seat')).join('')
+                       : `<div style="padding:6px 16px 10px;font-size:.78rem;color:var(--muted)">Everyone on the manifest has a seat.</div>`;
+  if(!tgt){
+    const moved = manual.filter(p => gsIsSeated(p));
+    if(moved.length){
+      h += `<div style="padding:12px 16px 4px;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Changed by crew · ${moved.length}</div>`;
+      h += moved.map(p => row(p, _gs.pickList.indexOf(p), 'Move',
+        `<button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="gsSeatUndo('${escHtml(p.key).replace(/'/g,"\\'")}')">${p.kind==='walkup'?'Remove':'Undo'}</button>`)).join('');
+    }
+  }
+  h += `<div style="padding:14px 16px 4px;font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Add a passenger (walk-up / standby)</div>
+    <div style="display:flex;gap:8px;padding:6px 16px 16px;flex-wrap:wrap">
+      <input id="gs-add-name" class="rch-input" maxlength="80" placeholder="SURNAME/FIRST" autocapitalize="characters" style="flex:1 1 150px;text-transform:uppercase"/>
+      <select id="gs-add-cabin" class="rch-input" style="flex:0 0 auto;width:auto"><option value="JC">Business</option><option value="PYC">Premium Econ</option><option value="Y">Economy</option></select>
+      <button class="btn btn-primary btn-sm" style="width:auto;flex:0 0 auto" onclick="gsAddWalkup()">${tgt?'Add &amp; seat':'Add &amp; choose seat'}</button></div>`;
+  el.innerHTML = h;
+  const sel = document.getElementById('gs-add-cabin'); if(sel && _gs.cabin) sel.value = gsCabinCode(_gs.cabin);
+}
+function gsPickPax(i){
+  const p = _gs.pickList[i]; if(!p) return;
+  if(_gs.pickTarget){ const seat = normSeat(_gs.pickTarget); gsClosePicker(); _gs.placing = { key:p.key, name:p.name, cabin:p.cabin, kind:p.kind, from:null, pendingSwap:null }; gsPlaceAt(seat); }
+  else gsStartPlacing(p, gsIsSeated(p) ? p.seat : null);
+}
+function gsAddWalkup(){
+  const name = (document.getElementById('gs-add-name').value || '').trim().replace(/\s+/g,' ').toUpperCase().slice(0,80);
+  if(!name){ toast('⚠ Enter the passenger’s name.'); return; }
+  if(gsEffectivePax().some(p => p.name.toUpperCase() === name)){ toast('⚠ ' + name + ' is already on this flight.'); return; }
+  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().slice(0,8) : Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const p = { key:'x:' + id, name, cabin:document.getElementById('gs-add-cabin').value, kind:'walkup', seat:'' };
+  if(_gs.pickTarget){ const seat = normSeat(_gs.pickTarget); gsClosePicker(); _gs.placing = { key:p.key, name:p.name, cabin:p.cabin, kind:'walkup', from:null, pendingSwap:null }; gsPlaceAt(seat); }
+  else gsStartPlacing(p, null);
+}
+async function gsSeatUndo(key){
+  const p = gsEffectivePax().find(x => x.key === key); if(!p) return;
+  if(p.kind === 'manifest' && p.origSeat){
+    const occ = gsEffectivePax().find(x => x.key !== key && gsIsSeated(x) && normSeat(x.seat) === normSeat(p.origSeat));
+    if(occ){ toast('⚠ ' + normSeat(p.origSeat) + ' is now taken by ' + gsShortName(occ.name) + ' — move them first.'); return; }
+  }
+  await gsSeatDo({ t:'revert', key });
+  toast(p.kind === 'walkup' ? 'Passenger removed' : '↩ ' + gsShortName(p.name) + ' back to the manifest seat');
+}
+/** Buttons in the order sheet for the passenger in (or missing from) the open seat. */
+async function gsSheetPaxAction(act){
+  const seat = _gs.selectedSeat; if(!seat) return;
+  const p = gsPaxForSeat(seat);
+  if(act === 'assign'){ gsCloseOrderSheet(); gsOpenSeatPicker(seat); return; }
+  if(!p) return;
+  if(act === 'move'){ gsStartPlacing(p, p.seat); return; }
+  if(act === 'unseat'){ gsCloseOrderSheet(); await gsSeatDo({ t:'set', key:p.key, name:p.name, cabin:p.cabin, kind:p.kind, seat:null }); toast(gsShortName(p.name) + ' unseated'); return; }
+  if(act === 'undo'){ gsCloseOrderSheet(); await gsSeatUndo(p.key); }
 }
 
 function gsRenderSeatMap(cabin){
@@ -5835,16 +6038,22 @@ function gsRenderSeatMap(cabin){
 
   // Manifest status strip: tells crew whether names are loaded, and who has no seat yet
   const strip = document.createElement('div');
-  strip.style.cssText = 'font-size:.7rem;color:var(--muted);text-align:center;margin:4px 8px 10px;line-height:1.5';
-  const mf = _gs.paxManifest;
-  if(!mf){
-    strip.textContent = 'No passenger manifest loaded for this flight — names appear once ops uploads it.';
-  } else {
-    const unseated = mf.filter(p => !/^\d+[A-Z]$/.test(normSeat(p.seat)));
-    strip.innerHTML = `Manifest: <b>${mf.length}</b> pax · <b>${mf.length - unseated.length}</b> seated` +
-      (unseated.length ? ` · <details style="display:inline"><summary style="display:inline;cursor:pointer;color:#fbbf24">${unseated.length} without a seat</summary><div style="margin-top:4px">${unseated.map(p => escHtml((p.name||'').split('/')[0] || '?')).join(', ')}</div></details>` : '');
-  }
+  strip.style.cssText = 'font-size:.7rem;color:var(--muted);text-align:center;margin:4px 8px 10px;line-height:1.7';
+  const mf = _gs.paxManifest, eff = gsEffectivePax();
+  const unseated = eff.filter(p => !gsIsSeated(p));
+  const changed = eff.filter(p => p.manual).length;
+  strip.innerHTML = (mf
+      ? `Manifest: <b>${eff.length}</b> pax · <b>${eff.length - unseated.length}</b> seated` + (unseated.length ? ` · <span style="color:#fbbf24">${unseated.length} without a seat</span>` : '') + (changed ? ` · ${changed} changed by crew` : '')
+      : 'No passenger manifest loaded for this flight — names appear once ops uploads it.')
+    + `<br><button class="desk-chip" onclick="gsOpenSeatPicker()">🪑 Assign seats${unseated.length ? ' · ' + unseated.length : ''}</button>`;
   body.appendChild(strip);
+  if(_gs.placing){
+    const pl = _gs.placing, occ = pl.pendingSwap ? gsPaxForSeat(pl.pendingSwap) : null;
+    const ban = document.createElement('div');
+    ban.style.cssText = 'position:sticky;top:0;z-index:5;margin:0 8px 10px;padding:9px 12px;border-radius:10px;background:rgba(79,142,247,.22);border:1px solid var(--color-accent,#4f8ef7);font-size:.78rem;display:flex;gap:10px;align-items:center;justify-content:space-between';
+    ban.innerHTML = `<span>${occ ? `<b>${escHtml(gsShortName(occ.name))}</b> is in ${escHtml(pl.pendingSwap)} — tap it again to swap, or pick another seat.` : `Seating <b>${escHtml(gsShortName(pl.name))}</b> — tap a seat.`}</span><button class="roster-change-btn" style="flex:none;padding:5px 10px" onclick="gsCancelPlacing()">Cancel</button>`;
+    body.appendChild(ban);
+  }
 
   // Order lookup: seatNum → order
   const seatOrderMap = {};
@@ -5949,7 +6158,9 @@ function gsRenderSeatMap(cabin){
           seatEl.appendChild(nameEl);
         }
 
-        seatEl.onclick = ()=>gsOpenOrderSheet(seatNum, order||null);
+        if(pax && pax.manual){ const mk = document.createElement('div'); mk.style.cssText = 'position:absolute;top:2px;left:4px;font-size:.5rem;color:#93c5fd;line-height:1;z-index:2'; mk.textContent = '✎'; mk.title = 'Seated by crew'; seatEl.appendChild(mk); }
+        if(_gs.placing && _gs.placing.pendingSwap === normSeat(seatNum)) seatEl.style.outline = '2px solid var(--color-accent,#4f8ef7)';
+        seatEl.onclick = _gs.placing ? ()=>gsPlaceAt(seatNum) : ()=>gsOpenOrderSheet(seatNum, order||null);
         groupEl.appendChild(seatEl);
       });
       rowEl.appendChild(groupEl);
@@ -5999,13 +6210,15 @@ async function gsOpenOrderSheet(seatNum, existingOrder){
         ? '<span style="font-size:.6rem;background:rgba(26,122,69,.35);color:#2ecc71;border:1px solid #1a7a45;border-radius:4px;padding:1px 5px;margin-left:4px">✓ Checked In</span>'
         : '<span style="font-size:.6rem;background:rgba(255,255,255,.08);color:var(--muted);border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:1px 5px;margin-left:4px">Pending</span>';
       const cabinLabel = pax.cabin === 'JC' ? 'Business' : pax.cabin === 'PYC' ? 'Premium Econ' : 'Economy';
+      const bt = 'class="roster-change-btn" style="flex:none;padding:5px 10px"';
       paxInfoEl.innerHTML = `
-        <div style="font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${escHtml(pax.name||'Unknown')}${statusBadge}</div>
-        <div style="font-size:.68rem;color:var(--muted);margin-top:1px">${cabinLabel}${pax.arr?' · → '+escHtml(pax.arr):''}${pax.gender?' · '+escHtml(pax.gender):''}</div>`;
+        <div style="font-size:.78rem;font-weight:700;color:var(--color-text-primary)">${escHtml(pax.name||'Unknown')}${statusBadge}${pax.manual?' <span style="font-size:.6rem;color:#93c5fd">✎ seated by crew</span>':''}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:1px">${cabinLabel}${pax.arr?' · → '+escHtml(pax.arr):''}${pax.gender?' · '+escHtml(pax.gender):''}${pax.manual&&pax.origSeat?' · manifest seat '+escHtml(normSeat(pax.origSeat)):''}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button ${bt} onclick="gsSheetPaxAction('move')">↔ Move</button><button ${bt} onclick="gsSheetPaxAction('unseat')">Unseat</button>${pax.manual?`<button ${bt} onclick="gsSheetPaxAction('undo')">${pax.kind==='walkup'?'Remove':'↩ Undo'}</button>`:''}</div>`;
       paxInfoEl.style.display = 'block';
     } else {
-      paxInfoEl.innerHTML = '';
-      paxInfoEl.style.display = 'none';
+      paxInfoEl.innerHTML = `<button class="roster-change-btn" style="flex:none;padding:5px 10px" onclick="gsSheetPaxAction('assign')">＋ Assign a passenger to this seat</button>`;
+      paxInfoEl.style.display = 'block';
     }
   }
 
@@ -9538,6 +9751,7 @@ async function deleteNote(){
 
 // Also sync notes when coming back online
 window.addEventListener('online', ()=>{
+  try{ gsSeatFlush(); }catch(e){}
   isOnline = true; setOnlineBadge(); syncToCloud(); syncNotes();
 });
 
