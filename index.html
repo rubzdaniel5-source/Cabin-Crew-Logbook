@@ -2001,6 +2001,7 @@ body.role-locked #fab, body.role-locked .fab{display:none!important}
         <button class="btn btn-primary btn-sm" onclick="openRosterBulk()" style="width:auto;flex:0 0 auto;white-space:nowrap">📚 Bulk upload PDFs</button>
       </div>
       <div id="desk-unassigned" class="desk-pending"></div>
+      <div id="desk-scope"></div>
       <div id="desk-chips" style="display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap"></div>
       <div id="desk-crew-list"></div>
       </div>
@@ -10182,6 +10183,24 @@ async function staffSetBase(userId, raw){
   toast(base ? '📍 Base set to ' + base : 'Base cleared'); loadStaffList();
 }
 function staffSetBaseFilter(b){ _staffBase = b; renderStaffAdmin(); }
+let _staffScopes = {};
+async function staffSetScope(userId, raw){
+  const list = String(raw||'').split(/[\s,;]+/).map(normBase).filter(Boolean);
+  if(list.some(b => !validBase(b))){ toast('⚠ Bases are 3-letter codes, e.g. EBB, JUB.'); renderStaffAdmin(); return; }
+  const { error } = await sb.rpc('admin_set_base_scope', { p_user_id: userId, p_bases: list });
+  if(error){ toast('⚠ ' + (error.code === 'PGRST202' ? 'Needs migration 34.' : error.message)); return; }
+  _staffScopes[userId] = list; toast(list.length ? '📍 Also covers ' + list.join(', ') : 'Extra bases cleared'); renderStaffAdmin();
+}
+// The signed-in officer's own base scope (null = all bases). Shown as a badge; the database enforces it.
+let _myScope = null;
+async function loadMyScope(){
+  const { data, error } = await sb.rpc('my_officer_scope');
+  _myScope = (!error && Array.isArray(data) && data.length) ? data : null;
+  return _myScope;
+}
+function scopeBadgeHTML(){
+  return _myScope ? `<div style="font-size:.72rem;color:var(--color-text-muted);margin:6px 0">📍 Showing crew of ${_myScope.map(escHtml).join(', ')} only · crew with no base are shown to everyone</div>` : '';
+}
 
 // ═══════════════════════════════════════════════
 // CREW DIRECTORY — crew exist as records before they have an account or a roster.
@@ -10218,6 +10237,7 @@ function closeCrewDirectory(){ document.getElementById('crewdir-overlay').classL
 
 async function cdLoad(){
   _cd.loading = true; if(_cd.view === 'list') renderCrewDir();
+  await loadMyScope();
   const { data, error } = await sb.rpc('crew_dir_list', { p_include_archived: true });
   _cd.loading = false;
   cdRefreshFlags();
@@ -10267,7 +10287,7 @@ function renderCrewDir(){
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdOpenExpiry()">⏰ Expiries</button>
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="cdOpenLeaveView()">🏖 Leave${_cd.pending ? ` <span class="tab-badge" style="margin-left:3px">${_cd.pending}</span>` : ''}</button>
       <button class="roster-change-btn" style="flex:none;padding:6px 12px" onclick="mgOpen()">✉ Messages</button>
-    </div>
+    </div>${scopeBadgeHTML()}
     <div class="search-wrap"><span class="search-ico">🔍</span>
       <input class="rch-input" id="cd-search" type="text" placeholder="Search name, code, email, staff no…" value="${escHtml(_cd.q)}" oninput="cdSearch(this.value)" autocomplete="off" style="padding-left:38px"/></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 ${baseChips?'6':'10'}px">${chip('all','All')}${chip('noacct','No account')}${chip('nocode','No code')}${chip('inactive','Not active')}${chip('attn','Needs attention')}${chip('archived','Archived')}</div>
@@ -11361,6 +11381,7 @@ async function loadStaffList(){
     const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
     _staffList = []; _staffLoadErr = missing ? 'Staff accounts need the database update (migration 24).' : error.message;
   } else { _staffList = data || []; _staffLoadErr = null; }
+  try { const r = await sb.rpc('admin_base_scopes'); _staffScopes = {}; (r.data||[]).forEach(x => _staffScopes[x.user_id] = x.base_scope || []); } catch(e){ _staffScopes = {}; }
   renderStaffAdmin();
 }
 let _staffLoadErr = null;
@@ -11677,12 +11698,13 @@ function renderStaffAdmin(){
         </div>` : '';
       return `<div class="staff-card">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:.86rem">${escHtml(u.full_name||'—')}</b>
-          <span class="role-pill ${u.role==='roster_officer'?'officer':u.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[u.role]||u.role)}</span>${u.base?`<span class="role-pill" style="background:rgba(148,163,184,.2);color:#cbd5e1">📍 ${escHtml(u.base)}</span>`:''}${status}</div>
+          <span class="role-pill ${u.role==='roster_officer'?'officer':u.role==='check_in_agent'?'agent':''}">${escHtml(ROLE_LABELS[u.role]||u.role)}</span>${u.base?`<span class="role-pill" style="background:rgba(148,163,184,.2);color:#cbd5e1">📍 ${escHtml([u.base, ...(_staffScopes[u.user_id]||[])].join(' + '))}</span>`:''}${status}</div>
         <div style="font-size:.74rem;color:var(--color-text-muted);margin-top:4px">${escHtml(u.email||'')}${u.phone?' · '+escHtml(u.phone):''}${u.created_by_name?' · created by '+escHtml(u.created_by_name):''}</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           <select class="rch-input" style="width:auto;flex:0 0 auto;font-size:.74rem;padding:6px 8px" onchange="staffSetRole('${u.user_id}', this.value)">
             ${STAFF_ROLE_OPTIONS.map(([v,l]) => `<option value="${v}" ${u.role===v?'selected':''}>${l}</option>`).join('')}</select>
           <input class="rch-input" value="${escHtml(u.base||'')}" placeholder="Base" maxlength="3" autocapitalize="characters" title="Base (3-letter code)" style="width:64px;flex:0 0 auto;font-size:.74rem;padding:6px 8px;text-transform:uppercase;text-align:center" onchange="staffSetBase('${u.user_id}', this.value)"/>
+          ${u.role==='roster_officer'?`<input class="rch-input" value="${escHtml((_staffScopes[u.user_id]||[]).join(', '))}" placeholder="Extra bases" title="Extra bases this officer also covers, e.g. JUB, ENT. Leave the base empty for all bases." style="width:110px;flex:0 0 auto;font-size:.74rem;padding:6px 8px;text-transform:uppercase" onchange="staffSetScope('${u.user_id}', this.value)"/>`:''}
           <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="staffStartReset('${u.user_id}')">🔑 Reset password</button>
           <button class="roster-change-btn" style="flex:none;padding:6px 10px" onclick="staffToggleBlock('${u.user_id}', ${!u.blocked})">${u.blocked?'Unblock':'Block'}</button>
         </div>${reset}</div>`;
@@ -16507,6 +16529,7 @@ async function loadDeskCrewList(){
   const el = document.getElementById('desk-crew-list');
   if(!_rosterState.deskCrewList.length)
     el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:.82rem">Loading crew…</div>`;
+  await loadMyScope();
   const { data, error } = await sb.rpc('roster_desk_crew');
   if(error){
     const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message||'');
@@ -16516,6 +16539,7 @@ async function loadDeskCrewList(){
     return;
   }
   _rosterState.deskCrewList = data || [];
+  { const sc = document.getElementById('desk-scope'); if(sc) sc.innerHTML = scopeBadgeHTML(); }
   renderDeskChips();
   renderDeskCrewList();
   loadDeskUnassigned();
